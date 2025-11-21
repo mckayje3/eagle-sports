@@ -4,5 +4,9 @@ pandas>=2.0.0
 plotly>=5.14.0
 requests>=2.31.0
 
+# News aggregator
+feedparser>=6.0.0
+beautifulsoup4>=4.12.0
+
 # Optional: Deep learning module (app falls back to statistical predictions if unavailable)
 git+https://github.com/mckayje3/deep-eagle.git

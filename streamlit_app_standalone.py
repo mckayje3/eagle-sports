@@ -210,21 +210,47 @@ def load_database_stats():
     return stats
 
 @st.cache_data(ttl=60)
-def get_predictions_from_db(week: int):
+def get_predictions_from_db(week: int, sport: str = 'CFB', season: int = 2025):
     """Get predictions from users.db"""
     try:
         conn = sqlite3.connect('users.db')
         query = """
             SELECT * FROM prediction_cache
-            WHERE week = ? AND season = 2024
+            WHERE week = ? AND sport = ? AND season = ?
             ORDER BY game_date
         """
-        df = pd.read_sql_query(query, conn, params=(week,))
+        df = pd.read_sql_query(query, conn, params=(week, sport.upper(), season))
         conn.close()
         return df
     except Exception as e:
         st.error(f"Error loading predictions: {e}")
         return pd.DataFrame()
+
+@st.cache_data(ttl=300)
+def load_nfl_stats():
+    """Load NFL database statistics"""
+    try:
+        conn = sqlite3.connect('nfl_games.db', check_same_thread=False)
+        stats = {}
+        stats['total_games'] = pd.read_sql_query(
+            "SELECT COUNT(*) as count FROM games WHERE season = 2025", conn
+        ).iloc[0]['count']
+        stats['completed_games'] = pd.read_sql_query(
+            "SELECT COUNT(*) as count FROM games WHERE completed = 1 AND season = 2025", conn
+        ).iloc[0]['count']
+        stats['total_teams'] = pd.read_sql_query(
+            "SELECT COUNT(*) as count FROM teams", conn
+        ).iloc[0]['count']
+        try:
+            stats['games_with_odds'] = pd.read_sql_query(
+                "SELECT COUNT(DISTINCT game_id) as count FROM game_odds", conn
+            ).iloc[0]['count']
+        except:
+            stats['games_with_odds'] = 0
+        conn.close()
+        return stats
+    except:
+        return {'total_games': 0, 'completed_games': 0, 'total_teams': 32, 'games_with_odds': 0}
 
 # ============================================================================
 # Login Page
@@ -271,27 +297,49 @@ def login_page():
 
 def show_overview(user, db_stats):
     """Show overview/home page"""
-    st.markdown('<p class="main-header">College Football Predictions</p>', unsafe_allow_html=True)
+    st.markdown('<p class="main-header">Sports Predictions Dashboard</p>', unsafe_allow_html=True)
     st.markdown(f"### Welcome back, {user['full_name']}!")
 
-    # Key metrics
+    # CFB Stats
+    st.markdown("### College Football (2025)")
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        st.metric("Total Games", f"{db_stats['total_games']:,}", delta="2024 Season")
+        st.metric("CFB Games", f"{db_stats['total_games']:,}", delta="2025 Season")
 
     with col2:
         completion_pct = db_stats['completed_games']/max(db_stats['total_games'],1)*100
-        st.metric("Completed Games", f"{db_stats['completed_games']:,}",
+        st.metric("Completed", f"{db_stats['completed_games']:,}",
                  delta=f"{completion_pct:.0f}% complete")
 
     with col3:
-        st.metric("Teams Tracked", f"{db_stats['total_teams']}", delta="FBS Teams")
+        st.metric("Teams", f"{db_stats['total_teams']}", delta="FBS Teams")
 
     with col4:
         odds_pct = db_stats['games_with_odds']/max(db_stats['total_games'],1)*100
         st.metric("Games w/ Odds", f"{db_stats['games_with_odds']:,}",
                  delta=f"{odds_pct:.0f}% coverage")
+
+    # NFL Stats
+    nfl_stats = load_nfl_stats()
+    st.markdown("### NFL (2025)")
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        st.metric("NFL Games", f"{nfl_stats['total_games']:,}", delta="2025 Season")
+
+    with col2:
+        nfl_completion_pct = nfl_stats['completed_games']/max(nfl_stats['total_games'],1)*100
+        st.metric("Completed", f"{nfl_stats['completed_games']:,}",
+                 delta=f"{nfl_completion_pct:.0f}% complete")
+
+    with col3:
+        st.metric("Teams", f"{nfl_stats['total_teams']}", delta="NFL Teams")
+
+    with col4:
+        nfl_odds_pct = nfl_stats['games_with_odds']/max(nfl_stats['total_games'],1)*100
+        st.metric("Games w/ Odds", f"{nfl_stats['games_with_odds']:,}",
+                 delta=f"{nfl_odds_pct:.0f}% coverage")
 
     st.markdown("---")
 
@@ -329,22 +377,37 @@ def show_overview(user, db_stats):
     st.dataframe(display_df, use_container_width=True, hide_index=True)
 
 def show_predictions():
-    """Show predictions page"""
+    """Show predictions page with CFB and NFL tabs"""
     st.markdown('<p class="main-header">View Predictions</p>', unsafe_allow_html=True)
+
+    # Sport tabs
+    sport_tab = st.tabs(["College Football", "NFL"])
+
+    with sport_tab[0]:
+        show_sport_predictions('CFB', max_week=15, default_week=13)
+
+    with sport_tab[1]:
+        show_sport_predictions('NFL', max_week=18, default_week=12)
+
+
+def show_sport_predictions(sport: str, max_week: int, default_week: int):
+    """Show predictions for a specific sport"""
+    sport_emoji = "🏈" if sport == "CFB" else "🏟️"
+    st.markdown(f"### {sport_emoji} {sport} Week {default_week} Predictions")
 
     # Week selector
     col1, col2 = st.columns([3, 1])
 
     with col1:
-        week = st.number_input("Select Week", min_value=1, max_value=15, value=14)
+        week = st.number_input(f"Select {sport} Week", min_value=1, max_value=max_week, value=default_week, key=f"{sport}_week")
 
     with col2:
-        if st.button("🔄 Refresh", use_container_width=True):
+        if st.button("🔄 Refresh", use_container_width=True, key=f"{sport}_refresh"):
             st.cache_data.clear()
             st.rerun()
 
     # Fetch predictions
-    predictions_df = get_predictions_from_db(week)
+    predictions_df = get_predictions_from_db(week, sport=sport, season=2025)
 
     if predictions_df.empty:
         st.warning(f"No predictions available for Week {week}")
@@ -516,7 +579,7 @@ def main_page():
             st.rerun()
 
         st.markdown("---")
-        st.markdown("# 🏈 CFB Predictions")
+        st.markdown("# 🦅 Sports Predictions")
         st.markdown("---")
 
         if 'current_page' not in st.session_state:
@@ -527,17 +590,16 @@ def main_page():
 
         st.markdown("---")
         # Prediction engine status
-        if DEEP_EAGLE_AVAILABLE:
-            st.success("🚀 Deep Eagle Active")
-        else:
-            st.info("📊 Statistical Mode")
+        st.success("🚀 Deep Eagle v2.0")
+        st.caption("LSTM Models Active")
 
     # Load database stats
     db_stats = load_database_stats()
+    nfl_stats = load_nfl_stats()
 
     # App Header
     st.markdown('<h1 class="app-header">🦅 Eagle Eye Sports Tracker</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="app-subtitle">AI-Powered College Football Predictions</p>', unsafe_allow_html=True)
+    st.markdown('<p class="app-subtitle">AI-Powered CFB & NFL Predictions</p>', unsafe_allow_html=True)
     st.markdown("---")
 
     # Main content
