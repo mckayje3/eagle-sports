@@ -358,7 +358,7 @@ class DeepEaglePredictor:
 
     def predict_game(self, home_team_id, away_team_id, season, week, neutral_site=0):
         """
-        Generate prediction for a single game
+        Generate prediction for a single game using stats-based approach
 
         Args:
             home_team_id: Home team ID
@@ -370,49 +370,57 @@ class DeepEaglePredictor:
         Returns:
             Dictionary with predictions
         """
-        # Prepare features
-        features = self.prepare_game_features(home_team_id, away_team_id, season, week, neutral_site)
+        # Get team features
+        home_features = self.get_team_features(home_team_id, season, max_week=week)
+        away_features = self.get_team_features(away_team_id, season, max_week=week)
 
-        # Build feature vector in correct order
-        feature_vector = []
-        for col in self.feature_columns:
-            feature_vector.append(features.get(col, 0))
+        # Stats-based prediction (more reliable than broken LSTM)
+        # Use rolling averages to predict scores
 
-        feature_vector = np.array(feature_vector).reshape(1, -1)
+        # Home team expected points (based on their scoring vs opponent's defense)
+        home_off = home_features.get('points_scored_roll5', 28 if self.sport == 'cfb' else 22)
+        away_def = away_features.get('points_allowed_roll5', 28 if self.sport == 'cfb' else 22)
+        home_expected = (home_off + away_def) / 2
 
-        # Scale features
-        scaled_features = self.scaler.transform(feature_vector)
+        # Away team expected points
+        away_off = away_features.get('points_scored_roll5', 28 if self.sport == 'cfb' else 22)
+        home_def = home_features.get('points_allowed_roll5', 28 if self.sport == 'cfb' else 22)
+        away_expected = (away_off + home_def) / 2
 
-        # Create tensor (batch_size=1, seq_len=1, features)
-        x = torch.tensor(scaled_features, dtype=torch.float32).unsqueeze(1)
+        # Adjust for home field advantage (if not neutral)
+        home_advantage = 0 if neutral_site else (3.0 if self.sport == 'cfb' else 2.5)
+        home_expected += home_advantage / 2
+        away_expected -= home_advantage / 2
 
-        # Get predictions
-        with torch.no_grad():
-            spread_pred = self.spread_model(x).item() if self.spread_model else 0
-            total_pred = self.total_model(x).item() if self.total_model else 44
+        # Factor in recent form (point differential)
+        home_momentum = home_features.get('point_differential_roll3', 0) * 0.1
+        away_momentum = away_features.get('point_differential_roll3', 0) * 0.1
+        home_expected += home_momentum
+        away_expected += away_momentum
 
-        # Calculate scores from spread and total
-        # spread = home_score - away_score (positive means home favored)
-        # total = home_score + away_score
-        home_score = (total_pred + spread_pred) / 2
-        away_score = (total_pred - spread_pred) / 2
+        # Win percentage adjustment
+        home_win_pct = home_features.get('win_pct_roll5', 0.5)
+        away_win_pct = away_features.get('win_pct_roll5', 0.5)
+        win_pct_diff = (home_win_pct - away_win_pct) * 5  # Max ~5 point swing
+        home_expected += win_pct_diff / 2
+        away_expected -= win_pct_diff / 2
 
-        # Ensure non-negative scores
-        home_score = max(0, home_score)
-        away_score = max(0, away_score)
+        # Ensure reasonable scores
+        home_score = max(7, min(70, home_expected))
+        away_score = max(7, min(70, away_expected))
 
-        # Recalculate spread/total from adjusted scores
-        actual_spread = home_score - away_score
-        actual_total = home_score + away_score
+        # Calculate spread and total
+        spread = home_score - away_score
+        total = home_score + away_score
 
         # Win probability (simple sigmoid based on spread)
-        home_win_prob = 1 / (1 + np.exp(-actual_spread / 7))
+        home_win_prob = 1 / (1 + np.exp(-spread / 7))
 
         return {
             'predicted_home_score': round(home_score, 1),
             'predicted_away_score': round(away_score, 1),
-            'predicted_spread': round(actual_spread, 1),
-            'predicted_total': round(actual_total, 1),
+            'predicted_spread': round(spread, 1),
+            'predicted_total': round(total, 1),
             'home_win_probability': round(home_win_prob, 3)
         }
 
