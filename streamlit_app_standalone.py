@@ -292,6 +292,8 @@ def show_overview(user, db_stats):
         JOIN teams ht ON g.home_team_id = ht.team_id
         JOIN teams at ON g.away_team_id = at.team_id
         WHERE g.season = 2024
+        AND g.home_team_id > 0
+        AND (g.home_score > 0 OR g.away_score > 0)
         ORDER BY g.date DESC
         LIMIT 10
     """, conn)
