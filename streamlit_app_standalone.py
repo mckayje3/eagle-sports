@@ -20,8 +20,8 @@ except ImportError:
 
 # Page configuration
 st.set_page_config(
-    page_title="Sports Predictions",
-    page_icon="🏈",
+    page_title="Eagle Eye Sports Tracker",
+    page_icon="🦅",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -34,6 +34,24 @@ st.markdown("""
         font-weight: bold;
         color: #1f77b4;
         margin-bottom: 1rem;
+    }
+    .app-header {
+        font-size: 3rem;
+        font-weight: bold;
+        color: #0066cc;
+        text-align: center;
+        margin-bottom: 0.5rem;
+        padding: 1rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    .app-subtitle {
+        text-align: center;
+        color: #666;
+        font-size: 1.2rem;
+        margin-bottom: 2rem;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -214,8 +232,10 @@ def get_predictions_from_db(week: int):
 
 def login_page():
     """Display login page"""
-    st.title("🏈 Sports Predictions")
-    st.subheader("Beta Access Login")
+    st.markdown('<h1 class="app-header">🦅 Eagle Eye Sports Tracker</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="app-subtitle">AI-Powered College Football Predictions</p>', unsafe_allow_html=True)
+    st.markdown("---")
+    st.subheader("🔐 Beta Access Login")
 
     with st.form("login_form"):
         username = st.text_input("Username")
@@ -514,6 +534,11 @@ def main_page():
 
     # Load database stats
     db_stats = load_database_stats()
+
+    # App Header
+    st.markdown('<h1 class="app-header">🦅 Eagle Eye Sports Tracker</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="app-subtitle">AI-Powered College Football Predictions</p>', unsafe_allow_html=True)
+    st.markdown("---")
 
     # Main content
     if st.session_state.current_page == "Overview":
