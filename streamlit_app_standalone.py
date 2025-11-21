@@ -260,8 +260,8 @@ def show_overview(user, db_stats):
         SELECT
             g.week,
             g.date as game_date,
-            ht.school_name as home_team,
-            at.school_name as away_team,
+            COALESCE(ht.school_name, ht.display_name, ht.name) as home_team,
+            COALESCE(at.school_name, at.display_name, at.name) as away_team,
             g.home_score,
             g.away_score,
             g.completed
@@ -417,7 +417,8 @@ def show_database_explorer():
         query = """
             SELECT
                 g.game_id, g.week, g.date as game_date,
-                ht.school_name as home_team, at.school_name as away_team,
+                COALESCE(ht.school_name, ht.display_name, ht.name) as home_team,
+                COALESCE(at.school_name, at.display_name, at.name) as away_team,
                 g.home_score, g.away_score, g.completed
             FROM games g
             JOIN teams ht ON g.home_team_id = ht.team_id
@@ -427,10 +428,10 @@ def show_database_explorer():
             LIMIT 100
         """
     elif table == "teams":
-        query = "SELECT * FROM teams ORDER BY school_name LIMIT 100"
+        query = "SELECT * FROM teams ORDER BY COALESCE(school_name, display_name, name) LIMIT 100"
     elif table == "team_game_stats":
         query = """
-            SELECT tgs.*, t.school_name as team_name
+            SELECT tgs.*, COALESCE(t.school_name, t.display_name, t.name) as team_name
             FROM team_game_stats tgs
             JOIN teams t ON tgs.team_id = t.team_id
             ORDER BY tgs.game_id DESC
