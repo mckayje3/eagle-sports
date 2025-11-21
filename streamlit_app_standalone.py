@@ -9,6 +9,15 @@ import plotly.express as px
 from datetime import datetime
 import hashlib
 
+# Try to import deep-eagle module (with fallback)
+DEEP_EAGLE_AVAILABLE = False
+try:
+    import deep_eagle
+    DEEP_EAGLE_AVAILABLE = True
+except ImportError:
+    # Graceful fallback - app still works with statistical predictions
+    pass
+
 # Page configuration
 st.set_page_config(
     page_title="Sports Predictions",
@@ -419,6 +428,13 @@ def main_page():
 
         page = st.radio("Navigate", ["Overview", "View Predictions", "Database Explorer"])
         st.session_state.current_page = page
+
+        st.markdown("---")
+        # Prediction engine status
+        if DEEP_EAGLE_AVAILABLE:
+            st.success("🚀 Deep Eagle Active")
+        else:
+            st.info("📊 Statistical Mode")
 
     # Load database stats
     db_stats = load_database_stats()

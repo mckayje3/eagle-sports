@@ -1,5 +1,8 @@
-git+https://github.com/mckayje3/deep-eagle.git
+# Core dependencies (required)
 streamlit>=1.51.0
 pandas>=2.0.0
 plotly>=5.14.0
 requests>=2.31.0
+
+# Optional: Deep learning module (app falls back to statistical predictions if unavailable)
+git+https://github.com/mckayje3/deep-eagle.git
