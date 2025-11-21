@@ -316,7 +316,7 @@ def show_predictions():
     col1, col2 = st.columns([3, 1])
 
     with col1:
-        week = st.number_input("Select Week", min_value=1, max_value=15, value=13)
+        week = st.number_input("Select Week", min_value=1, max_value=15, value=14)
 
     with col2:
         if st.button("🔄 Refresh", use_container_width=True):
