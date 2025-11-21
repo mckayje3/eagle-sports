@@ -438,11 +438,11 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
     col1, col2 = st.columns(2)
 
     with col1:
-        status_filter = st.selectbox("Status", ["All", "Pending", "Completed"])
+        status_filter = st.selectbox("Status", ["All", "Pending", "Completed"], key=f"{sport}_status")
 
     with col2:
         spread_filter = st.selectbox("Spread Size",
-                                     ["All", "Close (<7)", "Medium (7-14)", "Large (>14)"])
+                                     ["All", "Close (<7)", "Medium (7-14)", "Large (>14)"], key=f"{sport}_spread_filter")
 
     # Apply filters
     filtered_df = predictions_df.copy()
