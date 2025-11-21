@@ -142,6 +142,28 @@ def get_db_connection():
     """Create cached database connection"""
     return sqlite3.connect('cfb_games.db', check_same_thread=False)
 
+@st.cache_data(ttl=3600)
+def check_schema():
+    """Check which columns exist in teams table"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("PRAGMA table_info(teams)")
+    columns = [col[1] for col in cursor.fetchall()]
+    return {
+        'has_school_name': 'school_name' in columns,
+        'has_display_name': 'display_name' in columns
+    }
+
+def get_team_name_field():
+    """Get the appropriate field name for team names"""
+    schema = check_schema()
+    if schema['has_school_name']:
+        return 'school_name'
+    elif schema['has_display_name']:
+        return 'display_name'
+    else:
+        return 'name'
+
 @st.cache_data(ttl=300)
 def load_database_stats():
     """Load summary statistics from database"""
@@ -256,12 +278,13 @@ def show_overview(user, db_stats):
     # Recent games
     st.markdown("### 📅 Recent Games")
     conn = get_db_connection()
-    recent_games = pd.read_sql_query("""
+    team_field = get_team_name_field()
+    recent_games = pd.read_sql_query(f"""
         SELECT
             g.week,
             g.date as game_date,
-            COALESCE(ht.school_name, ht.display_name, ht.name) as home_team,
-            COALESCE(at.school_name, at.display_name, at.name) as away_team,
+            ht.{team_field} as home_team,
+            at.{team_field} as away_team,
             g.home_score,
             g.away_score,
             g.completed
@@ -413,12 +436,14 @@ def show_database_explorer():
 
     st.markdown(f"### {table.upper()} Table")
 
+    team_field = get_team_name_field()
+
     if table == "games":
-        query = """
+        query = f"""
             SELECT
                 g.game_id, g.week, g.date as game_date,
-                COALESCE(ht.school_name, ht.display_name, ht.name) as home_team,
-                COALESCE(at.school_name, at.display_name, at.name) as away_team,
+                ht.{team_field} as home_team,
+                at.{team_field} as away_team,
                 g.home_score, g.away_score, g.completed
             FROM games g
             JOIN teams ht ON g.home_team_id = ht.team_id
@@ -428,10 +453,10 @@ def show_database_explorer():
             LIMIT 100
         """
     elif table == "teams":
-        query = "SELECT * FROM teams ORDER BY COALESCE(school_name, display_name, name) LIMIT 100"
+        query = f"SELECT * FROM teams ORDER BY {team_field} LIMIT 100"
     elif table == "team_game_stats":
-        query = """
-            SELECT tgs.*, COALESCE(t.school_name, t.display_name, t.name) as team_name
+        query = f"""
+            SELECT tgs.*, t.{team_field} as team_name
             FROM team_game_stats tgs
             JOIN teams t ON tgs.team_id = t.team_id
             ORDER BY tgs.game_id DESC
