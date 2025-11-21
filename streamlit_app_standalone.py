@@ -94,6 +94,46 @@ def get_user_info(username: str) -> dict:
     return None
 
 # ============================================================================
+# Database Migration & Setup
+# ============================================================================
+
+def migrate_database():
+    """Ensure database schema is up to date"""
+    try:
+        conn = sqlite3.connect('cfb_games.db')
+        cursor = conn.cursor()
+
+        # Check if school_name column exists
+        cursor.execute("PRAGMA table_info(teams)")
+        columns = [col[1] for col in cursor.fetchall()]
+
+        if 'school_name' not in columns:
+            # Add school_name column
+            cursor.execute("ALTER TABLE teams ADD COLUMN school_name TEXT")
+
+            # Populate school_name by extracting from display_name
+            cursor.execute("SELECT team_id, name, display_name FROM teams")
+            teams = cursor.fetchall()
+
+            for team_id, mascot, display_name in teams:
+                if display_name and mascot:
+                    school_name = display_name.replace(mascot, "").strip()
+                else:
+                    school_name = display_name
+                cursor.execute("UPDATE teams SET school_name = ? WHERE team_id = ?",
+                             (school_name, team_id))
+
+            conn.commit()
+
+        conn.close()
+    except Exception as e:
+        # Silently fail - app will still work with display_name fallback
+        pass
+
+# Run migration on app startup
+migrate_database()
+
+# ============================================================================
 # Database Functions
 # ============================================================================
 
