@@ -341,10 +341,16 @@ def show_predictions():
 
             with col3:
                 st.markdown("**Result**")
-                if row['game_completed']:
-                    actual_away = row['actual_away_score']
-                    actual_home = row['actual_home_score']
-                    st.markdown(f"**{actual_away} - {actual_home}**")
+                # Check if game is actually completed with valid scores
+                actual_away = row['actual_away_score']
+                actual_home = row['actual_home_score']
+
+                # Only show results if we have valid actual scores (not None and not both zero)
+                has_valid_scores = (actual_away is not None and actual_home is not None and
+                                   not (actual_away == 0 and actual_home == 0))
+
+                if row['game_completed'] and has_valid_scores:
+                    st.markdown(f"**{actual_away:.0f} - {actual_home:.0f}**")
 
                     # Check prediction accuracy
                     predicted_winner = row['home_team'] if row['predicted_home_score'] > row['predicted_away_score'] else row['away_team']
@@ -355,7 +361,7 @@ def show_predictions():
                     else:
                         st.error("✗ Incorrect prediction")
                 else:
-                    st.info("Game not yet played")
+                    st.warning("⏳ Pending")
 
 def show_database_explorer():
     """Database exploration interface"""
