@@ -451,11 +451,13 @@ def show_database_explorer():
             JOIN teams ht ON g.home_team_id = ht.team_id
             JOIN teams at ON g.away_team_id = at.team_id
             WHERE g.season = 2024
+            AND g.home_team_id > 0
+            AND g.away_team_id > 0
             ORDER BY g.date DESC
             LIMIT 100
         """
     elif table == "teams":
-        query = f"SELECT * FROM teams ORDER BY {team_field} LIMIT 100"
+        query = f"SELECT * FROM teams WHERE team_id > 0 ORDER BY {team_field} LIMIT 100"
     elif table == "team_game_stats":
         query = f"""
             SELECT tgs.*, t.{team_field} as team_name
