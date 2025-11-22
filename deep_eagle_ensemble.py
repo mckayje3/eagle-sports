@@ -64,6 +64,10 @@ class EnsemblePredictor:
         # Feature importance cache
         self._feature_importance = None
 
+        # Auto-connect to database and load models
+        self.connect_db()
+        self.load_models()
+
     def load_models(self) -> bool:
         """Load trained LSTM models and scaler"""
         try:
