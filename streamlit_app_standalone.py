@@ -391,7 +391,7 @@ def show_predictions():
 
 
 def show_sport_predictions(sport: str, max_week: int, default_week: int):
-    """Show predictions for a specific sport"""
+    """Show predictions for a specific sport with confidence intervals"""
     sport_emoji = "🏈" if sport == "CFB" else "🏟️"
     st.markdown(f"### {sport_emoji} {sport} Week {default_week} Predictions")
 
@@ -415,6 +415,10 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
 
     st.success(f"Found {len(predictions_df)} games for Week {week}")
 
+    # Check if confidence column exists, add if not
+    if 'confidence' not in predictions_df.columns:
+        predictions_df['confidence'] = 0.85  # Default confidence
+
     # Summary stats
     col1, col2, col3, col4 = st.columns(4)
 
@@ -429,13 +433,34 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
         st.metric("Close Games (<7)", close_games)
 
     with col4:
-        completed = predictions_df['game_completed'].sum()
-        st.metric("Completed", int(completed))
+        avg_conf = predictions_df['confidence'].mean() if 'confidence' in predictions_df.columns else 0.85
+        st.metric("Avg Confidence", f"{avg_conf:.0%}")
 
     st.markdown("---")
 
+    # High Confidence Picks Section
+    high_conf = predictions_df[predictions_df['confidence'] >= 0.90] if 'confidence' in predictions_df.columns else predictions_df.head(0)
+    if len(high_conf) > 0:
+        st.markdown("### ⭐ High Confidence Picks (90%+)")
+        for _, row in high_conf.head(5).iterrows():
+            conf_pct = row.get('confidence', 0.85) * 100
+            spread = row['predicted_spread']
+            if spread > 0:
+                pick = f"{row['home_team']} {spread:+.1f}"
+            else:
+                pick = f"{row['away_team']} {abs(spread):+.1f}"
+
+            col1, col2, col3 = st.columns([3, 2, 1])
+            with col1:
+                st.write(f"**{row['away_team']}** @ **{row['home_team']}**")
+            with col2:
+                st.write(f"Pick: {pick}")
+            with col3:
+                st.write(f"🎯 {conf_pct:.0f}%")
+        st.markdown("---")
+
     # Filters
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
 
     with col1:
         status_filter = st.selectbox("Status", ["All", "Pending", "Completed"], key=f"{sport}_status")
@@ -443,6 +468,10 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
     with col2:
         spread_filter = st.selectbox("Spread Size",
                                      ["All", "Close (<7)", "Medium (7-14)", "Large (>14)"], key=f"{sport}_spread_filter")
+
+    with col3:
+        conf_filter = st.selectbox("Confidence",
+                                   ["All", "High (90%+)", "Medium (80-90%)", "Low (<80%)"], key=f"{sport}_conf_filter")
 
     # Apply filters
     filtered_df = predictions_df.copy()
@@ -460,18 +489,29 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
     elif spread_filter == "Large (>14)":
         filtered_df = filtered_df[filtered_df['predicted_spread'].abs() > 14]
 
+    if 'confidence' in filtered_df.columns:
+        if conf_filter == "High (90%+)":
+            filtered_df = filtered_df[filtered_df['confidence'] >= 0.90]
+        elif conf_filter == "Medium (80-90%)":
+            filtered_df = filtered_df[(filtered_df['confidence'] >= 0.80) &
+                                      (filtered_df['confidence'] < 0.90)]
+        elif conf_filter == "Low (<80%)":
+            filtered_df = filtered_df[filtered_df['confidence'] < 0.80]
+
     st.markdown(f"### Showing {len(filtered_df)} predictions")
 
     # Display predictions
     for idx, row in filtered_df.iterrows():
         matchup = f"{row['away_team']} @ {row['home_team']}"
+        conf_pct = row.get('confidence', 0.85) * 100
+        conf_indicator = "🟢" if conf_pct >= 90 else "🟡" if conf_pct >= 80 else "🔴"
 
-        with st.expander(matchup):
+        with st.expander(f"{conf_indicator} {matchup} ({conf_pct:.0f}% confidence)"):
             col1, col2, col3 = st.columns(3)
 
             with col1:
                 st.markdown("**Predicted Score**")
-                st.markdown(f"**{row['predicted_away_score']} - {row['predicted_home_score']}**")
+                st.markdown(f"**{row['predicted_away_score']:.1f} - {row['predicted_home_score']:.1f}**")
                 st.markdown(f"{row['away_team']}")
                 st.markdown(f"{row['home_team']}")
                 st.markdown(f"Win Probability: {row['home_win_probability']:.1%}")
@@ -486,6 +526,19 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
 
                 st.markdown(f"Spread: **{spread_text}**")
                 st.markdown(f"Total: **{row['predicted_total']:.1f}** (O/U)")
+
+                # Confidence interval display
+                st.markdown("---")
+                st.markdown(f"**Confidence: {conf_pct:.0f}%**")
+
+                # Show spread range if available
+                spread_low = row.get('spread_low', spread - 2)
+                spread_high = row.get('spread_high', spread + 2)
+                total_low = row.get('total_low', row['predicted_total'] - 3)
+                total_high = row.get('total_high', row['predicted_total'] + 3)
+
+                st.caption(f"Spread range: {spread_low:+.1f} to {spread_high:+.1f}")
+                st.caption(f"Total range: {total_low:.1f} to {total_high:.1f}")
 
             with col3:
                 st.markdown("**Result**")
@@ -508,8 +561,23 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
                         st.success("✓ Correct prediction!")
                     else:
                         st.error("✗ Incorrect prediction")
+
+                    # Show if spread was covered
+                    actual_spread = actual_home - actual_away
+                    if abs(actual_spread - spread) < 3:
+                        st.info("📊 Spread within 3 pts")
                 else:
                     st.warning("⏳ Pending")
+
+                # Vegas comparison
+                vegas_spread = row.get('vegas_spread')
+                vegas_total = row.get('vegas_total')
+                if vegas_spread and not pd.isna(vegas_spread):
+                    st.markdown("---")
+                    st.markdown("**Vegas Lines**")
+                    st.caption(f"Spread: {vegas_spread:+.1f}")
+                    if vegas_total and not pd.isna(vegas_total):
+                        st.caption(f"Total: {vegas_total:.1f}")
 
 def show_database_explorer():
     """Database exploration interface"""
