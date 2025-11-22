@@ -113,8 +113,9 @@ def populate_week(week=13, season=2024):
     print("Using ensemble: stats-based (50%) + power ratings (25%) + LSTM (25%)")
     print("Confidence intervals based on model agreement")
 
-# Populate Week 14 (upcoming rivalry week)
-populate_week(week=14, season=2024)
+# Populate multiple weeks with ensemble predictions
+for week in [13, 14, 15]:
+    populate_week(week=week, season=2024)
 
 # Close connections
 cfb_conn.close()
