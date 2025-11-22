@@ -415,9 +415,11 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
 
     st.success(f"Found {len(predictions_df)} games for Week {week}")
 
-    # Check if confidence column exists, add if not
+    # Check if confidence column exists, add if not; also fill NaN values
     if 'confidence' not in predictions_df.columns:
         predictions_df['confidence'] = 0.85  # Default confidence
+    else:
+        predictions_df['confidence'] = predictions_df['confidence'].fillna(0.85)
 
     # Summary stats
     col1, col2, col3, col4 = st.columns(4)
@@ -438,12 +440,17 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
 
     st.markdown("---")
 
-    # High Confidence Picks Section
-    high_conf = predictions_df[predictions_df['confidence'] >= 0.90] if 'confidence' in predictions_df.columns else predictions_df.head(0)
+    # High Confidence Picks Section - fill NaN confidence with 0.85
+    if 'confidence' in predictions_df.columns:
+        predictions_df['confidence'] = predictions_df['confidence'].fillna(0.85)
+        high_conf = predictions_df[predictions_df['confidence'] >= 0.90]
+    else:
+        high_conf = predictions_df.head(0)
     if len(high_conf) > 0:
         st.markdown("### ⭐ High Confidence Picks (90%+)")
         for _, row in high_conf.head(5).iterrows():
-            conf_pct = row.get('confidence', 0.85) * 100
+            conf_val = row.get('confidence') if row.get('confidence') is not None else 0.85
+            conf_pct = conf_val * 100
             spread = row['predicted_spread']
             if spread > 0:
                 pick = f"{row['home_team']} {spread:+.1f}"
@@ -503,7 +510,8 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
     # Display predictions
     for idx, row in filtered_df.iterrows():
         matchup = f"{row['away_team']} @ {row['home_team']}"
-        conf_pct = row.get('confidence', 0.85) * 100
+        conf_val = row.get('confidence') if row.get('confidence') is not None else 0.85
+        conf_pct = conf_val * 100
         conf_indicator = "🟢" if conf_pct >= 90 else "🟡" if conf_pct >= 80 else "🔴"
 
         with st.expander(f"{conf_indicator} {matchup} ({conf_pct:.0f}% confidence)"):
@@ -532,10 +540,10 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
                 st.markdown(f"**Confidence: {conf_pct:.0f}%**")
 
                 # Show spread range if available
-                spread_low = row.get('spread_low', spread - 2)
-                spread_high = row.get('spread_high', spread + 2)
-                total_low = row.get('total_low', row['predicted_total'] - 3)
-                total_high = row.get('total_high', row['predicted_total'] + 3)
+                spread_low = row.get('spread_low') if row.get('spread_low') is not None else spread - 2
+                spread_high = row.get('spread_high') if row.get('spread_high') is not None else spread + 2
+                total_low = row.get('total_low') if row.get('total_low') is not None else row['predicted_total'] - 3
+                total_high = row.get('total_high') if row.get('total_high') is not None else row['predicted_total'] + 3
 
                 st.caption(f"Spread range: {spread_low:+.1f} to {spread_high:+.1f}")
                 st.caption(f"Total range: {total_low:.1f} to {total_high:.1f}")
