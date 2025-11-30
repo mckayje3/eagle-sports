@@ -219,11 +219,17 @@ def predict_upcoming_games(sport, season, db_path, model_path, scaler_path, min_
     predictions_df = predictions_df.merge(odds_df, on='game_id', how='left')
 
     # Calculate edge vs Vegas
-    predictions_df['spread_edge'] = predictions_df['pred_spread'] - predictions_df['vegas_spread']
+    # Model pred_spread: home_score - away_score (negative = away team wins)
+    # Vegas spread_home: points to home team (positive = home is underdog, away favored)
+    # To compare: convert Vegas to same convention (negate it)
+    # Vegas spread in "home - away" terms = -vegas_spread
+    # Edge = model_spread - (-vegas_spread) = model_spread + vegas_spread
+    predictions_df['spread_edge'] = predictions_df['pred_spread'] + predictions_df['vegas_spread']
     predictions_df['total_edge'] = predictions_df['pred_total'] - predictions_df['vegas_total']
 
-    # Sort by week and edge
-    predictions_df = predictions_df.sort_values(['week', 'spread_edge'], ascending=[True, False])
+    # Sort by week and absolute edge (biggest disagreements first)
+    predictions_df['abs_edge'] = predictions_df['spread_edge'].abs()
+    predictions_df = predictions_df.sort_values(['week', 'abs_edge'], ascending=[True, False])
 
     return predictions_df
 
