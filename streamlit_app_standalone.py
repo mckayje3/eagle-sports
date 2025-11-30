@@ -527,10 +527,13 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
             with col2:
                 st.markdown("**Spread & Total**")
                 spread = row['predicted_spread']
-                if spread > 0:
-                    spread_text = f"{row['home_team']} {spread:+.1f}"
+                # Show favorite with negative spread
+                if spread < 0:
+                    # Home team is favorite
+                    spread_text = f"{row['home_team']} {spread:.1f}"
                 else:
-                    spread_text = f"{row['away_team']} {abs(spread):+.1f}"
+                    # Away team is favorite
+                    spread_text = f"{row['away_team']} {-spread:.1f}"
 
                 st.markdown(f"Spread: **{spread_text}**")
                 st.markdown(f"Total: **{row['predicted_total']:.1f}** (O/U)")
@@ -583,11 +586,13 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
                 if vegas_spread and not pd.isna(vegas_spread):
                     st.markdown("---")
                     st.markdown("**Vegas Lines**")
-                    # Vegas spread is from home team perspective
-                    if vegas_spread > 0:
-                        vegas_text = f"{row['home_team']} {vegas_spread:+.1f}"
+                    # Vegas spread is from home team perspective - show favorite with negative
+                    if vegas_spread < 0:
+                        # Home team is favorite
+                        vegas_text = f"{row['home_team']} {vegas_spread:.1f}"
                     else:
-                        vegas_text = f"{row['away_team']} {abs(vegas_spread):+.1f}"
+                        # Away team is favorite
+                        vegas_text = f"{row['away_team']} {-vegas_spread:.1f}"
                     st.caption(f"Spread: {vegas_text}")
                     if vegas_total and not pd.isna(vegas_total):
                         st.caption(f"Total: {vegas_total:.1f}")
