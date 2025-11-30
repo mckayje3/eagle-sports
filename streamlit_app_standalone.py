@@ -510,11 +510,22 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
     # Display predictions
     for idx, row in filtered_df.iterrows():
         matchup = f"{row['away_team']} @ {row['home_team']}"
-        conf_val = row.get('confidence') if row.get('confidence') is not None else 0.85
-        conf_pct = conf_val * 100
-        conf_indicator = "🟢" if conf_pct >= 90 else "🟡" if conf_pct >= 80 else "🔴"
+        # home_win_probability is the prob home team wins
+        # confidence should be prob of predicted winner
+        home_win_prob = row.get('home_win_probability') if row.get('home_win_probability') is not None else 0.5
+        spread = row['predicted_spread']
+        # If spread > 0, we predict home wins; if spread < 0, we predict away wins
+        if spread > 0:
+            winner_conf = home_win_prob
+            predicted_winner = row['home_team']
+        else:
+            winner_conf = 1 - home_win_prob
+            predicted_winner = row['away_team']
 
-        with st.expander(f"{conf_indicator} {matchup} ({conf_pct:.0f}% confidence)"):
+        conf_pct = winner_conf * 100
+        conf_indicator = "🟢" if conf_pct >= 70 else "🟡" if conf_pct >= 55 else "🔴"
+
+        with st.expander(f"{conf_indicator} {matchup} - {predicted_winner} ({conf_pct:.0f}%)"):
             col1, col2, col3 = st.columns(3)
 
             with col1:
@@ -522,25 +533,23 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
                 st.markdown(f"**{row['predicted_away_score']:.1f} - {row['predicted_home_score']:.1f}**")
                 st.markdown(f"{row['away_team']}")
                 st.markdown(f"{row['home_team']}")
-                st.markdown(f"Win Probability: {row['home_win_probability']:.1%}")
+                st.markdown(f"**Pick: {predicted_winner}** ({conf_pct:.0f}%)")
 
             with col2:
                 st.markdown("**Spread & Total**")
                 spread = row['predicted_spread']
-                # Show favorite with negative spread
-                if spread < 0:
-                    # Home team is favorite
-                    spread_text = f"{row['home_team']} {spread:.1f}"
+                # spread = home_score - away_score
+                # negative spread means away team wins (is favorite)
+                # positive spread means home team wins (is favorite)
+                if spread > 0:
+                    # Home team is favorite (wins by spread points)
+                    spread_text = f"{row['home_team']} -{spread:.1f}"
                 else:
-                    # Away team is favorite
-                    spread_text = f"{row['away_team']} {-spread:.1f}"
+                    # Away team is favorite (wins by abs(spread) points)
+                    spread_text = f"{row['away_team']} {spread:.1f}"
 
                 st.markdown(f"Spread: **{spread_text}**")
                 st.markdown(f"Total: **{row['predicted_total']:.1f}** (O/U)")
-
-                # Confidence interval display
-                st.markdown("---")
-                st.markdown(f"**Confidence: {conf_pct:.0f}%**")
 
                 # Show spread range if available
                 spread_low = row.get('spread_low') if row.get('spread_low') is not None else spread - 2
@@ -586,13 +595,13 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
                 if vegas_spread and not pd.isna(vegas_spread):
                     st.markdown("---")
                     st.markdown("**Vegas Lines**")
-                    # Vegas spread is from home team perspective - show favorite with negative
+                    # Vegas spread: negative = home favorite, positive = away favorite
                     if vegas_spread < 0:
                         # Home team is favorite
                         vegas_text = f"{row['home_team']} {vegas_spread:.1f}"
                     else:
                         # Away team is favorite
-                        vegas_text = f"{row['away_team']} {-vegas_spread:.1f}"
+                        vegas_text = f"{row['away_team']} -{vegas_spread:.1f}"
                     st.caption(f"Spread: {vegas_text}")
                     if vegas_total and not pd.isna(vegas_total):
                         st.caption(f"Total: {vegas_total:.1f}")
