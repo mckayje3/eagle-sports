@@ -583,7 +583,12 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
                 if vegas_spread and not pd.isna(vegas_spread):
                     st.markdown("---")
                     st.markdown("**Vegas Lines**")
-                    st.caption(f"Spread: {vegas_spread:+.1f}")
+                    # Vegas spread is from home team perspective
+                    if vegas_spread > 0:
+                        vegas_text = f"{row['home_team']} {vegas_spread:+.1f}"
+                    else:
+                        vegas_text = f"{row['away_team']} {abs(vegas_spread):+.1f}"
+                    st.caption(f"Spread: {vegas_text}")
                     if vegas_total and not pd.isna(vegas_total):
                         st.caption(f"Total: {vegas_total:.1f}")
 
