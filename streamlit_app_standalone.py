@@ -656,6 +656,243 @@ def show_database_explorer():
         st.error(f"Error querying database: {e}")
 
 # ============================================================================
+# Model Insights Page
+# ============================================================================
+
+def show_model_insights():
+    """Display Deep Eagle model transparency and explainability information"""
+    st.markdown('<p class="main-header">Deep Eagle Model Insights</p>', unsafe_allow_html=True)
+
+    st.markdown("""
+    This page provides transparency into how the Deep Eagle prediction model works,
+    including the factors it considers and their relative importance.
+    """)
+
+    # Model Overview
+    st.markdown("## Model Architecture")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Model Type", "Deep Neural Network")
+    with col2:
+        st.metric("Total Features", "57")
+    with col3:
+        st.metric("Training Games", "452")
+
+    st.markdown("""
+    **Deep Eagle v3** uses a multi-layer neural network with:
+    - 3 hidden layers (256 → 128 → 64 neurons)
+    - Batch normalization and dropout for regularization
+    - Separate prediction heads for home and away scores
+    - Time-based train/test split (no future data leakage)
+    """)
+
+    st.markdown("---")
+
+    # Feature Categories
+    st.markdown("## Feature Categories")
+
+    feature_categories = {
+        "Vegas Odds (Latest Available)": {
+            "features": ["Latest Spread", "Latest Total"],
+            "description": "Current betting lines from major sportsbooks. These capture market consensus and are strong predictors.",
+            "importance": "15.5%",
+            "correlation": "r = -0.43 (spread)"
+        },
+        "Team Performance Differentials": {
+            "features": ["PPG Differential", "Win % Differential", "Points Allowed Differential", "Points Per Drive Differential"],
+            "description": "Difference between home and away team season averages. Positive = home team advantage.",
+            "importance": "11.0%",
+            "correlation": "r = 0.30 (PPG diff)"
+        },
+        "Drive Efficiency Metrics": {
+            "features": ["Points Per Drive", "Yards Per Drive", "Scoring %", "3-and-Out %", "Explosive Drive %"],
+            "description": "Advanced metrics measuring offensive and defensive efficiency per possession.",
+            "importance": "25.8%",
+            "correlation": "r = 0.28 (scoring %)"
+        },
+        "Historical Team Stats": {
+            "features": ["Games Played", "PPG", "Points Allowed", "Yards Per Game", "Turnovers Per Game", "Win %"],
+            "description": "Season-to-date averages for each team entering the game.",
+            "importance": "22.5%",
+            "correlation": "r = 0.20 (win %)"
+        },
+        "Game Context": {
+            "features": ["Week (normalized)", "Home/Away", "Dome/Outdoor", "Conference Game"],
+            "description": "Situational factors that may influence game outcomes.",
+            "importance": "7.6%",
+            "correlation": "varies"
+        },
+        "Defensive Metrics": {
+            "features": ["Defensive PPD Allowed", "Defensive YPD Allowed", "3-and-Outs Forced"],
+            "description": "How well each team's defense performs against opposing offenses.",
+            "importance": "17.6%",
+            "correlation": "r = -0.07"
+        }
+    }
+
+    for category, info in feature_categories.items():
+        with st.expander(f"**{category}** — {info['importance']} of model importance"):
+            st.markdown(f"**Description:** {info['description']}")
+            st.markdown(f"**Key Features:** {', '.join(info['features'])}")
+            st.markdown(f"**Correlation with Spread:** {info['correlation']}")
+
+    st.markdown("---")
+
+    # Top Features by Importance
+    st.markdown("## Top 20 Features by Importance")
+
+    st.markdown("""
+    Feature importance is measured using **permutation importance**: we shuffle each feature
+    and measure how much prediction accuracy decreases. Higher values = more important.
+    """)
+
+    # Feature importance data
+    importance_data = pd.DataFrame({
+        'Feature': [
+            'Latest Vegas Spread', 'Latest Vegas Total', 'Away Yards/Game',
+            'Is Dome Game', 'Home 3-and-Out %', 'Away Games Played',
+            'Points Allowed Differential', 'Away Total Drives', 'Home Total Drives',
+            'Home Def Yards/Drive', 'Home Points Allowed', 'Away Explosive Drive %',
+            'Away Turnovers/Game', 'PPG Differential', 'Home Def 3-and-Outs Forced',
+            'Away Def Yards/Drive', 'Win % Differential', 'Away Yards/Drive',
+            'Home PPG', 'Home Turnovers/Game'
+        ],
+        'Importance': [
+            0.634, 0.261, 0.226, 0.225, 0.213, 0.203, 0.193, 0.186, 0.180,
+            0.172, 0.164, 0.159, 0.159, 0.159, 0.134, 0.130, 0.129, 0.124, 0.123, 0.117
+        ],
+        'Category': [
+            'Odds', 'Odds', 'Team Stats', 'Context', 'Drive Efficiency', 'Team Stats',
+            'Differential', 'Drive Efficiency', 'Drive Efficiency', 'Defense',
+            'Team Stats', 'Drive Efficiency', 'Team Stats', 'Differential', 'Defense',
+            'Defense', 'Differential', 'Drive Efficiency', 'Team Stats', 'Team Stats'
+        ]
+    })
+    importance_data['Pct'] = (importance_data['Importance'] / importance_data['Importance'].sum() * 100).round(1)
+
+    # Create bar chart
+    import plotly.express as px
+    fig = px.bar(
+        importance_data.head(15),
+        x='Importance',
+        y='Feature',
+        color='Category',
+        orientation='h',
+        title='Top 15 Features by Permutation Importance',
+        color_discrete_map={
+            'Odds': '#2ecc71',
+            'Differential': '#3498db',
+            'Drive Efficiency': '#9b59b6',
+            'Team Stats': '#e74c3c',
+            'Defense': '#f39c12',
+            'Context': '#1abc9c'
+        }
+    )
+    fig.update_layout(yaxis={'categoryorder': 'total ascending'}, height=500)
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Data table
+    st.dataframe(
+        importance_data.style.format({'Importance': '{:.3f}', 'Pct': '{:.1f}%'}),
+        use_container_width=True,
+        hide_index=True
+    )
+
+    st.markdown("---")
+
+    # Correlation Analysis
+    st.markdown("## Feature Correlations with Game Spread")
+
+    st.markdown("""
+    **Correlation (r)** measures linear relationship between each feature and the actual game spread.
+    - Positive r: Higher feature value → home team wins by more
+    - Negative r: Higher feature value → away team wins by more
+    - |r| > 0.3 is considered moderate, |r| > 0.5 is strong
+    """)
+
+    correlation_data = pd.DataFrame({
+        'Feature': [
+            'Latest Vegas Spread', 'PPD Differential', 'PPG Differential',
+            'Win % Differential', 'Scoring % Differential', 'Away Win %',
+            'Points Allowed Differential', 'Away PPD', 'Away Scoring %', 'Away PPG'
+        ],
+        'Correlation (r)': [-0.425, 0.300, 0.297, 0.293, 0.276, -0.200, -0.188, -0.166, -0.164, -0.163],
+        'R-squared': [0.181, 0.090, 0.088, 0.086, 0.076, 0.040, 0.035, 0.028, 0.027, 0.027],
+        'Interpretation': [
+            'Moderate: Vegas line is predictive',
+            'Moderate: Better offense helps home team',
+            'Moderate: Higher-scoring teams win',
+            'Moderate: Better record predicts wins',
+            'Moderate: Red zone efficiency matters',
+            'Weak: Better away teams win on road',
+            'Weak: Allowing fewer points helps',
+            'Weak: Away offensive efficiency',
+            'Weak: Away scoring drives',
+            'Weak: Away team scoring average'
+        ]
+    })
+
+    st.dataframe(
+        correlation_data.style.format({'Correlation (r)': '{:+.3f}', 'R-squared': '{:.3f}'}),
+        use_container_width=True,
+        hide_index=True
+    )
+
+    st.markdown("---")
+
+    # Model Performance
+    st.markdown("## Model Performance Metrics")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("### Training Performance (Weeks 1-10)")
+        st.metric("Spread MAE", "7.7 points")
+        st.metric("Winner Accuracy", "67.1%")
+        st.metric("Total Points MAE", "13.5 points")
+
+    with col2:
+        st.markdown("### Week 13 Actual Results")
+        st.metric("Spread MAE", "11.0 points")
+        st.metric("Winner Accuracy", "58.3% (7/12)")
+        st.metric("vs Vegas", "Vegas: 9/12 (75%)")
+
+    st.markdown("""
+    **Note:** Training performance is measured on held-out weeks 11-13 during model development.
+    Real-world performance (Week 13 actual) shows the model is competitive but doesn't beat Vegas.
+    """)
+
+    st.markdown("---")
+
+    # Methodology
+    st.markdown("## Methodology & Data Sources")
+
+    st.markdown("""
+    ### Data Collection
+    - **Game Data:** ESPN API (scores, team stats, drive data)
+    - **Odds Data:** The Odds API (opening and current lines from major books)
+    - **Seasons Covered:** 2024-2025 NFL (452 completed games)
+
+    ### Feature Engineering
+    - Historical stats calculated using only games *before* prediction target (no lookahead)
+    - Drive efficiency metrics aggregated per-team per-season
+    - Odds captured as "latest available" to match prediction-time data
+
+    ### Model Training
+    - **Framework:** PyTorch
+    - **Split:** Time-based (train on weeks 1-10, test on weeks 11+)
+    - **Optimization:** Adam optimizer with learning rate scheduling
+    - **Regularization:** Dropout (0.3), early stopping (patience=20)
+
+    ### Known Limitations
+    1. Model tends to predict spreads closer to the mean (misses blowouts)
+    2. Does not account for injuries or weather (beyond dome indicator)
+    3. Limited to 2 seasons of training data
+    4. Vegas lines incorporate information we don't have access to
+    """)
+
+
+# ============================================================================
 # Main App Logic
 # ============================================================================
 
@@ -680,7 +917,7 @@ def main_page():
         if 'current_page' not in st.session_state:
             st.session_state.current_page = "Overview"
 
-        page = st.radio("Navigate", ["Overview", "View Predictions", "Database Explorer"])
+        page = st.radio("Navigate", ["Overview", "View Predictions", "Model Insights", "Database Explorer"])
         st.session_state.current_page = page
 
         st.markdown("---")
@@ -702,6 +939,8 @@ def main_page():
         show_overview(user, db_stats)
     elif st.session_state.current_page == "View Predictions":
         show_predictions()
+    elif st.session_state.current_page == "Model Insights":
+        show_model_insights()
     elif st.session_state.current_page == "Database Explorer":
         show_database_explorer()
 
