@@ -226,7 +226,15 @@ class DeepEagleFeatureExtractor:
         return result
 
     def _get_odds_data(self, game_id):
-        """Get betting odds for the game"""
+        """Get betting odds for the game
+
+        Uses 'latest' odds concept to avoid train/test skew:
+        - For completed games: uses current or opening odds (NOT closing - that's leakage)
+        - For upcoming games: uses current odds (freshly scraped before prediction)
+
+        This ensures training and prediction see similar data distributions.
+        """
+        # Get all odds for this game, prefer most recent current_spread
         query = '''
             SELECT
                 opening_spread_home, current_spread_home, closing_spread_home,
@@ -235,6 +243,9 @@ class DeepEagleFeatureExtractor:
                 opening_moneyline_away, current_moneyline_away, closing_moneyline_away
             FROM game_odds
             WHERE game_id = ?
+            ORDER BY
+                CASE WHEN current_spread_home IS NOT NULL THEN 0 ELSE 1 END,
+                updated_at DESC
             LIMIT 1
         '''
 
@@ -242,29 +253,45 @@ class DeepEagleFeatureExtractor:
 
         if result.empty:
             return {
-                'opening_spread': 0, 'current_spread': 0, 'closing_spread': 0,
-                'opening_total': 0, 'current_total': 0, 'closing_total': 0,
-                'opening_ml_home': 0, 'current_ml_home': 0, 'closing_ml_home': 0,
-                'opening_ml_away': 0, 'current_ml_away': 0, 'closing_ml_away': 0,
-                'spread_movement': 0, 'total_movement': 0
+                'opening_spread': 0, 'latest_spread': 0,
+                'opening_total': 0, 'latest_total': 0,
+                'opening_ml_home': 0, 'latest_ml_home': 0,
+                'opening_ml_away': 0, 'latest_ml_away': 0,
             }
 
         row = result.iloc[0]
+
+        # Use COALESCE logic: current -> opening (skip closing to avoid leakage)
+        latest_spread = (
+            row['current_spread_home'] if pd.notna(row['current_spread_home'])
+            else row['opening_spread_home'] if pd.notna(row['opening_spread_home'])
+            else 0
+        )
+        latest_total = (
+            row['current_total'] if pd.notna(row['current_total'])
+            else row['opening_total'] if pd.notna(row['opening_total'])
+            else 0
+        )
+        latest_ml_home = (
+            row['current_moneyline_home'] if pd.notna(row['current_moneyline_home'])
+            else row['opening_moneyline_home'] if pd.notna(row['opening_moneyline_home'])
+            else 0
+        )
+        latest_ml_away = (
+            row['current_moneyline_away'] if pd.notna(row['current_moneyline_away'])
+            else row['opening_moneyline_away'] if pd.notna(row['opening_moneyline_away'])
+            else 0
+        )
+
         return {
             'opening_spread': row['opening_spread_home'] if pd.notna(row['opening_spread_home']) else 0,
-            'current_spread': row['current_spread_home'] if pd.notna(row['current_spread_home']) else 0,
-            'closing_spread': row['closing_spread_home'] if pd.notna(row['closing_spread_home']) else 0,
+            'latest_spread': latest_spread,
             'opening_total': row['opening_total'] if pd.notna(row['opening_total']) else 0,
-            'current_total': row['current_total'] if pd.notna(row['current_total']) else 0,
-            'closing_total': row['closing_total'] if pd.notna(row['closing_total']) else 0,
+            'latest_total': latest_total,
             'opening_ml_home': row['opening_moneyline_home'] if pd.notna(row['opening_moneyline_home']) else 0,
-            'current_ml_home': row['current_moneyline_home'] if pd.notna(row['current_moneyline_home']) else 0,
-            'closing_ml_home': row['closing_moneyline_home'] if pd.notna(row['closing_moneyline_home']) else 0,
+            'latest_ml_home': latest_ml_home,
             'opening_ml_away': row['opening_moneyline_away'] if pd.notna(row['opening_moneyline_away']) else 0,
-            'current_ml_away': row['current_moneyline_away'] if pd.notna(row['current_moneyline_away']) else 0,
-            'closing_ml_away': row['closing_moneyline_away'] if pd.notna(row['closing_moneyline_away']) else 0,
-            'spread_movement': (row['closing_spread_home'] - row['opening_spread_home']) if pd.notna(row['closing_spread_home']) and pd.notna(row['opening_spread_home']) else 0,
-            'total_movement': (row['closing_total'] - row['opening_total']) if pd.notna(row['closing_total']) and pd.notna(row['opening_total']) else 0
+            'latest_ml_away': latest_ml_away,
         }
 
     def _get_drive_stats(self, team_id, season, current_week):
