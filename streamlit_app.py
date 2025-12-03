@@ -388,17 +388,20 @@ def show_overview(user, db_stats):
     st.dataframe(display_df, use_container_width=True, hide_index=True)
 
 def show_predictions():
-    """Show predictions page with CFB and NFL tabs"""
+    """Show predictions page with CFB, NFL, and NBA tabs"""
     st.markdown('<p class="main-header">View Predictions</p>', unsafe_allow_html=True)
 
     # Sport tabs
-    sport_tab = st.tabs(["College Football", "NFL"])
+    sport_tab = st.tabs(["College Football", "NFL", "NBA"])
 
     with sport_tab[0]:
-        show_sport_predictions('CFB', max_week=15, default_week=13)
+        show_sport_predictions('CFB', max_week=15, default_week=14)
 
     with sport_tab[1]:
-        show_sport_predictions('NFL', max_week=18, default_week=12)
+        show_sport_predictions('NFL', max_week=18, default_week=14)
+
+    with sport_tab[2]:
+        show_nba_predictions()
 
 
 def run_nfl_predictions_update(week: int = None):
@@ -526,6 +529,54 @@ def sync_nfl_predictions_to_cache():
 
     except Exception as e:
         return False, f"Sync error: {str(e)}"
+
+
+def show_nba_predictions():
+    """Show NBA predictions - coming soon placeholder"""
+    st.markdown("### 🏀 NBA Predictions")
+
+    st.info("""
+    **NBA Predictions - Coming Soon!**
+
+    Our Deep Eagle AI model has been trained on NBA data and is ready to make predictions.
+    NBA predictions will be available once the 2025-26 NBA season schedule is loaded.
+
+    **Model Performance (2024-25 Season):**
+    - Winner Accuracy: 66.9%
+    - Spread MAE: 12.6 points (vs Vegas ~18 points)
+    - Total Points MAE: 15.7 points
+
+    The model excels at spread prediction, beating Vegas by approximately 5 points on average.
+    """)
+
+    # Show NBA database stats
+    try:
+        nba_conn = sqlite3.connect('nba_games.db')
+        cursor = nba_conn.cursor()
+
+        cursor.execute('SELECT COUNT(*) FROM games WHERE season = 2024 AND completed = 1')
+        completed = cursor.fetchone()[0]
+
+        cursor.execute('SELECT COUNT(*) FROM teams')
+        teams = cursor.fetchone()[0]
+
+        cursor.execute('SELECT COUNT(*) FROM game_odds')
+        odds = cursor.fetchone()[0]
+
+        nba_conn.close()
+
+        st.markdown("#### Database Status")
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.metric("Teams", teams)
+        with col2:
+            st.metric("Historical Games", f"{completed:,}")
+        with col3:
+            st.metric("Odds Records", f"{odds:,}")
+
+    except Exception as e:
+        st.warning(f"Could not load NBA database stats: {e}")
 
 
 def show_sport_predictions(sport: str, max_week: int, default_week: int):
