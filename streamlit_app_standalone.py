@@ -8,6 +8,16 @@ import sqlite3
 import plotly.express as px
 from datetime import datetime
 import hashlib
+import subprocess
+import os
+import requests
+
+# Try to import feedparser for RSS feeds
+try:
+    import feedparser
+    FEEDPARSER_AVAILABLE = True
+except ImportError:
+    FEEDPARSER_AVAILABLE = False
 
 # Try to import deep-eagle module (with fallback)
 DEEP_EAGLE_AVAILABLE = False
@@ -390,13 +400,143 @@ def show_predictions():
         show_sport_predictions('NFL', max_week=18, default_week=12)
 
 
+def run_nfl_predictions_update(week: int = None):
+    """Run the NFL predictions update script"""
+    try:
+        script_path = os.path.join(os.path.dirname(__file__), 'update_predictions.py')
+        cmd = ['py', script_path]
+        if week:
+            cmd.extend(['--week', str(week)])
+
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=120,  # 2 minute timeout
+            cwd=os.path.dirname(__file__)
+        )
+
+        if result.returncode == 0:
+            return True, "Predictions updated successfully!"
+        else:
+            return False, f"Update failed: {result.stderr}"
+    except subprocess.TimeoutExpired:
+        return False, "Update timed out (>2 minutes)"
+    except Exception as e:
+        return False, f"Error running update: {str(e)}"
+
+
+def sync_nfl_predictions_to_cache():
+    """Sync NFL predictions from nfl_games.db to users.db prediction_cache"""
+    try:
+        # Read from nfl_games.db predictions table
+        nfl_conn = sqlite3.connect('nfl_games.db')
+        predictions_query = '''
+            SELECT
+                p.game_id,
+                g.season,
+                g.week,
+                g.date as game_date,
+                ht.display_name as home_team,
+                at.display_name as away_team,
+                p.pred_spread as predicted_spread,
+                p.pred_total as predicted_total,
+                p.pred_home_score as predicted_home_score,
+                p.pred_away_score as predicted_away_score,
+                p.pred_home_win_prob as home_win_probability,
+                p.pred_home_win_prob as confidence,
+                p.vegas_spread,
+                p.vegas_total,
+                p.spread_edge,
+                g.completed as game_completed,
+                g.home_score as actual_home_score,
+                g.away_score as actual_away_score
+            FROM predictions p
+            JOIN games g ON p.game_id = g.game_id
+            JOIN teams ht ON g.home_team_id = ht.team_id
+            JOIN teams at ON g.away_team_id = at.team_id
+            WHERE g.season = 2025
+            ORDER BY g.week, g.date
+        '''
+        predictions_df = pd.read_sql_query(predictions_query, nfl_conn)
+        nfl_conn.close()
+
+        if predictions_df.empty:
+            return False, "No predictions found in NFL database"
+
+        # Add sport column
+        predictions_df['sport'] = 'NFL'
+
+        # Write to users.db prediction_cache
+        users_conn = sqlite3.connect('users.db')
+        cursor = users_conn.cursor()
+
+        # Create table if not exists
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS prediction_cache (
+                game_id INTEGER,
+                season INTEGER,
+                week INTEGER,
+                sport TEXT,
+                game_date TEXT,
+                home_team TEXT,
+                away_team TEXT,
+                predicted_spread REAL,
+                predicted_total REAL,
+                predicted_home_score REAL,
+                predicted_away_score REAL,
+                home_win_probability REAL,
+                confidence REAL,
+                vegas_spread REAL,
+                vegas_total REAL,
+                spread_edge REAL,
+                game_completed INTEGER,
+                actual_home_score REAL,
+                actual_away_score REAL,
+                PRIMARY KEY (game_id, sport)
+            )
+        ''')
+
+        # Delete existing NFL predictions and insert new
+        cursor.execute("DELETE FROM prediction_cache WHERE sport = 'NFL'")
+
+        for _, row in predictions_df.iterrows():
+            cursor.execute('''
+                INSERT OR REPLACE INTO prediction_cache
+                (game_id, season, week, sport, game_date, home_team, away_team,
+                 predicted_spread, predicted_total, predicted_home_score, predicted_away_score,
+                 home_win_probability, confidence, vegas_spread, vegas_total, spread_edge,
+                 game_completed, actual_home_score, actual_away_score)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                row['game_id'], row['season'], row['week'], row['sport'],
+                row['game_date'], row['home_team'], row['away_team'],
+                row['predicted_spread'], row['predicted_total'],
+                row.get('predicted_home_score'), row.get('predicted_away_score'),
+                row.get('home_win_probability'), row.get('confidence'),
+                row.get('vegas_spread'), row.get('vegas_total'), row.get('spread_edge'),
+                row['game_completed'], row.get('actual_home_score'), row.get('actual_away_score')
+            ))
+
+        users_conn.commit()
+        users_conn.close()
+
+        return True, f"Synced {len(predictions_df)} NFL predictions to dashboard"
+
+    except Exception as e:
+        return False, f"Sync error: {str(e)}"
+
+
 def show_sport_predictions(sport: str, max_week: int, default_week: int):
     """Show predictions for a specific sport with confidence intervals"""
     sport_emoji = "🏈" if sport == "CFB" else "🏟️"
     st.markdown(f"### {sport_emoji} {sport} Week {default_week} Predictions")
 
-    # Week selector
-    col1, col2 = st.columns([3, 1])
+    # Week selector and action buttons
+    if sport == "NFL":
+        col1, col2, col3 = st.columns([3, 1, 1])
+    else:
+        col1, col2 = st.columns([3, 1])
 
     with col1:
         week = st.number_input(f"Select {sport} Week", min_value=1, max_value=max_week, value=default_week, key=f"{sport}_week")
@@ -405,6 +545,25 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
         if st.button("🔄 Refresh", use_container_width=True, key=f"{sport}_refresh"):
             st.cache_data.clear()
             st.rerun()
+
+    # NFL-specific: Update Predictions button
+    if sport == "NFL":
+        with col3:
+            if st.button("📊 Update Odds", use_container_width=True, key=f"{sport}_update"):
+                with st.spinner("Fetching latest odds and updating predictions..."):
+                    # Step 1: Run update script
+                    success, msg = run_nfl_predictions_update(week)
+                    if success:
+                        # Step 2: Sync to dashboard cache
+                        sync_success, sync_msg = sync_nfl_predictions_to_cache()
+                        if sync_success:
+                            st.success(f"Updated! {sync_msg}")
+                            st.cache_data.clear()
+                            st.rerun()
+                        else:
+                            st.warning(f"Predictions updated but sync failed: {sync_msg}")
+                    else:
+                        st.error(msg)
 
     # Fetch predictions
     predictions_df = get_predictions_from_db(week, sport=sport, season=2025)
@@ -605,6 +764,381 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
                     st.caption(f"Spread: {vegas_text}")
                     if vegas_total and not pd.isna(vegas_total):
                         st.caption(f"Total: {vegas_total:.1f}")
+
+
+# ============================================================================
+# News Functions
+# ============================================================================
+
+@st.cache_data(ttl=600)  # Cache for 10 minutes
+def fetch_rss_feed(url, source_name, max_items=5):
+    """Fetch and parse an RSS feed"""
+    if not FEEDPARSER_AVAILABLE:
+        return []
+    try:
+        feed = feedparser.parse(url)
+        articles = []
+        for entry in feed.entries[:max_items]:
+            articles.append({
+                'title': entry.get('title', 'No title'),
+                'link': entry.get('link', '#'),
+                'published': entry.get('published', ''),
+                'source': source_name
+            })
+        return articles
+    except Exception as e:
+        return []
+
+
+@st.cache_data(ttl=600)
+def get_all_news():
+    """Aggregate news from multiple sources"""
+    all_articles = []
+
+    # ESPN CFB
+    espn_cfb = fetch_rss_feed(
+        'https://www.espn.com/espn/rss/ncf/news',
+        'ESPN CFB',
+        max_items=8
+    )
+    all_articles.extend(espn_cfb)
+
+    # ESPN NFL
+    espn_nfl = fetch_rss_feed(
+        'https://www.espn.com/espn/rss/nfl/news',
+        'ESPN NFL',
+        max_items=8
+    )
+    all_articles.extend(espn_nfl)
+
+    # CBS Sports CFB
+    cbs_cfb = fetch_rss_feed(
+        'https://www.cbssports.com/rss/headlines/college-football/',
+        'CBS Sports CFB',
+        max_items=6
+    )
+    all_articles.extend(cbs_cfb)
+
+    # CBS Sports NFL
+    cbs_nfl = fetch_rss_feed(
+        'https://www.cbssports.com/rss/headlines/nfl/',
+        'CBS Sports NFL',
+        max_items=6
+    )
+    all_articles.extend(cbs_nfl)
+
+    # Yahoo CFB
+    yahoo_cfb = fetch_rss_feed(
+        'https://sports.yahoo.com/college-football/rss/',
+        'Yahoo CFB',
+        max_items=5
+    )
+    all_articles.extend(yahoo_cfb)
+
+    # Bleacher Report
+    br_feed = fetch_rss_feed(
+        'https://bleacherreport.com/articles/feed',
+        'Bleacher Report',
+        max_items=5
+    )
+    all_articles.extend(br_feed)
+
+    # Pro Football Talk (NBC Sports)
+    pft_feed = fetch_rss_feed(
+        'https://profootballtalk.nbcsports.com/feed/',
+        'NBC PFT',
+        max_items=6
+    )
+    all_articles.extend(pft_feed)
+
+    # The Athletic
+    athletic_feed = fetch_rss_feed(
+        'https://theathletic.com/feeds/rss/news/',
+        'The Athletic',
+        max_items=6
+    )
+    all_articles.extend(athletic_feed)
+
+    return all_articles
+
+
+@st.cache_data(ttl=300)
+def fetch_espn_injuries(sport='nfl'):
+    """Fetch injury data from ESPN API"""
+    try:
+        if sport == 'nfl':
+            url = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/injuries'
+        else:
+            url = 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/injuries'
+
+        resp = requests.get(url, timeout=10)
+        if resp.status_code == 200:
+            return resp.json()
+        return None
+    except Exception as e:
+        return None
+
+
+def get_upcoming_games_with_odds():
+    """Get upcoming CFB games with Vegas odds from database"""
+    try:
+        conn = get_db_connection()
+
+        query = '''
+        SELECT
+            g.game_id, g.season, g.week, g.date,
+            ht.name as home_team, at.name as away_team,
+            go.latest_line as spread,
+            go.latest_total_line as total
+        FROM games g
+        JOIN teams ht ON g.home_team_id = ht.team_id
+        JOIN teams at ON g.away_team_id = at.team_id
+        LEFT JOIN game_odds go ON g.game_id = go.game_id
+        WHERE g.completed = 0 AND g.season = 2025
+        ORDER BY g.date
+        LIMIT 20
+        '''
+        df = pd.read_sql_query(query, conn)
+        conn.close()
+        return df.to_dict('records') if not df.empty else []
+    except Exception as e:
+        return []
+
+
+def get_nfl_upcoming_games_with_odds():
+    """Get upcoming NFL games with Vegas odds from database"""
+    try:
+        conn = sqlite3.connect('nfl_games.db')
+
+        query = '''
+        SELECT
+            g.game_id, g.season, g.week, g.date,
+            ht.name as home_team, at.name as away_team,
+            go.latest_line as spread,
+            go.latest_total_line as total
+        FROM games g
+        JOIN teams ht ON g.home_team_id = ht.team_id
+        JOIN teams at ON g.away_team_id = at.team_id
+        LEFT JOIN game_odds go ON g.game_id = go.game_id
+        WHERE g.completed = 0 AND g.season = 2025
+        ORDER BY g.date
+        LIMIT 20
+        '''
+        df = pd.read_sql_query(query, conn)
+        conn.close()
+        return df.to_dict('records') if not df.empty else []
+    except Exception as e:
+        return []
+
+
+def show_news():
+    """Display news aggregator page"""
+    st.markdown('<p class="main-header">Sports News</p>', unsafe_allow_html=True)
+
+    # Quick links section
+    st.markdown("### Quick Links")
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        st.markdown("""
+        **ESPN**
+        - [College Football](https://www.espn.com/college-football/)
+        - [NFL](https://www.espn.com/nfl/)
+        - [CFB Scoreboard](https://www.espn.com/college-football/scoreboard)
+        - [NFL Scoreboard](https://www.espn.com/nfl/scoreboard)
+        """)
+
+    with col2:
+        st.markdown("""
+        **Vegas Insider**
+        - [CFB Odds](https://www.vegasinsider.com/college-football/odds/las-vegas/)
+        - [NFL Odds](https://www.vegasinsider.com/nfl/odds/las-vegas/)
+        - [CFB Matchups](https://www.vegasinsider.com/college-football/matchups/)
+        - [NFL Matchups](https://www.vegasinsider.com/nfl/matchups/)
+        """)
+
+    with col3:
+        st.markdown("""
+        **Betting Resources**
+        - [Action Network CFB](https://www.actionnetwork.com/ncaaf)
+        - [Action Network NFL](https://www.actionnetwork.com/nfl)
+        - [Covers CFB](https://www.covers.com/ncaaf)
+        - [Covers NFL](https://www.covers.com/nfl)
+        """)
+
+    with col4:
+        st.markdown("""
+        **Analysis**
+        - [CBS Sports CFB](https://www.cbssports.com/college-football/)
+        - [CBS Sports NFL](https://www.cbssports.com/nfl/)
+        - [247 Sports](https://247sports.com/)
+        - [The Athletic](https://theathletic.com/college-football/)
+        """)
+
+    st.markdown("---")
+
+    # News feed section
+    st.markdown("### Latest Headlines")
+
+    col1, col2 = st.columns([3, 1])
+    with col2:
+        if st.button("Refresh News"):
+            st.cache_data.clear()
+            st.rerun()
+
+    # Filter options
+    source_filter = st.selectbox(
+        "Filter by Source",
+        ["All Sources", "ESPN CFB", "ESPN NFL", "CBS Sports CFB", "CBS Sports NFL", "Yahoo CFB", "Bleacher Report", "NBC PFT", "The Athletic"]
+    )
+
+    # Fetch all news
+    with st.spinner("Loading news..."):
+        articles = get_all_news()
+
+    if not articles:
+        st.warning("Unable to fetch news. Please try again later or check if feedparser is installed.")
+    else:
+        # Apply filter
+        if source_filter != "All Sources":
+            articles = [a for a in articles if a['source'] == source_filter]
+
+        st.success(f"Found {len(articles)} articles")
+
+        # Display articles in two columns
+        col1, col2 = st.columns(2)
+
+        for i, article in enumerate(articles):
+            with col1 if i % 2 == 0 else col2:
+                source_colors = {
+                    'ESPN CFB': '#cc0000',
+                    'ESPN NFL': '#cc0000',
+                    'CBS Sports CFB': '#0066cc',
+                    'CBS Sports NFL': '#0066cc',
+                    'Yahoo CFB': '#6001d2',
+                    'Bleacher Report': '#00b2a9',
+                    'NBC PFT': '#006699',
+                    'The Athletic': '#d63a3a'
+                }
+                color = source_colors.get(article['source'], '#666666')
+
+                st.markdown(f"""
+                <div style="padding: 10px; margin: 5px 0; border-left: 3px solid {color}; background-color: #f8f9fa;">
+                    <small style="color: {color}; font-weight: bold;">{article['source']}</small>
+                    <br>
+                    <a href="{article['link']}" target="_blank" style="color: #1f77b4; text-decoration: none; font-weight: 500;">
+                        {article['title']}
+                    </a>
+                    <br>
+                    <small style="color: #888;">{article['published'][:25] if article['published'] else ''}</small>
+                </div>
+                """, unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # Current Vegas Odds Section
+    st.markdown("### Current Vegas Odds")
+
+    odds_tab1, odds_tab2 = st.tabs(["CFB Odds", "NFL Odds"])
+
+    with odds_tab1:
+        cfb_odds = get_upcoming_games_with_odds()
+        if cfb_odds:
+            for game in cfb_odds[:10]:
+                spread_str = f"Spread: {game['spread']:+.1f}" if game['spread'] else "Spread: N/A"
+                total_str = f"O/U: {game['total']:.1f}" if game['total'] else "O/U: N/A"
+                st.markdown(f"""
+                <div style="padding: 8px; margin: 3px 0; border-left: 3px solid #cc0000; background-color: #f8f9fa;">
+                    <strong>{game['away_team']} @ {game['home_team']}</strong><br>
+                    <small>Week {game['week']} | {spread_str} | {total_str}</small>
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.info("No upcoming CFB games with odds found.")
+
+    with odds_tab2:
+        nfl_odds = get_nfl_upcoming_games_with_odds()
+        if nfl_odds:
+            for game in nfl_odds[:10]:
+                spread_str = f"Spread: {game['spread']:+.1f}" if game['spread'] else "Spread: N/A"
+                total_str = f"O/U: {game['total']:.1f}" if game['total'] else "O/U: N/A"
+                st.markdown(f"""
+                <div style="padding: 8px; margin: 3px 0; border-left: 3px solid #0066cc; background-color: #f8f9fa;">
+                    <strong>{game['away_team']} @ {game['home_team']}</strong><br>
+                    <small>Week {game['week']} | {spread_str} | {total_str}</small>
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.info("No upcoming NFL games with odds found.")
+
+    st.markdown("---")
+
+    # Injury Reports Section
+    st.markdown("### Injury Reports")
+
+    inj_tab1, inj_tab2 = st.tabs(["NFL Injuries", "CFB Injuries"])
+
+    with inj_tab1:
+        nfl_injuries = fetch_espn_injuries('nfl')
+        if nfl_injuries and 'injuries' in nfl_injuries:
+            teams_shown = 0
+            for team_data in nfl_injuries['injuries'][:8]:
+                team_name = team_data.get('team', {}).get('displayName', 'Unknown')
+                injuries = team_data.get('injuries', [])
+                if injuries:
+                    teams_shown += 1
+                    with st.expander(f"🏈 {team_name} ({len(injuries)} injuries)"):
+                        for inj in injuries[:5]:
+                            athlete = inj.get('athlete', {})
+                            name = athlete.get('displayName', 'Unknown')
+                            position = athlete.get('position', {}).get('abbreviation', '')
+                            status = inj.get('status', 'Unknown')
+                            st.markdown(f"- **{name}** ({position}) - {status}")
+            if teams_shown == 0:
+                st.info("No significant NFL injuries reported.")
+        else:
+            st.info("Unable to fetch NFL injury data.")
+
+    with inj_tab2:
+        cfb_injuries = fetch_espn_injuries('cfb')
+        if cfb_injuries and 'injuries' in cfb_injuries:
+            teams_shown = 0
+            for team_data in cfb_injuries['injuries'][:8]:
+                team_name = team_data.get('team', {}).get('displayName', 'Unknown')
+                injuries = team_data.get('injuries', [])
+                if injuries:
+                    teams_shown += 1
+                    with st.expander(f"🏈 {team_name} ({len(injuries)} injuries)"):
+                        for inj in injuries[:5]:
+                            athlete = inj.get('athlete', {})
+                            name = athlete.get('displayName', 'Unknown')
+                            position = athlete.get('position', {}).get('abbreviation', '')
+                            status = inj.get('status', 'Unknown')
+                            st.markdown(f"- **{name}** ({position}) - {status}")
+            if teams_shown == 0:
+                st.info("No significant CFB injuries reported.")
+        else:
+            st.info("Unable to fetch CFB injury data.")
+
+    st.markdown("---")
+
+    # Betting Resources
+    st.markdown("### Betting Resources")
+
+    st.info("""
+    **Popular Sportsbooks:**
+    - [DraftKings](https://sportsbook.draftkings.com/)
+    - [FanDuel](https://sportsbook.fanduel.com/)
+    - [BetMGM](https://sports.betmgm.com/)
+    - [Caesars](https://www.caesars.com/sportsbook-and-casino)
+
+    **Odds Comparison:**
+    - [OddsShark](https://www.oddsshark.com/)
+    - [The Odds API](https://the-odds-api.com/)
+    - [Odds Portal](https://www.oddsportal.com/)
+    """)
+
 
 def show_database_explorer():
     """Database exploration interface"""
@@ -917,7 +1451,7 @@ def main_page():
         if 'current_page' not in st.session_state:
             st.session_state.current_page = "Overview"
 
-        page = st.radio("Navigate", ["Overview", "View Predictions", "Model Insights", "Database Explorer"])
+        page = st.radio("Navigate", ["Overview", "View Predictions", "News", "Model Insights", "Database Explorer"])
         st.session_state.current_page = page
 
         st.markdown("---")
@@ -939,6 +1473,8 @@ def main_page():
         show_overview(user, db_stats)
     elif st.session_state.current_page == "View Predictions":
         show_predictions()
+    elif st.session_state.current_page == "News":
+        show_news()
     elif st.session_state.current_page == "Model Insights":
         show_model_insights()
     elif st.session_state.current_page == "Database Explorer":
