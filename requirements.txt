@@ -1,5 +1,5 @@
 # Core dependencies (required)
-streamlit>=1.51.0
+streamlit>=1.28.0
 pandas>=2.0.0
 plotly>=5.14.0
 requests>=2.31.0
@@ -8,5 +8,5 @@ requests>=2.31.0
 feedparser>=6.0.0
 beautifulsoup4>=4.12.0
 
-# Optional: Deep learning module (app falls back to statistical predictions if unavailable)
-git+https://github.com/mckayje3/deep-eagle.git
+# Note: deep-eagle module is optional - app falls back to statistical predictions if unavailable
+# To install locally: pip install git+https://github.com/mckayje3/deep-eagle.git
