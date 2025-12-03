@@ -599,7 +599,97 @@ def get_all_news():
     )
     all_articles.extend(br_feed)
 
+    # Pro Football Talk (NBC Sports) - Great for NFL news
+    pft_feed = fetch_rss_feed(
+        'https://profootballtalk.nbcsports.com/feed/',
+        'NBC PFT',
+        max_items=6
+    )
+    all_articles.extend(pft_feed)
+
+    # The Athletic (general sports news)
+    athletic_feed = fetch_rss_feed(
+        'https://theathletic.com/feeds/rss/news/',
+        'The Athletic',
+        max_items=6
+    )
+    all_articles.extend(athletic_feed)
+
     return all_articles
+
+
+@st.cache_data(ttl=300)  # Cache for 5 minutes
+def fetch_espn_injuries(sport='nfl'):
+    """Fetch injury data from ESPN API"""
+    try:
+        if sport == 'nfl':
+            url = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/injuries'
+        else:
+            url = 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/injuries'
+
+        resp = requests.get(url, timeout=10)
+        if resp.status_code == 200:
+            return resp.json()
+        return None
+    except Exception as e:
+        return None
+
+
+def get_upcoming_games_with_odds():
+    """Get upcoming games with Vegas odds from database"""
+    try:
+        conn = get_db_connection()
+
+        # Get upcoming CFB games with odds
+        cfb_query = '''
+        SELECT
+            g.game_id, g.season, g.week, g.date,
+            ht.name as home_team, at.name as away_team,
+            go.latest_line as spread,
+            go.latest_total_line as total,
+            go.opening_line as opening_spread,
+            go.opening_total_line as opening_total
+        FROM games g
+        JOIN teams ht ON g.home_team_id = ht.team_id
+        JOIN teams at ON g.away_team_id = at.team_id
+        LEFT JOIN game_odds go ON g.game_id = go.game_id
+        WHERE g.completed = 0 AND g.season = 2025
+        ORDER BY g.date
+        LIMIT 20
+        '''
+        cfb_games = pd.read_sql_query(cfb_query, conn)
+        conn.close()
+        return cfb_games
+    except Exception as e:
+        return pd.DataFrame()
+
+
+def get_nfl_upcoming_games_with_odds():
+    """Get upcoming NFL games with Vegas odds from database"""
+    try:
+        conn = sqlite3.connect('nfl_games.db')
+
+        query = '''
+        SELECT
+            g.game_id, g.season, g.week, g.date,
+            ht.name as home_team, at.name as away_team,
+            go.latest_line as spread,
+            go.latest_total_line as total,
+            go.opening_line as opening_spread,
+            go.opening_total_line as opening_total
+        FROM games g
+        JOIN teams ht ON g.home_team_id = ht.team_id
+        JOIN teams at ON g.away_team_id = at.team_id
+        LEFT JOIN game_odds go ON g.game_id = go.game_id
+        WHERE g.completed = 0 AND g.season = 2025
+        ORDER BY g.date
+        LIMIT 20
+        '''
+        nfl_games = pd.read_sql_query(query, conn)
+        conn.close()
+        return nfl_games
+    except Exception as e:
+        return pd.DataFrame()
 
 
 def show_news():
@@ -661,7 +751,7 @@ def show_news():
     # Filter options
     source_filter = st.selectbox(
         "Filter by Source",
-        ["All Sources", "ESPN CFB", "ESPN NFL", "CBS Sports CFB", "CBS Sports NFL", "Yahoo CFB", "Bleacher Report"]
+        ["All Sources", "ESPN CFB", "ESPN NFL", "CBS Sports CFB", "CBS Sports NFL", "Yahoo CFB", "Bleacher Report", "NBC Pro Football Talk", "The Athletic"]
     )
 
     # Fetch all news
@@ -689,7 +779,9 @@ def show_news():
                 'CBS Sports CFB': '#0066cc',
                 'CBS Sports NFL': '#0066cc',
                 'Yahoo CFB': '#6001d2',
-                'Bleacher Report': '#00b2a9'
+                'Bleacher Report': '#00b2a9',
+                'NBC Pro Football Talk': '#006699',
+                'The Athletic': '#d63a3a'
             }
             color = source_colors.get(article['source'], '#666666')
 
@@ -704,6 +796,92 @@ def show_news():
                 <small style="color: #888;">{article['published'][:25] if article['published'] else ''}</small>
             </div>
             """, unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # Current Vegas Odds Section
+    st.markdown("### Current Vegas Odds")
+
+    odds_tab1, odds_tab2 = st.tabs(["CFB Odds", "NFL Odds"])
+
+    with odds_tab1:
+        cfb_odds = get_upcoming_games_with_odds()
+        if cfb_odds:
+            for game in cfb_odds[:10]:  # Show top 10
+                spread_str = f"Spread: {game['spread']:+.1f}" if game['spread'] else "Spread: N/A"
+                total_str = f"O/U: {game['total']:.1f}" if game['total'] else "O/U: N/A"
+                st.markdown(f"""
+                <div style="padding: 8px; margin: 3px 0; border-left: 3px solid #cc0000; background-color: #f8f9fa;">
+                    <strong>{game['away_team']} @ {game['home_team']}</strong><br>
+                    <small>Week {game['week']} | {spread_str} | {total_str}</small>
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.info("No upcoming CFB games with odds found.")
+
+    with odds_tab2:
+        nfl_odds = get_nfl_upcoming_games_with_odds()
+        if nfl_odds:
+            for game in nfl_odds[:10]:  # Show top 10
+                spread_str = f"Spread: {game['spread']:+.1f}" if game['spread'] else "Spread: N/A"
+                total_str = f"O/U: {game['total']:.1f}" if game['total'] else "O/U: N/A"
+                st.markdown(f"""
+                <div style="padding: 8px; margin: 3px 0; border-left: 3px solid #0066cc; background-color: #f8f9fa;">
+                    <strong>{game['away_team']} @ {game['home_team']}</strong><br>
+                    <small>Week {game['week']} | {spread_str} | {total_str}</small>
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.info("No upcoming NFL games with odds found.")
+
+    st.markdown("---")
+
+    # Injury Reports Section
+    st.markdown("### Injury Reports")
+
+    inj_tab1, inj_tab2 = st.tabs(["NFL Injuries", "CFB Injuries"])
+
+    with inj_tab1:
+        nfl_injuries = fetch_espn_injuries('nfl')
+        if nfl_injuries and 'injuries' in nfl_injuries:
+            teams_shown = 0
+            for team_data in nfl_injuries['injuries'][:8]:  # Show 8 teams
+                team_name = team_data.get('team', {}).get('displayName', 'Unknown')
+                injuries = team_data.get('injuries', [])
+                if injuries:
+                    teams_shown += 1
+                    with st.expander(f"🏈 {team_name} ({len(injuries)} injuries)"):
+                        for inj in injuries[:5]:  # Top 5 per team
+                            athlete = inj.get('athlete', {})
+                            name = athlete.get('displayName', 'Unknown')
+                            position = athlete.get('position', {}).get('abbreviation', '')
+                            status = inj.get('status', 'Unknown')
+                            st.markdown(f"- **{name}** ({position}) - {status}")
+            if teams_shown == 0:
+                st.info("No significant NFL injuries reported.")
+        else:
+            st.info("Unable to fetch NFL injury data.")
+
+    with inj_tab2:
+        cfb_injuries = fetch_espn_injuries('cfb')
+        if cfb_injuries and 'injuries' in cfb_injuries:
+            teams_shown = 0
+            for team_data in cfb_injuries['injuries'][:8]:  # Show 8 teams
+                team_name = team_data.get('team', {}).get('displayName', 'Unknown')
+                injuries = team_data.get('injuries', [])
+                if injuries:
+                    teams_shown += 1
+                    with st.expander(f"🏈 {team_name} ({len(injuries)} injuries)"):
+                        for inj in injuries[:5]:  # Top 5 per team
+                            athlete = inj.get('athlete', {})
+                            name = athlete.get('displayName', 'Unknown')
+                            position = athlete.get('position', {}).get('abbreviation', '')
+                            status = inj.get('status', 'Unknown')
+                            st.markdown(f"- **{name}** ({position}) - {status}")
+            if teams_shown == 0:
+                st.info("No significant CFB injuries reported.")
+        else:
+            st.info("Unable to fetch CFB injury data.")
 
     st.markdown("---")
 
