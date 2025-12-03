@@ -316,6 +316,49 @@ def save_predictions_to_cache(predictions):
         print(f"  {key}: {count} games")
 
 
+def push_to_github():
+    """Commit and push users.db to GitHub"""
+    import subprocess
+
+    print(f"\n{'='*80}")
+    print("PUSHING TO GITHUB")
+    print('='*80)
+
+    try:
+        # Check if there are changes to users.db
+        result = subprocess.run(
+            ['git', 'status', '--porcelain', 'users.db'],
+            capture_output=True, text=True, cwd=os.path.dirname(os.path.abspath(__file__))
+        )
+
+        if not result.stdout.strip():
+            print("No changes to users.db")
+            return True
+
+        # Add users.db
+        subprocess.run(['git', 'add', 'users.db'], check=True,
+                      cwd=os.path.dirname(os.path.abspath(__file__)))
+
+        # Commit
+        commit_msg = f"Update predictions cache - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+        subprocess.run(['git', 'commit', '-m', commit_msg], check=True,
+                      cwd=os.path.dirname(os.path.abspath(__file__)))
+
+        # Push
+        subprocess.run(['git', 'push', 'origin', 'main'], check=True,
+                      cwd=os.path.dirname(os.path.abspath(__file__)))
+
+        print("Successfully pushed to GitHub!")
+        return True
+
+    except subprocess.CalledProcessError as e:
+        print(f"Git error: {e}")
+        return False
+    except Exception as e:
+        print(f"Error pushing to GitHub: {e}")
+        return False
+
+
 def main():
     """Main function"""
     import argparse
@@ -325,6 +368,7 @@ def main():
     parser.add_argument('--weeks', type=str, help='Comma-separated list of weeks (e.g., 14,15)')
     parser.add_argument('--backfill', action='store_true', help='Include completed games')
     parser.add_argument('--all-weeks', action='store_true', help='Generate for all 2025 weeks')
+    parser.add_argument('--push', action='store_true', help='Auto-push users.db to GitHub after generating')
 
     args = parser.parse_args()
 
@@ -351,6 +395,10 @@ def main():
     print("PREDICTION GENERATION COMPLETE")
     print(f"Total predictions: {len(all_predictions)}")
     print('='*80)
+
+    # Auto-push if requested
+    if args.push and all_predictions:
+        push_to_github()
 
 
 if __name__ == '__main__':
