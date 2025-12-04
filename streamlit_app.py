@@ -576,27 +576,23 @@ def display_game_card(row, sport_emoji="🏈"):
         actual_total = actual_home + actual_away
         actual_winner = home_team if actual_home > actual_away else (away_team if actual_away > actual_home else "Tie")
 
-    # Format spread for display
-    # Display convention: away - home (negative = home favored, positive = away favored)
-    # Our internal: model_spread = home - away (positive = home wins)
-    # So we negate to get away - home format
+    # Format spread for display (home team perspective)
+    # Internal: model_spread = home - away (positive = home wins/favored)
+    # Vegas: negative = home favored (standard convention)
     def format_spread(spread_val):
-        """Format spread for display (away - home convention)"""
+        """Format spread for display (home team perspective).
+        Positive = home team wins, Negative = home team loses.
+        Standard Vegas convention: negative = favorite."""
         if spread_val is None or pd.isna(spread_val):
             return "NL"
-        # Display as away - home: negate since internal is home - away
-        display_spread = -spread_val
-        return f"{display_spread:+.1f}"
+        return f"{spread_val:+.1f}"
 
     def format_vegas_spread(spread_val):
-        """Convert Vegas spread to away-home convention for display.
-        Vegas stores as home team spread (negative=home favored).
-        We negate to get away-home format (negative=away loses)."""
+        """Format Vegas spread (already in home team perspective).
+        Negative = home team favored, Positive = away team favored."""
         if spread_val is None or pd.isna(spread_val):
             return "NL"
-        # Negate to convert from home perspective to away-home perspective
-        display_spread = -spread_val
-        return f"{display_spread:+.1f}"
+        return f"{spread_val:+.1f}"
 
     # Build the expander title
     conf_pct = (confidence if confidence else 0.5) * 100
@@ -608,8 +604,8 @@ def display_game_card(row, sport_emoji="🏈"):
 
         with col1:
             st.markdown("**Metric**")
-            st.write(f"🏠 {home_team}")
             st.write(f"✈️ {away_team}")
+            st.write(f"🏠 {home_team}")
             st.write("Spread")
             st.write("Total")
             st.write("Winner")
@@ -617,8 +613,8 @@ def display_game_card(row, sport_emoji="🏈"):
         with col2:
             st.markdown("**Model**")
             if model_home_score is not None:
-                st.write(f"{model_home_score:.0f}")
                 st.write(f"{model_away_score:.0f}")
+                st.write(f"{model_home_score:.0f}")
             else:
                 st.write("-")
                 st.write("-")
@@ -630,8 +626,8 @@ def display_game_card(row, sport_emoji="🏈"):
             st.markdown("**Vegas**")
             if has_vegas:
                 if vegas_home_score is not None:
-                    st.write(f"{vegas_home_score:.0f}")
                     st.write(f"{vegas_away_score:.0f}")
+                    st.write(f"{vegas_home_score:.0f}")
                 else:
                     st.write("-")
                     st.write("-")
@@ -648,8 +644,8 @@ def display_game_card(row, sport_emoji="🏈"):
         with col4:
             st.markdown("**Result**")
             if has_result:
-                st.write(f"{actual_home:.0f}")
                 st.write(f"{actual_away:.0f}")
+                st.write(f"{actual_home:.0f}")
                 st.write(format_spread(actual_spread))
                 st.write(f"{actual_total:.0f}")
                 st.write(actual_winner)
