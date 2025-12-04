@@ -401,7 +401,7 @@ def show_predictions():
         show_sport_predictions('NFL', max_week=18, default_week=14)
 
     with sport_tab[2]:
-        show_nba_predictions()
+        show_nba_predictions_live()
 
 
 def run_nfl_predictions_update(week: int = None):
@@ -532,51 +532,211 @@ def sync_nfl_predictions_to_cache():
 
 
 def show_nba_predictions():
-    """Show NBA predictions - coming soon placeholder"""
-    st.markdown("### 🏀 NBA Predictions")
+    """Show NBA predictions - coming soon placeholder (legacy function)"""
+    show_nba_predictions_live()
 
-    st.info("""
-    **NBA Predictions - Coming Soon!**
 
-    Our Deep Eagle AI model has been trained on NBA data and is ready to make predictions.
-    NBA predictions will be available once the 2025-26 NBA season schedule is loaded.
+def show_nba_predictions_live():
+    """Show live NBA predictions for 2024-25 season"""
+    st.markdown("### 🏀 NBA 2024-25 Predictions")
 
-    **Model Performance (2024-25 Season):**
-    - Winner Accuracy: 66.9%
-    - Spread MAE: 12.6 points (vs Vegas ~18 points)
-    - Total Points MAE: 15.7 points
+    # NBA uses season=2024 for 2024-25 season
+    season = 2024
 
-    The model excels at spread prediction, beating Vegas by approximately 5 points on average.
-    """)
+    # Get current "week" (weeks since Oct 15, 2024)
+    from datetime import datetime
+    season_start = datetime(2024, 10, 15)
+    current_week = max(0, (datetime.now() - season_start).days // 7)
 
-    # Show NBA database stats
+    col1, col2 = st.columns([3, 1])
+
+    with col1:
+        week = st.number_input("Select Week (since season start)", min_value=0, max_value=50, value=min(current_week, 7), key="nba_week")
+
+    with col2:
+        if st.button("🔄 Refresh", use_container_width=True, key="nba_refresh"):
+            st.cache_data.clear()
+            st.rerun()
+
+    # Fetch NBA predictions
     try:
-        nba_conn = sqlite3.connect('nba_games.db')
-        cursor = nba_conn.cursor()
-
-        cursor.execute('SELECT COUNT(*) FROM games WHERE season = 2024 AND completed = 1')
-        completed = cursor.fetchone()[0]
-
-        cursor.execute('SELECT COUNT(*) FROM teams')
-        teams = cursor.fetchone()[0]
-
-        cursor.execute('SELECT COUNT(*) FROM game_odds')
-        odds = cursor.fetchone()[0]
-
-        nba_conn.close()
-
-        st.markdown("#### Database Status")
-        col1, col2, col3 = st.columns(3)
-
-        with col1:
-            st.metric("Teams", teams)
-        with col2:
-            st.metric("Historical Games", f"{completed:,}")
-        with col3:
-            st.metric("Odds Records", f"{odds:,}")
-
+        conn = sqlite3.connect('users.db')
+        query = """
+            SELECT * FROM prediction_cache
+            WHERE week = ? AND sport = 'NBA' AND season = ?
+            ORDER BY game_date
+        """
+        predictions_df = pd.read_sql_query(query, conn, params=(week, season))
+        conn.close()
     except Exception as e:
-        st.warning(f"Could not load NBA database stats: {e}")
+        st.error(f"Error loading predictions: {e}")
+        predictions_df = pd.DataFrame()
+
+    if predictions_df.empty:
+        st.warning(f"No predictions available for Week {week}")
+
+        # Show all upcoming games
+        st.markdown("#### Upcoming Games")
+        try:
+            conn = sqlite3.connect('users.db')
+            upcoming_query = """
+                SELECT * FROM prediction_cache
+                WHERE sport = 'NBA' AND season = ? AND game_completed = 0
+                ORDER BY game_date
+                LIMIT 20
+            """
+            upcoming_df = pd.read_sql_query(upcoming_query, conn, params=(season,))
+            conn.close()
+
+            if not upcoming_df.empty:
+                st.success(f"Found {len(upcoming_df)} upcoming games")
+                for _, row in upcoming_df.iterrows():
+                    spread = row['predicted_spread']
+                    if spread > 0:
+                        pick = f"{row['home_team']} by {spread:.1f}"
+                    else:
+                        pick = f"{row['away_team']} by {abs(spread):.1f}"
+                    st.write(f"**{row['away_team']}** @ **{row['home_team']}** - Pick: {pick}")
+        except Exception as e:
+            st.warning(f"Could not load upcoming games: {e}")
+        return
+
+    st.success(f"Found {len(predictions_df)} games for Week {week}")
+
+    # Check if confidence column exists, add if not
+    if 'confidence' not in predictions_df.columns:
+        predictions_df['confidence'] = 0.85
+    else:
+        predictions_df['confidence'] = predictions_df['confidence'].fillna(0.85)
+
+    # Summary stats
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        st.metric("Avg Total Points", f"{predictions_df['predicted_total'].mean():.1f}")
+
+    with col2:
+        st.metric("Avg Spread", f"{predictions_df['predicted_spread'].abs().mean():.1f} pts")
+
+    with col3:
+        close_games = (predictions_df['predicted_spread'].abs() < 5).sum()
+        st.metric("Close Games (<5)", close_games)
+
+    with col4:
+        avg_conf = predictions_df['confidence'].mean()
+        st.metric("Avg Confidence", f"{avg_conf:.0%}")
+
+    st.markdown("---")
+
+    # High Confidence Picks Section
+    high_conf = predictions_df[predictions_df['confidence'] >= 0.88]
+    if len(high_conf) > 0:
+        st.markdown("### ⭐ High Confidence Picks (88%+)")
+        for _, row in high_conf.head(5).iterrows():
+            conf_pct = row['confidence'] * 100
+            spread = row['predicted_spread']
+            if spread > 0:
+                pick = f"{row['home_team']} {spread:+.1f}"
+            else:
+                pick = f"{row['away_team']} {abs(spread):+.1f}"
+
+            col1, col2, col3 = st.columns([3, 2, 1])
+            with col1:
+                st.write(f"**{row['away_team']}** @ **{row['home_team']}**")
+            with col2:
+                st.write(f"Pick: {pick}")
+            with col3:
+                st.write(f"🎯 {conf_pct:.0f}%")
+        st.markdown("---")
+
+    # Filters
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        status_filter = st.selectbox("Status", ["All", "Pending", "Completed"], key="nba_status")
+
+    with col2:
+        spread_filter = st.selectbox("Spread Size",
+                                     ["All", "Close (<5)", "Medium (5-10)", "Large (>10)"], key="nba_spread_filter")
+
+    with col3:
+        conf_filter = st.selectbox("Confidence",
+                                   ["All", "High (88%+)", "Medium (80-88%)", "Low (<80%)"], key="nba_conf_filter")
+
+    # Apply filters
+    filtered_df = predictions_df.copy()
+
+    if status_filter == "Pending":
+        filtered_df = filtered_df[filtered_df['game_completed'] == 0]
+    elif status_filter == "Completed":
+        filtered_df = filtered_df[filtered_df['game_completed'] == 1]
+
+    if spread_filter == "Close (<5)":
+        filtered_df = filtered_df[filtered_df['predicted_spread'].abs() < 5]
+    elif spread_filter == "Medium (5-10)":
+        filtered_df = filtered_df[(filtered_df['predicted_spread'].abs() >= 5) &
+                                  (filtered_df['predicted_spread'].abs() <= 10)]
+    elif spread_filter == "Large (>10)":
+        filtered_df = filtered_df[filtered_df['predicted_spread'].abs() > 10]
+
+    if conf_filter == "High (88%+)":
+        filtered_df = filtered_df[filtered_df['confidence'] >= 0.88]
+    elif conf_filter == "Medium (80-88%)":
+        filtered_df = filtered_df[(filtered_df['confidence'] >= 0.80) &
+                                  (filtered_df['confidence'] < 0.88)]
+    elif conf_filter == "Low (<80%)":
+        filtered_df = filtered_df[filtered_df['confidence'] < 0.80]
+
+    st.markdown(f"### Showing {len(filtered_df)} predictions")
+
+    # Display predictions
+    for idx, row in filtered_df.iterrows():
+        matchup = f"{row['away_team']} @ {row['home_team']}"
+        home_win_prob = row.get('home_win_probability') if row.get('home_win_probability') is not None else 0.5
+        spread = row['predicted_spread']
+
+        if spread > 0:
+            predicted_winner = row['home_team']
+            winner_prob = home_win_prob
+        else:
+            predicted_winner = row['away_team']
+            winner_prob = 1 - home_win_prob
+
+        conf_val = row.get('confidence') if row.get('confidence') is not None else 0.85
+        conf_pct = conf_val * 100
+
+        with st.expander(f"🏀 {matchup} | Pick: {predicted_winner} | Conf: {conf_pct:.0f}%"):
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.markdown("**Prediction**")
+                pred_home = row.get('predicted_home_score')
+                pred_away = row.get('predicted_away_score')
+                if pred_home is not None and pred_away is not None:
+                    st.write(f"Score: {row['away_team']} {pred_away:.0f} - {pred_home:.0f} {row['home_team']}")
+                st.write(f"Spread: {row['home_team']} {spread:+.1f}")
+                st.write(f"Total: {row['predicted_total']:.1f}")
+                st.write(f"Win Prob: {winner_prob:.0%}")
+
+            with col2:
+                st.markdown("**Vegas Lines**")
+                vegas_spread = row.get('vegas_spread')
+                vegas_total = row.get('vegas_total')
+                if vegas_spread:
+                    st.write(f"Spread: {row['home_team']} {vegas_spread:+.1f}")
+                if vegas_total:
+                    st.write(f"Total: {vegas_total:.1f}")
+
+                # Show actual results if completed
+                if row['game_completed']:
+                    st.markdown("**Result**")
+                    actual_home = row.get('actual_home_score')
+                    actual_away = row.get('actual_away_score')
+                    if actual_home is not None and actual_away is not None:
+                        actual_spread = actual_home - actual_away
+                        st.write(f"Final: {row['away_team']} {actual_away:.0f} - {actual_home:.0f} {row['home_team']}")
+                        spread_hit = (spread > 0 and actual_spread > 0) or (spread < 0 and actual_spread < 0)
+                        st.write(f"Spread Hit: {'✅' if spread_hit else '❌'}")
 
 
 def show_sport_predictions(sport: str, max_week: int, default_week: int):
