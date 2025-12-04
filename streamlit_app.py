@@ -531,6 +531,191 @@ def sync_nfl_predictions_to_cache():
         return False, f"Sync error: {str(e)}"
 
 
+def display_game_card(row, sport_emoji="🏈"):
+    """
+    Unified game display component for all sports.
+    Shows: Metric | Model | Vegas | Result columns with comparison tags.
+
+    row: DataFrame row with prediction data
+    sport_emoji: emoji for the sport (🏈 for NFL/CFB, 🏀 for NBA)
+    """
+    home_team = row['home_team']
+    away_team = row['away_team']
+
+    # Model predictions
+    model_home_score = row.get('predicted_home_score')
+    model_away_score = row.get('predicted_away_score')
+    model_spread = row.get('predicted_spread', 0)  # home - away, positive = home favorite
+    model_total = row.get('predicted_total', 0)
+    model_winner = home_team if model_spread > 0 else away_team
+    home_win_prob = row.get('home_win_probability', 0.5)
+    confidence = row.get('confidence', 0.5)
+
+    # Vegas lines
+    vegas_spread = row.get('vegas_spread')  # home team spread, negative = home favorite
+    vegas_total = row.get('vegas_total')
+    has_vegas = vegas_spread is not None and not pd.isna(vegas_spread) and vegas_spread != 0
+
+    # Calculate Vegas implied scores if available
+    vegas_home_score = None
+    vegas_away_score = None
+    vegas_winner = None
+    if has_vegas and vegas_total and not pd.isna(vegas_total):
+        vegas_home_score = vegas_total / 2 - vegas_spread / 2
+        vegas_away_score = vegas_total / 2 + vegas_spread / 2
+        vegas_winner = home_team if vegas_spread < 0 else away_team
+
+    # Actual results
+    game_completed = row.get('game_completed', 0)
+    actual_home = row.get('actual_home_score')
+    actual_away = row.get('actual_away_score')
+    has_result = game_completed and actual_home is not None and actual_away is not None
+
+    if has_result:
+        actual_spread = actual_home - actual_away
+        actual_total = actual_home + actual_away
+        actual_winner = home_team if actual_home > actual_away else (away_team if actual_away > actual_home else "Tie")
+
+    # Format spread for display - convert to betting convention
+    # Betting convention: negative = home favored, positive = home is underdog
+    # Our internal: model_spread = home - away (positive = home wins)
+    # So we negate for display: if home wins by 7 (model_spread=+7), display as -7
+    def format_model_spread(spread_val):
+        """Convert model spread (home-away) to betting convention (negative=favored)"""
+        if spread_val is None or pd.isna(spread_val):
+            return "NL"
+        # Negate: positive model spread (home wins) becomes negative (home favored)
+        return f"{-spread_val:+.1f}"
+
+    def format_vegas_spread(spread_val):
+        """Vegas spread already in betting convention (negative=home favored)"""
+        if spread_val is None or pd.isna(spread_val):
+            return "NL"
+        return f"{spread_val:+.1f}"
+
+    # Build the expander title
+    conf_pct = (confidence if confidence else 0.5) * 100
+    title = f"{sport_emoji} {away_team} @ {home_team}"
+
+    with st.expander(title, expanded=False):
+        # Create 4 columns: Metric | Model | Vegas | Result
+        col1, col2, col3, col4 = st.columns([1.5, 1, 1, 1])
+
+        with col1:
+            st.markdown("**Metric**")
+            st.write(f"🏠 {home_team}")
+            st.write(f"✈️ {away_team}")
+            st.write("Spread")
+            st.write("Total")
+            st.write("Winner")
+
+        with col2:
+            st.markdown("**Model**")
+            if model_home_score is not None:
+                st.write(f"{model_home_score:.0f}")
+                st.write(f"{model_away_score:.0f}")
+            else:
+                st.write("-")
+                st.write("-")
+            st.write(format_model_spread(model_spread))
+            st.write(f"{model_total:.1f}" if model_total else "-")
+            st.write(f"{model_winner} ({conf_pct:.0f}%)")
+
+        with col3:
+            st.markdown("**Vegas**")
+            if has_vegas:
+                if vegas_home_score is not None:
+                    st.write(f"{vegas_home_score:.0f}")
+                    st.write(f"{vegas_away_score:.0f}")
+                else:
+                    st.write("-")
+                    st.write("-")
+                st.write(format_vegas_spread(vegas_spread))
+                st.write(f"{vegas_total:.1f}" if vegas_total else "-")
+                st.write(vegas_winner if vegas_winner else "-")
+            else:
+                st.write("NL")
+                st.write("NL")
+                st.write("NL")
+                st.write("NL")
+                st.write("NL")
+
+        with col4:
+            st.markdown("**Result**")
+            if has_result:
+                st.write(f"{actual_home:.0f}")
+                st.write(f"{actual_away:.0f}")
+                st.write(format_model_spread(actual_spread))
+                st.write(f"{actual_total:.0f}")
+                st.write(actual_winner)
+            else:
+                st.write("--")
+                st.write("--")
+                st.write("--")
+                st.write("--")
+                st.write("Pending")
+
+        # Comparison tags (only for completed games)
+        if has_result:
+            st.markdown("---")
+            tags = []
+
+            # Winner comparison
+            model_winner_correct = (model_winner == actual_winner)
+
+            if has_vegas:
+                vegas_winner_correct = (vegas_winner == actual_winner)
+
+                if model_winner_correct and vegas_winner_correct:
+                    tags.append("🎯 Both Got Winner")
+                elif model_winner_correct and not vegas_winner_correct:
+                    tags.append("✅ Model Beat Vegas (Winner)")
+                elif not model_winner_correct and vegas_winner_correct:
+                    tags.append("❌ Vegas Beat Model (Winner)")
+                else:
+                    tags.append("😬 Both Wrong (Winner)")
+            else:
+                # No Vegas lines - just show if model was correct
+                if model_winner_correct:
+                    tags.append("✅ Model Got Winner")
+                else:
+                    tags.append("❌ Model Wrong (Winner)")
+
+            if has_vegas:
+                # Spread comparison: who was closer to actual spread?
+                # model_spread = home_score - away_score (positive = home wins)
+                # vegas_spread = home team's line (negative = home favored)
+                # To convert vegas to same format: if vegas_spread = -7, home expected to win by 7
+                # So vegas_implied_spread = -vegas_spread
+                vegas_implied_spread = -vegas_spread
+
+                model_spread_diff = abs(actual_spread - model_spread)
+                vegas_spread_diff = abs(actual_spread - vegas_implied_spread)
+
+                if model_spread_diff < vegas_spread_diff - 0.5:
+                    tags.append("✅ Model Beat Vegas (Spread)")
+                elif vegas_spread_diff < model_spread_diff - 0.5:
+                    tags.append("❌ Vegas Beat Model (Spread)")
+                else:
+                    tags.append("🤝 Spread Tie")
+
+                # Total comparison
+                if vegas_total and not pd.isna(vegas_total):
+                    model_total_diff = abs(actual_total - model_total)
+                    vegas_total_diff = abs(actual_total - vegas_total)
+
+                    if model_total_diff < vegas_total_diff - 0.5:
+                        tags.append("✅ Model Beat Vegas (Total)")
+                    elif vegas_total_diff < model_total_diff - 0.5:
+                        tags.append("❌ Vegas Beat Model (Total)")
+                    else:
+                        tags.append("🤝 Total Tie")
+
+            # Display tags
+            if tags:
+                st.write(" | ".join(tags))
+
+
 def show_nba_predictions():
     """Show NBA predictions - coming soon placeholder (legacy function)"""
     show_nba_predictions_live()
@@ -689,64 +874,9 @@ def show_nba_predictions_live():
 
     st.markdown(f"### Showing {len(filtered_df)} predictions")
 
-    # Display predictions
+    # Display predictions using unified display component
     for idx, row in filtered_df.iterrows():
-        matchup = f"{row['away_team']} @ {row['home_team']}"
-        home_win_prob = row.get('home_win_probability') if row.get('home_win_probability') is not None else 0.5
-        spread = row['predicted_spread']
-
-        if spread > 0:
-            predicted_winner = row['home_team']
-            winner_prob = home_win_prob
-        else:
-            predicted_winner = row['away_team']
-            winner_prob = 1 - home_win_prob
-
-        conf_val = row.get('confidence') if row.get('confidence') is not None else 0.85
-        conf_pct = conf_val * 100
-
-        with st.expander(f"🏀 {matchup} | Pick: {predicted_winner} | Conf: {conf_pct:.0f}%"):
-            col1, col2 = st.columns(2)
-
-            with col1:
-                st.markdown("**Prediction**")
-                pred_home = row.get('predicted_home_score')
-                pred_away = row.get('predicted_away_score')
-                if pred_home is not None and pred_away is not None:
-                    st.write(f"Score: {row['away_team']} {pred_away:.0f} - {pred_home:.0f} {row['home_team']}")
-                # Standard betting notation: favorite shown with negative number
-                if spread > 0:
-                    spread_text = f"{row['home_team']} {-spread:.1f}"
-                else:
-                    spread_text = f"{row['away_team']} {spread:.1f}"
-                st.write(f"Spread: {spread_text}")
-                st.write(f"Total: {row['predicted_total']:.1f}")
-                st.write(f"Win Prob: {winner_prob:.0%}")
-
-            with col2:
-                st.markdown("**Vegas Lines**")
-                vegas_spread = row.get('vegas_spread')
-                vegas_total = row.get('vegas_total')
-                # Vegas spread stored as home team spread (negative = home favorite)
-                if vegas_spread:
-                    if vegas_spread < 0:
-                        vegas_text = f"{row['home_team']} {vegas_spread:.1f}"
-                    else:
-                        vegas_text = f"{row['away_team']} {-vegas_spread:.1f}"
-                    st.write(f"Spread: {vegas_text}")
-                if vegas_total:
-                    st.write(f"Total: {vegas_total:.1f}")
-
-                # Show actual results if completed
-                if row['game_completed']:
-                    st.markdown("**Result**")
-                    actual_home = row.get('actual_home_score')
-                    actual_away = row.get('actual_away_score')
-                    if actual_home is not None and actual_away is not None:
-                        actual_spread = actual_home - actual_away
-                        st.write(f"Final: {row['away_team']} {actual_away:.0f} - {actual_home:.0f} {row['home_team']}")
-                        spread_hit = (spread > 0 and actual_spread > 0) or (spread < 0 and actual_spread < 0)
-                        st.write(f"Spread Hit: {'✅' if spread_hit else '❌'}")
+        display_game_card(row, sport_emoji="🏀")
 
 
 def show_sport_predictions(sport: str, max_week: int, default_week: int):
@@ -888,105 +1018,10 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
 
     st.markdown(f"### Showing {len(filtered_df)} predictions")
 
-    # Display predictions
+    # Display predictions using unified display component
+    sport_emoji = "🏈" if sport == "NFL" else "🏟️"
     for idx, row in filtered_df.iterrows():
-        matchup = f"{row['away_team']} @ {row['home_team']}"
-        # home_win_probability is the prob home team wins
-        # confidence should be prob of predicted winner
-        home_win_prob = row.get('home_win_probability') if row.get('home_win_probability') is not None else 0.5
-        spread = row['predicted_spread']
-        # If spread > 0, we predict home wins; if spread < 0, we predict away wins
-        if spread > 0:
-            winner_conf = home_win_prob
-            predicted_winner = row['home_team']
-        else:
-            winner_conf = 1 - home_win_prob
-            predicted_winner = row['away_team']
-
-        conf_pct = winner_conf * 100
-        conf_indicator = "🟢" if conf_pct >= 70 else "🟡" if conf_pct >= 55 else "🔴"
-
-        with st.expander(f"{conf_indicator} {matchup} - {predicted_winner} ({conf_pct:.0f}%)"):
-            col1, col2, col3 = st.columns(3)
-
-            with col1:
-                st.markdown("**Predicted Score**")
-                st.markdown(f"**{row['predicted_away_score']:.1f} - {row['predicted_home_score']:.1f}**")
-                st.markdown(f"{row['away_team']}")
-                st.markdown(f"{row['home_team']}")
-                st.markdown(f"**Pick: {predicted_winner}** ({conf_pct:.0f}%)")
-
-            with col2:
-                st.markdown("**Spread & Total**")
-                spread = row['predicted_spread']
-                # spread = home_score - away_score
-                # positive spread means home team wins (is favorite)
-                # negative spread means away team wins (is favorite)
-                # Standard betting notation: favorite shown with NEGATIVE number
-                if spread > 0:
-                    # Home team is favorite - show as negative (giving points)
-                    spread_text = f"{row['home_team']} {-spread:.1f}"
-                else:
-                    # Away team is favorite - show as negative (giving points)
-                    spread_text = f"{row['away_team']} {spread:.1f}"
-
-                st.markdown(f"Spread: **{spread_text}**")
-                st.markdown(f"Total: **{row['predicted_total']:.1f}** (O/U)")
-
-                # Show spread range if available
-                spread_low = row.get('spread_low') if row.get('spread_low') is not None else spread - 2
-                spread_high = row.get('spread_high') if row.get('spread_high') is not None else spread + 2
-                total_low = row.get('total_low') if row.get('total_low') is not None else row['predicted_total'] - 3
-                total_high = row.get('total_high') if row.get('total_high') is not None else row['predicted_total'] + 3
-
-                st.caption(f"Spread range: {spread_low:+.1f} to {spread_high:+.1f}")
-                st.caption(f"Total range: {total_low:.1f} to {total_high:.1f}")
-
-            with col3:
-                st.markdown("**Result**")
-                # Check if game is actually completed with valid scores
-                actual_away = row['actual_away_score']
-                actual_home = row['actual_home_score']
-
-                # Only show results if we have valid actual scores (not None and not both zero)
-                has_valid_scores = (actual_away is not None and actual_home is not None and
-                                   not (actual_away == 0 and actual_home == 0))
-
-                if row['game_completed'] and has_valid_scores:
-                    st.markdown(f"**{actual_away:.0f} - {actual_home:.0f}**")
-
-                    # Check prediction accuracy
-                    predicted_winner = row['home_team'] if row['predicted_home_score'] > row['predicted_away_score'] else row['away_team']
-                    actual_winner = row['home_team'] if actual_home > actual_away else row['away_team']
-
-                    if predicted_winner == actual_winner:
-                        st.success("✓ Correct prediction!")
-                    else:
-                        st.error("✗ Incorrect prediction")
-
-                    # Show if spread was covered
-                    actual_spread = actual_home - actual_away
-                    if abs(actual_spread - spread) < 3:
-                        st.info("📊 Spread within 3 pts")
-                else:
-                    st.warning("⏳ Pending")
-
-                # Vegas comparison
-                vegas_spread = row.get('vegas_spread')
-                vegas_total = row.get('vegas_total')
-                if vegas_spread and not pd.isna(vegas_spread):
-                    st.markdown("---")
-                    st.markdown("**Vegas Lines**")
-                    # Vegas spread: negative = home favorite, positive = away favorite
-                    if vegas_spread < 0:
-                        # Home team is favorite
-                        vegas_text = f"{row['home_team']} {vegas_spread:.1f}"
-                    else:
-                        # Away team is favorite
-                        vegas_text = f"{row['away_team']} -{vegas_spread:.1f}"
-                    st.caption(f"Spread: {vegas_text}")
-                    if vegas_total and not pd.isna(vegas_total):
-                        st.caption(f"Total: {vegas_total:.1f}")
+        display_game_card(row, sport_emoji=sport_emoji)
 
 
 # ============================================================================
