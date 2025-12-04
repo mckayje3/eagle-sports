@@ -537,15 +537,15 @@ def show_nba_predictions():
 
 
 def show_nba_predictions_live():
-    """Show live NBA predictions for 2024-25 season"""
-    st.markdown("### 🏀 NBA 2024-25 Predictions")
+    """Show live NBA predictions for 2025-26 season"""
+    st.markdown("### 🏀 NBA 2025-26 Predictions")
 
-    # NBA uses season=2024 for 2024-25 season
-    season = 2024
+    # NBA uses season=2025 for 2025-26 season
+    season = 2025
 
-    # Get current "week" (weeks since Oct 15, 2024)
+    # Get current "week" (weeks since Oct 15, 2025)
     from datetime import datetime
-    season_start = datetime(2024, 10, 15)
+    season_start = datetime(2025, 10, 15)
     current_week = max(0, (datetime.now() - season_start).days // 7)
 
     col1, col2 = st.columns([3, 1])

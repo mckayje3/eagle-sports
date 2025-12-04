@@ -62,10 +62,17 @@ def generate_nba_predictions(season=2024, upcoming_only=False, backfill=False):
     model_path = f'models/deep_eagle_nba_{season}.pt'
     scaler_path = f'models/deep_eagle_nba_{season}_scaler.pkl'
 
-    # Check if model exists
+    # Check if model exists - if not, try previous season's model
     if not os.path.exists(model_path):
-        print(f"ERROR: Model not found: {model_path}")
-        return []
+        prev_model_path = f'models/deep_eagle_nba_{season-1}.pt'
+        prev_scaler_path = f'models/deep_eagle_nba_{season-1}_scaler.pkl'
+        if os.path.exists(prev_model_path):
+            print(f"Model for {season} not found, using {season-1} model")
+            model_path = prev_model_path
+            scaler_path = prev_scaler_path
+        else:
+            print(f"ERROR: Model not found: {model_path}")
+            return []
 
     # Load model
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
