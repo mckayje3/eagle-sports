@@ -714,7 +714,12 @@ def show_nba_predictions_live():
                 pred_away = row.get('predicted_away_score')
                 if pred_home is not None and pred_away is not None:
                     st.write(f"Score: {row['away_team']} {pred_away:.0f} - {pred_home:.0f} {row['home_team']}")
-                st.write(f"Spread: {row['home_team']} {spread:+.1f}")
+                # Standard betting notation: favorite shown with negative number
+                if spread > 0:
+                    spread_text = f"{row['home_team']} {-spread:.1f}"
+                else:
+                    spread_text = f"{row['away_team']} {spread:.1f}"
+                st.write(f"Spread: {spread_text}")
                 st.write(f"Total: {row['predicted_total']:.1f}")
                 st.write(f"Win Prob: {winner_prob:.0%}")
 
@@ -722,8 +727,13 @@ def show_nba_predictions_live():
                 st.markdown("**Vegas Lines**")
                 vegas_spread = row.get('vegas_spread')
                 vegas_total = row.get('vegas_total')
+                # Vegas spread stored as home team spread (negative = home favorite)
                 if vegas_spread:
-                    st.write(f"Spread: {row['home_team']} {vegas_spread:+.1f}")
+                    if vegas_spread < 0:
+                        vegas_text = f"{row['home_team']} {vegas_spread:.1f}"
+                    else:
+                        vegas_text = f"{row['away_team']} {-vegas_spread:.1f}"
+                    st.write(f"Spread: {vegas_text}")
                 if vegas_total:
                     st.write(f"Total: {vegas_total:.1f}")
 
@@ -910,13 +920,14 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
                 st.markdown("**Spread & Total**")
                 spread = row['predicted_spread']
                 # spread = home_score - away_score
-                # negative spread means away team wins (is favorite)
                 # positive spread means home team wins (is favorite)
+                # negative spread means away team wins (is favorite)
+                # Standard betting notation: favorite shown with NEGATIVE number
                 if spread > 0:
-                    # Home team is favorite (wins by spread points)
-                    spread_text = f"{row['home_team']} -{spread:.1f}"
+                    # Home team is favorite - show as negative (giving points)
+                    spread_text = f"{row['home_team']} {-spread:.1f}"
                 else:
-                    # Away team is favorite (wins by abs(spread) points)
+                    # Away team is favorite - show as negative (giving points)
                     spread_text = f"{row['away_team']} {spread:.1f}"
 
                 st.markdown(f"Spread: **{spread_text}**")
