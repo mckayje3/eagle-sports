@@ -576,19 +576,20 @@ def display_game_card(row, sport_emoji="🏈"):
         actual_total = actual_home + actual_away
         actual_winner = home_team if actual_home > actual_away else (away_team if actual_away > actual_home else "Tie")
 
-    # Format spread for display - convert to betting convention
-    # Betting convention: negative = home favored, positive = home is underdog
+    # Format spread for display
+    # Display convention: away - home (negative = home favored, positive = away favored)
     # Our internal: model_spread = home - away (positive = home wins)
-    # So we negate for display: if home wins by 7 (model_spread=+7), display as -7
-    def format_model_spread(spread_val):
-        """Convert model spread (home-away) to betting convention (negative=favored)"""
+    # So we negate to get away - home format
+    def format_spread(spread_val):
+        """Format spread for display (away - home convention)"""
         if spread_val is None or pd.isna(spread_val):
             return "NL"
-        # Negate: positive model spread (home wins) becomes negative (home favored)
-        return f"{-spread_val:+.1f}"
+        # Display as away - home: negate since internal is home - away
+        display_spread = -spread_val
+        return f"{display_spread:+.1f}"
 
     def format_vegas_spread(spread_val):
-        """Vegas spread already in betting convention (negative=home favored)"""
+        """Vegas spread already in away-home convention (negative=home favored)"""
         if spread_val is None or pd.isna(spread_val):
             return "NL"
         return f"{spread_val:+.1f}"
@@ -617,7 +618,7 @@ def display_game_card(row, sport_emoji="🏈"):
             else:
                 st.write("-")
                 st.write("-")
-            st.write(format_model_spread(model_spread))
+            st.write(format_spread(model_spread))
             st.write(f"{model_total:.1f}" if model_total else "-")
             st.write(f"{model_winner} ({conf_pct:.0f}%)")
 
@@ -645,7 +646,7 @@ def display_game_card(row, sport_emoji="🏈"):
             if has_result:
                 st.write(f"{actual_home:.0f}")
                 st.write(f"{actual_away:.0f}")
-                st.write(format_model_spread(actual_spread))
+                st.write(format_spread(actual_spread))
                 st.write(f"{actual_total:.0f}")
                 st.write(actual_winner)
             else:
