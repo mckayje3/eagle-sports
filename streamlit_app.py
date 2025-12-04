@@ -531,6 +531,28 @@ def sync_nfl_predictions_to_cache():
         return False, f"Sync error: {str(e)}"
 
 
+def is_fallback_predictions(df):
+    """
+    Detect if predictions are fallback (not from Deep Eagle).
+    Fallback predictions have identical spread/total values for all games.
+    Returns True if predictions appear to be fallback values.
+    """
+    if df.empty or len(df) < 3:
+        return False
+
+    # Check if all spreads are identical (strong indicator of fallback)
+    spreads = df['predicted_spread'].dropna().unique()
+    if len(spreads) == 1:
+        return True
+
+    # Check if spread variance is very low (< 0.1) across many games
+    spread_std = df['predicted_spread'].std()
+    if spread_std < 0.1 and len(df) > 5:
+        return True
+
+    return False
+
+
 def display_game_card(row, sport_emoji="🏈"):
     """
     Unified game display component for all sports.
@@ -793,6 +815,11 @@ def show_nba_predictions_live():
 
     st.success(f"Found {len(predictions_df)} games for Week {week}")
 
+    # Check if predictions are fallback (not from Deep Eagle)
+    if is_fallback_predictions(predictions_df):
+        st.warning("These predictions are using fallback values (not Deep Eagle). "
+                   "Run populate_nba_predictions.py to regenerate with Deep Eagle.")
+
     # Check if confidence column exists, add if not
     if 'confidence' not in predictions_df.columns:
         predictions_df['confidence'] = 0.85
@@ -930,6 +957,12 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
         return
 
     st.success(f"Found {len(predictions_df)} games for Week {week}")
+
+    # Check if predictions are fallback (not from Deep Eagle)
+    if is_fallback_predictions(predictions_df):
+        st.warning("These predictions are using fallback values (not Deep Eagle). "
+                   "This usually means games weren't scraped for this week. "
+                   "Use 'Update Predictions' to regenerate with Deep Eagle.")
 
     # Check if confidence column exists, add if not; also fill NaN values
     if 'confidence' not in predictions_df.columns:
