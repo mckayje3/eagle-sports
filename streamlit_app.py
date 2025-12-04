@@ -589,10 +589,14 @@ def display_game_card(row, sport_emoji="🏈"):
         return f"{display_spread:+.1f}"
 
     def format_vegas_spread(spread_val):
-        """Vegas spread already in away-home convention (negative=home favored)"""
+        """Convert Vegas spread to away-home convention for display.
+        Vegas stores as home team spread (negative=home favored).
+        We negate to get away-home format (negative=away loses)."""
         if spread_val is None or pd.isna(spread_val):
             return "NL"
-        return f"{spread_val:+.1f}"
+        # Negate to convert from home perspective to away-home perspective
+        display_spread = -spread_val
+        return f"{display_spread:+.1f}"
 
     # Build the expander title
     conf_pct = (confidence if confidence else 0.5) * 100
