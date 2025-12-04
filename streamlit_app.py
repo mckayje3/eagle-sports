@@ -576,19 +576,23 @@ def display_game_card(row, sport_emoji="🏈"):
         actual_total = actual_home + actual_away
         actual_winner = home_team if actual_home > actual_away else (away_team if actual_away > actual_home else "Tie")
 
-    # Format spread for display (home team perspective)
-    # Internal: model_spread = home - away (positive = home wins/favored)
-    # Vegas: negative = home favored (standard convention)
+    # Format spread for display
+    # Model spread stored as: home - away (positive = home wins, negative = home loses)
+    # Vegas convention: negative = home favored, positive = away favored
+    # So we need to NEGATE the model spread to convert to Vegas convention
     def format_spread(spread_val):
-        """Format spread for display (home team perspective).
-        Positive = home team wins, Negative = home team loses.
-        Standard Vegas convention: negative = favorite."""
+        """Convert model spread to Vegas convention.
+        Model: home - away (negative = home loses)
+        Vegas: negative = home favored
+        So negate: if home loses by 11 (model = -11), display as +11 (home is underdog)"""
         if spread_val is None or pd.isna(spread_val):
             return "NL"
-        return f"{spread_val:+.1f}"
+        # Negate to convert to Vegas convention
+        vegas_format = -spread_val
+        return f"{vegas_format:+.1f}"
 
     def format_vegas_spread(spread_val):
-        """Format Vegas spread (already in home team perspective).
+        """Vegas spread already in correct convention.
         Negative = home team favored, Positive = away team favored."""
         if spread_val is None or pd.isna(spread_val):
             return "NL"
