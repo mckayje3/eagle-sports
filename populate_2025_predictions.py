@@ -96,11 +96,10 @@ def generate_predictions_for_sport(sport, season=2025, weeks=None, backfill=Fals
     print('='*80)
 
     db_path = f'{sport}_games.db'
-    # For CFB, use the 2024 gameday model which has no target leak and good historical features
-    # Trained on 2023-2024 data, works for 2025 predictions
+    # For CFB, use the v3 model trained on 2024-2025 data with odds features (no target leak)
     if sport == 'cfb':
-        model_path = 'models/deep_eagle_cfb_2024_gameday.pt'
-        scaler_path = 'models/deep_eagle_cfb_2024_gameday_scaler.pkl'
+        model_path = 'models/deep_eagle_cfb_2025_v3.pt'
+        scaler_path = 'models/deep_eagle_cfb_2025_v3_scaler.pkl'
     else:
         model_path = f'models/deep_eagle_{sport}_2025.pt'
         scaler_path = f'models/deep_eagle_{sport}_2025_scaler.pkl'
