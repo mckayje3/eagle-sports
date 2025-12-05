@@ -1509,231 +1509,263 @@ def show_model_insights():
     st.markdown('<p class="main-header">Deep Eagle Model Insights</p>', unsafe_allow_html=True)
 
     st.markdown("""
-    This page provides transparency into how the Deep Eagle prediction model works,
-    including the factors it considers and their relative importance.
+    This page provides transparency into how the Deep Eagle prediction models work for each sport,
+    including the features used, architecture, and performance metrics.
     """)
 
-    # Model Overview
-    st.markdown("## Model Architecture")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Model Type", "Deep Neural Network")
-    with col2:
-        st.metric("Total Features", "57")
-    with col3:
-        st.metric("Training Games", "452")
+    # Sport-specific tabs
+    sport_tab = st.tabs(["NFL", "College Football", "NBA"])
 
-    st.markdown("""
-    **Deep Eagle v3** uses a multi-layer neural network with:
-    - 3 hidden layers (256 → 128 → 64 neurons)
-    - Batch normalization and dropout for regularization
-    - Separate prediction heads for home and away scores
-    - Time-based train/test split (no future data leakage)
-    """)
+    # =========================================================================
+    # NFL TAB
+    # =========================================================================
+    with sport_tab[0]:
+        st.markdown("## NFL Model: Deep Eagle v2.0")
 
-    st.markdown("---")
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Model File", "deep_eagle_nfl_2025.pt")
+        with col2:
+            st.metric("Total Features", "78")
+        with col3:
+            st.metric("Training Games", "~500")
+        with col4:
+            st.metric("Seasons", "2024-2025")
 
-    # Feature Categories
-    st.markdown("## Feature Categories")
+        st.markdown("""
+        ### Architecture
+        - **Type:** Deep Neural Network (PyTorch)
+        - **Hidden Layers:** 256 → 128 → 64 neurons
+        - **Activation:** ReLU with Batch Normalization
+        - **Regularization:** Dropout (0.3), Early Stopping
+        - **Output:** Dual heads for home/away score prediction
+        """)
 
-    feature_categories = {
-        "Vegas Odds (Latest Available)": {
-            "features": ["Latest Spread", "Latest Total"],
-            "description": "Current betting lines from major sportsbooks. These capture market consensus and are strong predictors.",
-            "importance": "15.5%",
-            "correlation": "r = -0.43 (spread)"
-        },
-        "Team Performance Differentials": {
-            "features": ["PPG Differential", "Win % Differential", "Points Allowed Differential", "Points Per Drive Differential"],
-            "description": "Difference between home and away team season averages. Positive = home team advantage.",
-            "importance": "11.0%",
-            "correlation": "r = 0.30 (PPG diff)"
-        },
-        "Drive Efficiency Metrics": {
-            "features": ["Points Per Drive", "Yards Per Drive", "Scoring %", "3-and-Out %", "Explosive Drive %"],
-            "description": "Advanced metrics measuring offensive and defensive efficiency per possession.",
-            "importance": "25.8%",
-            "correlation": "r = 0.28 (scoring %)"
-        },
-        "Historical Team Stats": {
-            "features": ["Games Played", "PPG", "Points Allowed", "Yards Per Game", "Turnovers Per Game", "Win %"],
-            "description": "Season-to-date averages for each team entering the game.",
-            "importance": "22.5%",
-            "correlation": "r = 0.20 (win %)"
-        },
-        "Game Context": {
-            "features": ["Week (normalized)", "Home/Away", "Dome/Outdoor", "Conference Game"],
-            "description": "Situational factors that may influence game outcomes.",
-            "importance": "7.6%",
-            "correlation": "varies"
-        },
-        "Defensive Metrics": {
-            "features": ["Defensive PPD Allowed", "Defensive YPD Allowed", "3-and-Outs Forced"],
-            "description": "How well each team's defense performs against opposing offenses.",
-            "importance": "17.6%",
-            "correlation": "r = -0.07"
+        st.markdown("### Feature Categories (78 total)")
+        nfl_features = {
+            "Vegas Odds": {
+                "features": ["Opening Spread", "Latest Spread", "Opening Total", "Latest Total", "Moneylines"],
+                "count": 8,
+                "description": "Market consensus from major sportsbooks"
+            },
+            "Historical Team Stats": {
+                "features": ["PPG", "Points Allowed", "Yards/Game", "Turnovers/Game", "Win %"],
+                "count": 12,
+                "description": "Season-to-date averages (home and away teams)"
+            },
+            "Home/Away Splits": {
+                "features": ["Home PPG", "Away PPG", "Home Win %", "Away Win %", "Home/Away PPG Differential"],
+                "count": 18,
+                "description": "Venue-specific performance metrics"
+            },
+            "Drive Efficiency": {
+                "features": ["Points/Drive", "Yards/Drive", "Scoring %", "3-and-Out %", "Red Zone %"],
+                "count": 26,
+                "description": "Offensive and defensive efficiency per possession"
+            },
+            "Game Context": {
+                "features": ["Week", "Neutral Site", "Conference Game", "Dome/Outdoor"],
+                "count": 7,
+                "description": "Situational factors"
+            },
+            "Matchup Differentials": {
+                "features": ["PPG Diff", "Win % Diff", "PPD Diff", "Venue PPG Diff"],
+                "count": 7,
+                "description": "Head-to-head statistical comparisons"
+            }
         }
-    }
 
-    for category, info in feature_categories.items():
-        with st.expander(f"**{category}** — {info['importance']} of model importance"):
-            st.markdown(f"**Description:** {info['description']}")
-            st.markdown(f"**Key Features:** {', '.join(info['features'])}")
-            st.markdown(f"**Correlation with Spread:** {info['correlation']}")
+        for category, info in nfl_features.items():
+            with st.expander(f"**{category}** ({info['count']} features)"):
+                st.markdown(f"**Description:** {info['description']}")
+                st.markdown(f"**Key Features:** {', '.join(info['features'])}")
 
-    st.markdown("---")
+        st.markdown("### Performance")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Spread MAE", "~11 points")
+            st.metric("Total MAE", "~14 points")
+        with col2:
+            st.metric("Home Score MAE", "~10 points")
+            st.metric("Away Score MAE", "~10 points")
 
-    # Top Features by Importance
-    st.markdown("## Top 20 Features by Importance")
+    # =========================================================================
+    # CFB TAB
+    # =========================================================================
+    with sport_tab[1]:
+        st.markdown("## College Football Model: Deep Eagle v3")
 
-    st.markdown("""
-    Feature importance is measured using **permutation importance**: we shuffle each feature
-    and measure how much prediction accuracy decreases. Higher values = more important.
-    """)
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Model File", "deep_eagle_cfb_2025_v3.pt")
+        with col2:
+            st.metric("Total Features", "79")
+        with col3:
+            st.metric("Training Games", "1,777")
+        with col4:
+            st.metric("Seasons", "2024-2025")
 
-    # Feature importance data
-    importance_data = pd.DataFrame({
-        'Feature': [
-            'Latest Vegas Spread', 'Latest Vegas Total', 'Away Yards/Game',
-            'Is Dome Game', 'Home 3-and-Out %', 'Away Games Played',
-            'Points Allowed Differential', 'Away Total Drives', 'Home Total Drives',
-            'Home Def Yards/Drive', 'Home Points Allowed', 'Away Explosive Drive %',
-            'Away Turnovers/Game', 'PPG Differential', 'Home Def 3-and-Outs Forced',
-            'Away Def Yards/Drive', 'Win % Differential', 'Away Yards/Drive',
-            'Home PPG', 'Home Turnovers/Game'
-        ],
-        'Importance': [
-            0.634, 0.261, 0.226, 0.225, 0.213, 0.203, 0.193, 0.186, 0.180,
-            0.172, 0.164, 0.159, 0.159, 0.159, 0.134, 0.130, 0.129, 0.124, 0.123, 0.117
-        ],
-        'Category': [
-            'Odds', 'Odds', 'Team Stats', 'Context', 'Drive Efficiency', 'Team Stats',
-            'Differential', 'Drive Efficiency', 'Drive Efficiency', 'Defense',
-            'Team Stats', 'Drive Efficiency', 'Team Stats', 'Differential', 'Defense',
-            'Defense', 'Differential', 'Drive Efficiency', 'Team Stats', 'Team Stats'
-        ]
-    })
-    importance_data['Pct'] = (importance_data['Importance'] / importance_data['Importance'].sum() * 100).round(1)
+        st.markdown("""
+        ### Architecture
+        - **Type:** Deep Neural Network (PyTorch)
+        - **Hidden Layers:** 256 → 128 → 64 neurons
+        - **Activation:** ReLU with Batch Normalization
+        - **Regularization:** Dropout (0.3), Early Stopping (patience=20)
+        - **Output:** Dual heads for home/away score prediction
+        - **No Target Leak:** Model does NOT use actual game outcomes as inputs
+        """)
 
-    # Create bar chart
-    import plotly.express as px
-    fig = px.bar(
-        importance_data.head(15),
-        x='Importance',
-        y='Feature',
-        color='Category',
-        orientation='h',
-        title='Top 15 Features by Permutation Importance',
-        color_discrete_map={
-            'Odds': '#2ecc71',
-            'Differential': '#3498db',
-            'Drive Efficiency': '#9b59b6',
-            'Team Stats': '#e74c3c',
-            'Defense': '#f39c12',
-            'Context': '#1abc9c'
+        st.markdown("### Feature Categories (79 total)")
+        cfb_features = {
+            "Vegas Odds": {
+                "features": ["Opening Spread", "Latest Spread", "Opening Total", "Latest Total", "Home/Away Moneylines"],
+                "count": 8,
+                "description": "Market consensus - opening and current lines from The Odds API"
+            },
+            "Historical Team Stats": {
+                "features": ["Games Played", "PPG", "Points Allowed/Game", "Yards/Game", "Turnovers/Game", "Win %"],
+                "count": 12,
+                "description": "Season-to-date averages calculated BEFORE each game (no lookahead)"
+            },
+            "Home/Away Splits": {
+                "features": ["Home Games", "Home PPG", "Home Points Allowed", "Home Win %", "Away equivalents", "Home/Away PPG Diff"],
+                "count": 18,
+                "description": "Venue-specific performance - captures home field advantage"
+            },
+            "Drive Efficiency (Offense)": {
+                "features": ["Points/Drive", "Yards/Drive", "Plays/Drive", "Seconds/Drive", "Scoring %", "Red Zone %", "3-and-Out %", "Explosive Drive %"],
+                "count": 18,
+                "description": "How efficiently each team moves the ball"
+            },
+            "Drive Efficiency (Defense)": {
+                "features": ["Defensive PPD Allowed", "Defensive YPD Allowed", "Defensive Scoring % Allowed", "3-and-Outs Forced"],
+                "count": 8,
+                "description": "How well defense stops opposing drives"
+            },
+            "Game Context": {
+                "features": ["Week", "Week Normalized (0-1)", "Neutral Site", "Conference Game", "Temperature", "Wind Speed", "Is Dome"],
+                "count": 7,
+                "description": "Situational and environmental factors"
+            },
+            "Matchup Differentials": {
+                "features": ["PPG Differential", "Points Allowed Differential", "Win % Differential", "PPD Differential", "Scoring % Differential", "Venue PPG Differential", "Venue Win % Differential", "Combined Home Advantage"],
+                "count": 8,
+                "description": "Head-to-head comparisons between teams"
+            }
         }
-    )
-    fig.update_layout(yaxis={'categoryorder': 'total ascending'}, height=500)
-    st.plotly_chart(fig, use_container_width=True)
 
-    # Data table
-    st.dataframe(
-        importance_data.style.format({'Importance': '{:.3f}', 'Pct': '{:.1f}%'}),
-        use_container_width=True,
-        hide_index=True
-    )
+        for category, info in cfb_features.items():
+            with st.expander(f"**{category}** ({info['count']} features)"):
+                st.markdown(f"**Description:** {info['description']}")
+                st.markdown(f"**Key Features:** {', '.join(info['features'])}")
 
+        st.markdown("### Performance (Validation Set)")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Spread MAE", "14.5 points")
+            st.metric("Total MAE", "14.7 points")
+        with col2:
+            st.metric("Home Score MAE", "10.8 points")
+            st.metric("Away Score MAE", "9.9 points")
+
+        st.markdown("""
+        ### Key Design Decisions
+        1. **No Target Leak:** Unlike earlier versions, v3 excludes `point_spread`, `total_points`, and `home_win` from input features
+        2. **Odds as Features:** Vegas lines (opening and latest) ARE used as inputs since they're available at prediction time
+        3. **Home/Away Splits:** Critical for capturing home field advantage in college football
+        4. **Drive Data:** Provides more signal than raw stats about team quality
+        """)
+
+    # =========================================================================
+    # NBA TAB
+    # =========================================================================
+    with sport_tab[2]:
+        st.markdown("## NBA Model: Deep Eagle v1.0")
+
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Model File", "deep_eagle_nba_2024.pt")
+        with col2:
+            st.metric("Total Features", "~50")
+        with col3:
+            st.metric("Training Games", "~1,200")
+        with col4:
+            st.metric("Seasons", "2023-2024")
+
+        st.markdown("""
+        ### Architecture
+        - **Type:** Deep Neural Network (PyTorch)
+        - **Hidden Layers:** 256 → 128 → 64 neurons
+        - **Activation:** ReLU with Batch Normalization
+        - **Regularization:** Dropout (0.3)
+        - **Output:** Dual heads for home/away score prediction
+        """)
+
+        st.markdown("### Feature Categories")
+        nba_features = {
+            "Vegas Odds": {
+                "features": ["Opening Spread", "Latest Spread", "Opening Total", "Latest Total"],
+                "description": "Market consensus from sportsbooks"
+            },
+            "Team Statistics": {
+                "features": ["PPG", "Points Allowed", "FG%", "3P%", "Rebounds", "Assists", "Turnovers"],
+                "description": "Season-to-date team averages"
+            },
+            "Home/Away Performance": {
+                "features": ["Home Record", "Away Record", "Home PPG", "Away PPG"],
+                "description": "Venue-specific performance splits"
+            },
+            "Recent Form": {
+                "features": ["Last 5 Games PPG", "Last 10 Games Win %"],
+                "description": "Recent performance momentum"
+            }
+        }
+
+        for category, info in nba_features.items():
+            with st.expander(f"**{category}**"):
+                st.markdown(f"**Description:** {info['description']}")
+                st.markdown(f"**Key Features:** {', '.join(info['features'])}")
+
+        st.markdown("### Performance")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Spread MAE", "~10 points")
+            st.metric("Total MAE", "~15 points")
+        with col2:
+            st.metric("Status", "Active")
+            st.metric("Last Updated", "December 2025")
+
+        st.info("NBA model is actively being improved with additional historical data and features.")
+
+    # =========================================================================
+    # COMMON METHODOLOGY SECTION
+    # =========================================================================
     st.markdown("---")
-
-    # Correlation Analysis
-    st.markdown("## Feature Correlations with Game Spread")
-
-    st.markdown("""
-    **Correlation (r)** measures linear relationship between each feature and the actual game spread.
-    - Positive r: Higher feature value → home team wins by more
-    - Negative r: Higher feature value → away team wins by more
-    - |r| > 0.3 is considered moderate, |r| > 0.5 is strong
-    """)
-
-    correlation_data = pd.DataFrame({
-        'Feature': [
-            'Latest Vegas Spread', 'PPD Differential', 'PPG Differential',
-            'Win % Differential', 'Scoring % Differential', 'Away Win %',
-            'Points Allowed Differential', 'Away PPD', 'Away Scoring %', 'Away PPG'
-        ],
-        'Correlation (r)': [-0.425, 0.300, 0.297, 0.293, 0.276, -0.200, -0.188, -0.166, -0.164, -0.163],
-        'R-squared': [0.181, 0.090, 0.088, 0.086, 0.076, 0.040, 0.035, 0.028, 0.027, 0.027],
-        'Interpretation': [
-            'Moderate: Vegas line is predictive',
-            'Moderate: Better offense helps home team',
-            'Moderate: Higher-scoring teams win',
-            'Moderate: Better record predicts wins',
-            'Moderate: Red zone efficiency matters',
-            'Weak: Better away teams win on road',
-            'Weak: Allowing fewer points helps',
-            'Weak: Away offensive efficiency',
-            'Weak: Away scoring drives',
-            'Weak: Away team scoring average'
-        ]
-    })
-
-    st.dataframe(
-        correlation_data.style.format({'Correlation (r)': '{:+.3f}', 'R-squared': '{:.3f}'}),
-        use_container_width=True,
-        hide_index=True
-    )
-
-    st.markdown("---")
-
-    # Model Performance
-    st.markdown("## Model Performance Metrics")
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.markdown("### Training Performance (Weeks 1-10)")
-        st.metric("Spread MAE", "7.7 points")
-        st.metric("Winner Accuracy", "67.1%")
-        st.metric("Total Points MAE", "13.5 points")
-
-    with col2:
-        st.markdown("### Week 13 Actual Results")
-        st.metric("Spread MAE", "11.0 points")
-        st.metric("Winner Accuracy", "58.3% (7/12)")
-        st.metric("vs Vegas", "Vegas: 9/12 (75%)")
-
-    st.markdown("""
-    **Note:** Training performance is measured on held-out weeks 11-13 during model development.
-    Real-world performance (Week 13 actual) shows the model is competitive but doesn't beat Vegas.
-    """)
-
-    st.markdown("---")
-
-    # Methodology
-    st.markdown("## Methodology & Data Sources")
+    st.markdown("## Common Methodology")
 
     st.markdown("""
     ### Data Collection
-    - **Game Data:** ESPN API (scores, team stats, drive data)
-    - **Odds Data:** The Odds API (opening and current lines from major books)
-    - **Seasons Covered:** 2024-2025 NFL (452 completed games)
+    - **Game Data:** ESPN API (scores, team stats, drive data where available)
+    - **Odds Data:** The Odds API (opening and current lines from major sportsbooks)
+    - **Update Frequency:** Daily during active seasons
 
-    ### Feature Engineering
-    - Historical stats calculated using only games *before* prediction target (no lookahead)
-    - Drive efficiency metrics aggregated per-team per-season
-    - Odds captured as "latest available" to match prediction-time data
+    ### Feature Engineering Principles
+    1. **No Lookahead:** Historical stats only use games BEFORE the prediction target
+    2. **Odds Integration:** Vegas lines used as features (available at prediction time)
+    3. **Home/Away Splits:** Capture venue-specific performance differences
+    4. **Standardization:** All features scaled using StandardScaler
 
     ### Model Training
     - **Framework:** PyTorch
-    - **Split:** Time-based (train on weeks 1-10, test on weeks 11+)
-    - **Optimization:** Adam optimizer with learning rate scheduling
-    - **Regularization:** Dropout (0.3), early stopping (patience=20)
+    - **Optimizer:** Adam with learning rate scheduling (ReduceLROnPlateau)
+    - **Loss Function:** Mean Squared Error (MSE)
+    - **Regularization:** Dropout (0.3), BatchNorm, Early Stopping
 
     ### Known Limitations
-    1. Model tends to predict spreads closer to the mean (misses blowouts)
-    2. Does not account for injuries or weather (beyond dome indicator)
-    3. Limited to 2 seasons of training data
-    4. Vegas lines incorporate information we don't have access to
+    1. Models tend to predict toward the mean (may miss blowouts)
+    2. No injury data incorporated
+    3. Weather only partially captured (dome indicator, temperature)
+    4. Vegas incorporates information we don't have access to
     """)
 
 
