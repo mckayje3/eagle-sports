@@ -16,7 +16,7 @@ from deep_eagle_feature_extractor import DeepEagleFeatureExtractor
 
 
 class DeepEagleModel(torch.nn.Module):
-    """Deep Eagle neural network for score prediction"""
+    """Deep Eagle neural network for score prediction - new architecture"""
 
     def __init__(self, input_dim, hidden_dims=[256, 128, 64]):
         super(DeepEagleModel, self).__init__()
@@ -52,6 +52,43 @@ class DeepEagleModel(torch.nn.Module):
         return torch.cat([home_score, away_score], dim=1)
 
 
+class DeepEagleModelOld(torch.nn.Module):
+    """Deep Eagle neural network - old architecture (uses 'features' and 'home_head')"""
+
+    def __init__(self, input_dim, hidden_dims=[256, 128, 64]):
+        super(DeepEagleModelOld, self).__init__()
+
+        layers = []
+        prev_dim = input_dim
+
+        for hidden_dim in hidden_dims:
+            layers.append(torch.nn.Linear(prev_dim, hidden_dim))
+            layers.append(torch.nn.BatchNorm1d(hidden_dim))
+            layers.append(torch.nn.ReLU())
+            layers.append(torch.nn.Dropout(0.3))
+            prev_dim = hidden_dim
+
+        self.features = torch.nn.Sequential(*layers)
+
+        self.home_head = torch.nn.Sequential(
+            torch.nn.Linear(prev_dim, 32),
+            torch.nn.ReLU(),
+            torch.nn.Linear(32, 1)
+        )
+
+        self.away_head = torch.nn.Sequential(
+            torch.nn.Linear(prev_dim, 32),
+            torch.nn.ReLU(),
+            torch.nn.Linear(32, 1)
+        )
+
+    def forward(self, x):
+        features = self.features(x)
+        home_score = self.home_head(features)
+        away_score = self.away_head(features)
+        return torch.cat([home_score, away_score], dim=1)
+
+
 def generate_predictions_for_sport(sport, season=2025, weeks=None, backfill=False):
     """Generate predictions for a sport using proper feature extraction"""
     print(f"\n{'='*80}")
@@ -59,11 +96,11 @@ def generate_predictions_for_sport(sport, season=2025, weeks=None, backfill=Fals
     print('='*80)
 
     db_path = f'{sport}_games.db'
-    # For CFB, use the v2 model which has no target leak and 30 historical features
-    # The gameday model has target leak (point_spread, total_points in features)
+    # For CFB, use the 2024 gameday model which has no target leak and good historical features
+    # Trained on 2023-2024 data, works for 2025 predictions
     if sport == 'cfb':
-        model_path = 'models/deep_eagle_cfb_2025_v2.pt'
-        scaler_path = 'models/deep_eagle_cfb_2025_v2_scaler.pkl'
+        model_path = 'models/deep_eagle_cfb_2024_gameday.pt'
+        scaler_path = 'models/deep_eagle_cfb_2024_gameday_scaler.pkl'
     else:
         model_path = f'models/deep_eagle_{sport}_2025.pt'
         scaler_path = f'models/deep_eagle_{sport}_2025_scaler.pkl'
@@ -82,7 +119,14 @@ def generate_predictions_for_sport(sport, season=2025, weeks=None, backfill=Fals
         scaler = pickle.load(f)
 
     input_dim = len(feature_cols)
-    model = DeepEagleModel(input_dim)
+    # Check if model uses old architecture (features/home_head) or new (feature_extractor/home_score_head)
+    state_dict_keys = list(checkpoint['model_state_dict'].keys())
+    if 'features.0.weight' in state_dict_keys:
+        # Old architecture
+        model = DeepEagleModelOld(input_dim)
+    else:
+        # New architecture
+        model = DeepEagleModel(input_dim)
     model.load_state_dict(checkpoint['model_state_dict'])
     model.to(device)
     model.eval()
