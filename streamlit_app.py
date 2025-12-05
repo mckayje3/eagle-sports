@@ -391,16 +391,31 @@ def show_predictions():
     """Show predictions page with CFB, NFL, and NBA tabs"""
     st.markdown('<p class="main-header">View Predictions</p>', unsafe_allow_html=True)
 
-    # Sport tabs
-    sport_tab = st.tabs(["College Football", "NFL", "NBA"])
+    # Initialize sport selection in session state if not exists
+    if 'selected_sport' not in st.session_state:
+        st.session_state.selected_sport = "College Football"
 
-    with sport_tab[0]:
+    # Sport selector that persists across reruns
+    sport_options = ["College Football", "NFL", "NBA"]
+    selected_sport = st.radio(
+        "Select Sport",
+        sport_options,
+        index=sport_options.index(st.session_state.selected_sport),
+        horizontal=True,
+        key="sport_selector"
+    )
+
+    # Update session state
+    st.session_state.selected_sport = selected_sport
+
+    st.divider()
+
+    # Show predictions for selected sport
+    if selected_sport == "College Football":
         show_sport_predictions('CFB', max_week=15, default_week=14)
-
-    with sport_tab[1]:
+    elif selected_sport == "NFL":
         show_sport_predictions('NFL', max_week=18, default_week=14)
-
-    with sport_tab[2]:
+    else:
         show_nba_predictions_live()
 
 
