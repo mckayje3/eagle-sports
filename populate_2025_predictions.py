@@ -59,11 +59,11 @@ def generate_predictions_for_sport(sport, season=2025, weeks=None, backfill=Fals
     print('='*80)
 
     db_path = f'{sport}_games.db'
-    # For CFB, use the gameday model which has proper features (historical stats)
-    # The regular cfb_2025 model uses game stats which aren't available for predictions
+    # For CFB, use the v2 model which has no target leak and 30 historical features
+    # The gameday model has target leak (point_spread, total_points in features)
     if sport == 'cfb':
-        model_path = 'models/deep_eagle_cfb_2025_gameday.pt'
-        scaler_path = 'models/deep_eagle_cfb_2025_gameday_scaler.pkl'
+        model_path = 'models/deep_eagle_cfb_2025_v2.pt'
+        scaler_path = 'models/deep_eagle_cfb_2025_v2_scaler.pkl'
     else:
         model_path = f'models/deep_eagle_{sport}_2025.pt'
         scaler_path = f'models/deep_eagle_{sport}_2025_scaler.pkl'
