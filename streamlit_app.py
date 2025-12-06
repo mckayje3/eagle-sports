@@ -774,10 +774,10 @@ def show_nba_predictions_live():
 
     from datetime import datetime, timedelta
 
-    # Calendar-style date picker for basketball
+    # Calendar-style date picker for basketball (3 days before, today, 3 days after)
     today = datetime.now().date()
 
-    # Create a row of date buttons for the next 7 days
+    # Create a row of date buttons: 3 before + today + 3 after = 7 days
     st.markdown("**Select Date:**")
     date_cols = st.columns(7)
 
@@ -786,13 +786,14 @@ def show_nba_predictions_live():
         st.session_state.nba_selected_date = today
 
     for i, col in enumerate(date_cols):
-        date = today + timedelta(days=i)
+        # i=0 is 3 days ago, i=3 is today, i=6 is 3 days from now
+        date = today + timedelta(days=i - 3)
         day_name = date.strftime('%a')  # Mon, Tue, etc.
         day_num = date.strftime('%d')   # 01, 02, etc.
         month = date.strftime('%b')     # Dec, Jan, etc.
 
         # Highlight today differently
-        if i == 0:
+        if date == today:
             label = f"Today\n{month} {day_num}"
         else:
             label = f"{day_name}\n{month} {day_num}"
@@ -968,10 +969,10 @@ def show_cbb_predictions_live():
 
     from datetime import datetime, timedelta
 
-    # Calendar-style date picker for basketball
+    # Calendar-style date picker for basketball (3 days before, today, 3 days after)
     today = datetime.now().date()
 
-    # Create a row of date buttons for the next 7 days
+    # Create a row of date buttons: 3 before + today + 3 after = 7 days
     st.markdown("**Select Date:**")
     date_cols = st.columns(7)
 
@@ -980,13 +981,14 @@ def show_cbb_predictions_live():
         st.session_state.cbb_selected_date = today
 
     for i, col in enumerate(date_cols):
-        date = today + timedelta(days=i)
+        # i=0 is 3 days ago, i=3 is today, i=6 is 3 days from now
+        date = today + timedelta(days=i - 3)
         day_name = date.strftime('%a')  # Mon, Tue, etc.
         day_num = date.strftime('%d')   # 01, 02, etc.
         month = date.strftime('%b')     # Dec, Jan, etc.
 
         # Highlight today differently
-        if i == 0:
+        if date == today:
             label = f"Today\n{month} {day_num}"
         else:
             label = f"{day_name}\n{month} {day_num}"
