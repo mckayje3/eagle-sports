@@ -396,11 +396,11 @@ def show_predictions():
         st.session_state.selected_sport = "College Football"
 
     # Sport selector that persists across reruns
-    sport_options = ["College Football", "NFL", "NBA"]
+    sport_options = ["College Football", "NFL", "NBA", "College Basketball"]
     selected_sport = st.radio(
         "Select Sport",
         sport_options,
-        index=sport_options.index(st.session_state.selected_sport),
+        index=sport_options.index(st.session_state.selected_sport) if st.session_state.selected_sport in sport_options else 0,
         horizontal=True,
         key="sport_selector"
     )
@@ -415,8 +415,10 @@ def show_predictions():
         show_sport_predictions('CFB', max_week=15, default_week=14)
     elif selected_sport == "NFL":
         show_sport_predictions('NFL', max_week=18, default_week=14)
-    else:
+    elif selected_sport == "NBA":
         show_nba_predictions_live()
+    else:
+        show_cbb_predictions_live()
 
 
 def run_nfl_predictions_update(week: int = None):
@@ -924,6 +926,153 @@ def show_nba_predictions_live():
     # Display predictions using unified display component
     for idx, row in filtered_df.iterrows():
         display_game_card(row, sport_emoji="🏀")
+
+
+def show_cbb_predictions_live():
+    """Show live College Basketball predictions from cbb_games.db"""
+    st.markdown("### 🏀 Men's College Basketball Predictions")
+
+    # CBB uses season=2025 for 2024-25 season
+    season = 2025
+
+    col1, col2, col3 = st.columns([2, 1, 1])
+
+    with col1:
+        days = st.number_input("Days to show", min_value=1, max_value=7, value=1, key="cbb_days")
+
+    with col2:
+        if st.button("🔄 Refresh", use_container_width=True, key="cbb_refresh"):
+            st.cache_data.clear()
+            st.rerun()
+
+    with col3:
+        if st.button("📊 Generate Predictions", use_container_width=True, key="cbb_generate"):
+            with st.spinner("Generating CBB predictions..."):
+                import subprocess
+                result = subprocess.run(
+                    ['py', 'cbb_predictor.py', str(days)],
+                    capture_output=True,
+                    text=True,
+                    timeout=60
+                )
+                if result.returncode == 0:
+                    st.success("Predictions generated!")
+                    st.cache_data.clear()
+                    st.rerun()
+                else:
+                    st.error(f"Error: {result.stderr}")
+
+    # Load predictions from CSV file
+    try:
+        predictions_df = pd.read_csv('cbb_predictions.csv')
+    except FileNotFoundError:
+        st.warning("No predictions file found. Click 'Generate Predictions' to create predictions.")
+        return
+    except Exception as e:
+        st.error(f"Error loading predictions: {e}")
+        return
+
+    if predictions_df.empty:
+        st.warning("No predictions available.")
+        return
+
+    st.success(f"Found {len(predictions_df)} games")
+
+    # Summary stats
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        st.metric("Avg Total Points", f"{predictions_df['pred_total'].mean():.1f}")
+
+    with col2:
+        st.metric("Avg Spread", f"{predictions_df['pred_spread'].abs().mean():.1f} pts")
+
+    with col3:
+        close_games = (predictions_df['pred_spread'].abs() < 5).sum()
+        st.metric("Close Games (<5)", close_games)
+
+    with col4:
+        avg_conf = predictions_df['confidence'].mean()
+        st.metric("Avg Confidence", f"{avg_conf:.0%}")
+
+    st.markdown("---")
+
+    # High Confidence Picks Section
+    high_conf = predictions_df[predictions_df['confidence'] >= 0.88]
+    if len(high_conf) > 0:
+        st.markdown("### ⭐ High Confidence Picks (88%+)")
+        for _, row in high_conf.head(5).iterrows():
+            conf_pct = row['confidence'] * 100
+            spread = row['pred_spread']
+            if spread > 0:
+                pick = f"{row['home_team']} {spread:+.1f}"
+            else:
+                pick = f"{row['away_team']} {abs(spread):+.1f}"
+
+            col1, col2, col3 = st.columns([3, 2, 1])
+            with col1:
+                st.write(f"**{row['away_team']}** @ **{row['home_team']}**")
+            with col2:
+                st.write(f"Pick: {pick}")
+            with col3:
+                st.write(f"🎯 {conf_pct:.0f}%")
+        st.markdown("---")
+
+    # Filters
+    col1, col2 = st.columns(2)
+
+    with col1:
+        spread_filter = st.selectbox("Spread Size",
+                                     ["All", "Close (<5)", "Medium (5-10)", "Large (>10)"], key="cbb_spread_filter")
+
+    with col2:
+        conf_filter = st.selectbox("Confidence",
+                                   ["All", "High (88%+)", "Medium (80-88%)", "Low (<80%)"], key="cbb_conf_filter")
+
+    # Apply filters
+    filtered_df = predictions_df.copy()
+
+    if spread_filter == "Close (<5)":
+        filtered_df = filtered_df[filtered_df['pred_spread'].abs() < 5]
+    elif spread_filter == "Medium (5-10)":
+        filtered_df = filtered_df[(filtered_df['pred_spread'].abs() >= 5) &
+                                  (filtered_df['pred_spread'].abs() <= 10)]
+    elif spread_filter == "Large (>10)":
+        filtered_df = filtered_df[filtered_df['pred_spread'].abs() > 10]
+
+    if conf_filter == "High (88%+)":
+        filtered_df = filtered_df[filtered_df['confidence'] >= 0.88]
+    elif conf_filter == "Medium (80-88%)":
+        filtered_df = filtered_df[(filtered_df['confidence'] >= 0.80) &
+                                  (filtered_df['confidence'] < 0.88)]
+    elif conf_filter == "Low (<80%)":
+        filtered_df = filtered_df[filtered_df['confidence'] < 0.80]
+
+    st.markdown(f"### Showing {len(filtered_df)} predictions")
+
+    # Display predictions as game cards
+    for idx, row in filtered_df.iterrows():
+        spread = row['pred_spread']
+        conf_pct = row['confidence'] * 100
+
+        with st.expander(f"🏀 {row['away_team']} @ {row['home_team']}", expanded=False):
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.markdown("**Prediction**")
+                st.write(f"Away: {row['pred_away_score']:.0f}")
+                st.write(f"Home: {row['pred_home_score']:.0f}")
+                st.write(f"Spread: {spread:+.1f}")
+                st.write(f"Total: {row['pred_total']:.1f}")
+
+            with col2:
+                st.markdown("**Pick**")
+                st.write(f"Winner: {row['predicted_winner']}")
+                st.write(f"Confidence: {conf_pct:.0f}%")
+
+                # Confidence bar
+                conf_color = "green" if conf_pct >= 80 else ("orange" if conf_pct >= 60 else "red")
+                st.progress(row['confidence'])
 
 
 def show_sport_predictions(sport: str, max_week: int, default_week: int):
