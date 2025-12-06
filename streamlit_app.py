@@ -767,25 +767,56 @@ def show_nba_predictions():
 
 def show_nba_predictions_live():
     """Show live NBA predictions for 2025-26 season"""
-    st.markdown("### 🏀 NBA 2025-26 Predictions")
+    st.markdown("### 🏀 NBA 2024-25 Predictions")
 
-    # NBA uses season=2025 for 2025-26 season
+    # NBA uses season=2025 for 2024-25 season
     season = 2025
 
-    # Get current "week" (weeks since Oct 15, 2025)
-    from datetime import datetime
-    season_start = datetime(2025, 10, 15)
-    current_week = max(0, (datetime.now() - season_start).days // 7)
+    from datetime import datetime, timedelta
 
-    col1, col2 = st.columns([3, 1])
+    # Calendar-style date picker for basketball
+    today = datetime.now().date()
+
+    # Create a row of date buttons for the next 7 days
+    st.markdown("**Select Date:**")
+    date_cols = st.columns(7)
+
+    # Initialize selected date in session state
+    if 'nba_selected_date' not in st.session_state:
+        st.session_state.nba_selected_date = today
+
+    for i, col in enumerate(date_cols):
+        date = today + timedelta(days=i)
+        day_name = date.strftime('%a')  # Mon, Tue, etc.
+        day_num = date.strftime('%d')   # 01, 02, etc.
+        month = date.strftime('%b')     # Dec, Jan, etc.
+
+        # Highlight today differently
+        if i == 0:
+            label = f"Today\n{month} {day_num}"
+        else:
+            label = f"{day_name}\n{month} {day_num}"
+
+        with col:
+            # Use different styling for selected date
+            is_selected = st.session_state.nba_selected_date == date
+            if st.button(label, key=f"nba_date_{i}", use_container_width=True,
+                        type="primary" if is_selected else "secondary"):
+                st.session_state.nba_selected_date = date
+                st.rerun()
+
+    selected_date = st.session_state.nba_selected_date
+
+    col1, col2 = st.columns([1, 1])
 
     with col1:
-        week = st.number_input("Select Week (since season start)", min_value=0, max_value=50, value=min(current_week, 7), key="nba_week")
-
-    with col2:
         if st.button("🔄 Refresh", use_container_width=True, key="nba_refresh"):
             st.cache_data.clear()
             st.rerun()
+
+    # Calculate week from selected date for DB query
+    season_start = datetime(2024, 10, 22)  # NBA 2024-25 season start
+    week = max(0, (datetime.combine(selected_date, datetime.min.time()) - season_start).days // 7)
 
     # Fetch NBA predictions
     try:
@@ -935,25 +966,58 @@ def show_cbb_predictions_live():
     # CBB uses season=2025 for 2024-25 season
     season = 2025
 
-    col1, col2, col3 = st.columns([2, 1, 1])
+    from datetime import datetime, timedelta
+
+    # Calendar-style date picker for basketball
+    today = datetime.now().date()
+
+    # Create a row of date buttons for the next 7 days
+    st.markdown("**Select Date:**")
+    date_cols = st.columns(7)
+
+    # Initialize selected date in session state
+    if 'cbb_selected_date' not in st.session_state:
+        st.session_state.cbb_selected_date = today
+
+    for i, col in enumerate(date_cols):
+        date = today + timedelta(days=i)
+        day_name = date.strftime('%a')  # Mon, Tue, etc.
+        day_num = date.strftime('%d')   # 01, 02, etc.
+        month = date.strftime('%b')     # Dec, Jan, etc.
+
+        # Highlight today differently
+        if i == 0:
+            label = f"Today\n{month} {day_num}"
+        else:
+            label = f"{day_name}\n{month} {day_num}"
+
+        with col:
+            # Use different styling for selected date
+            is_selected = st.session_state.cbb_selected_date == date
+            if st.button(label, key=f"cbb_date_{i}", use_container_width=True,
+                        type="primary" if is_selected else "secondary"):
+                st.session_state.cbb_selected_date = date
+                st.rerun()
+
+    selected_date = st.session_state.cbb_selected_date
+
+    # Action buttons row
+    col1, col2 = st.columns([1, 1])
 
     with col1:
-        days = st.number_input("Days to show", min_value=1, max_value=7, value=1, key="cbb_days")
-
-    with col2:
         if st.button("🔄 Refresh", use_container_width=True, key="cbb_refresh"):
             st.cache_data.clear()
             st.rerun()
 
-    with col3:
+    with col2:
         if st.button("📊 Generate Predictions", use_container_width=True, key="cbb_generate"):
             with st.spinner("Generating CBB predictions..."):
                 import subprocess
                 result = subprocess.run(
-                    ['py', 'cbb_predictor.py', str(days)],
+                    ['py', 'cbb_predictor.py', '7'],  # Generate for 7 days
                     capture_output=True,
                     text=True,
-                    timeout=60
+                    timeout=120
                 )
                 if result.returncode == 0:
                     st.success("Predictions generated!")
@@ -976,7 +1040,24 @@ def show_cbb_predictions_live():
         st.warning("No predictions available.")
         return
 
-    st.success(f"Found {len(predictions_df)} games")
+    # Filter by selected date
+    predictions_df['game_date'] = pd.to_datetime(predictions_df['date']).dt.date
+    filtered_df = predictions_df[predictions_df['game_date'] == selected_date]
+
+    if filtered_df.empty:
+        st.info(f"No games scheduled for {selected_date.strftime('%B %d, %Y')}")
+        # Show how many games on other days
+        games_by_date = predictions_df.groupby('game_date').size()
+        if not games_by_date.empty:
+            st.markdown("**Games available on other days:**")
+            for date, count in games_by_date.items():
+                st.write(f"• {date.strftime('%a %b %d')}: {count} games")
+        return
+
+    st.success(f"**{selected_date.strftime('%A, %B %d, %Y')}** - {len(filtered_df)} games")
+
+    # Use filtered_df for the rest of the function
+    predictions_df = filtered_df
 
     # Summary stats
     col1, col2, col3, col4 = st.columns(4)
