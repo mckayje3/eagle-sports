@@ -1042,6 +1042,33 @@ def show_cbb_predictions_live():
         st.warning("No predictions available.")
         return
 
+    # Enrich predictions with Vegas odds and results from database
+    try:
+        conn = sqlite3.connect('cbb_games.db')
+
+        # Get game results and odds
+        enrichment_query = """
+            SELECT
+                g.game_id,
+                g.completed,
+                g.home_score as actual_home_score,
+                g.away_score as actual_away_score,
+                o.closing_spread_home as vegas_spread,
+                o.closing_total as vegas_total
+            FROM games g
+            LEFT JOIN game_odds o ON g.game_id = o.game_id
+        """
+        enrichment_df = pd.read_sql_query(enrichment_query, conn)
+        conn.close()
+
+        # Merge with predictions
+        predictions_df['game_id'] = predictions_df['game_id'].astype(str)
+        enrichment_df['game_id'] = enrichment_df['game_id'].astype(str)
+        predictions_df = predictions_df.merge(enrichment_df, on='game_id', how='left')
+
+    except Exception as e:
+        st.warning(f"Could not load odds/results from database: {e}")
+
     # Filter by selected date
     predictions_df['game_date'] = pd.to_datetime(predictions_df['date']).dt.date
     filtered_df = predictions_df[predictions_df['game_date'] == selected_date]
@@ -1056,7 +1083,9 @@ def show_cbb_predictions_live():
                 st.write(f"• {date.strftime('%a %b %d')}: {count} games")
         return
 
-    st.success(f"**{selected_date.strftime('%A, %B %d, %Y')}** - {len(filtered_df)} games")
+    # Header with date
+    st.markdown(f"### 🏀 Games for {selected_date.strftime('%A, %B %d, %Y')}")
+    st.info(f"**{len(filtered_df)} games** scheduled")
 
     # Use filtered_df for the rest of the function
     predictions_df = filtered_df
@@ -1080,40 +1109,27 @@ def show_cbb_predictions_live():
 
     st.markdown("---")
 
-    # High Confidence Picks Section
-    high_conf = predictions_df[predictions_df['confidence'] >= 0.88]
-    if len(high_conf) > 0:
-        st.markdown("### ⭐ High Confidence Picks (88%+)")
-        for _, row in high_conf.head(5).iterrows():
-            conf_pct = row['confidence'] * 100
-            spread = row['pred_spread']
-            if spread > 0:
-                pick = f"{row['home_team']} {spread:+.1f}"
-            else:
-                pick = f"{row['away_team']} {abs(spread):+.1f}"
-
-            col1, col2, col3 = st.columns([3, 2, 1])
-            with col1:
-                st.write(f"**{row['away_team']}** @ **{row['home_team']}**")
-            with col2:
-                st.write(f"Pick: {pick}")
-            with col3:
-                st.write(f"🎯 {conf_pct:.0f}%")
-        st.markdown("---")
-
     # Filters
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
 
     with col1:
+        status_filter = st.selectbox("Status", ["All", "Pending", "Completed"], key="cbb_status")
+
+    with col2:
         spread_filter = st.selectbox("Spread Size",
                                      ["All", "Close (<5)", "Medium (5-10)", "Large (>10)"], key="cbb_spread_filter")
 
-    with col2:
+    with col3:
         conf_filter = st.selectbox("Confidence",
                                    ["All", "High (88%+)", "Medium (80-88%)", "Low (<80%)"], key="cbb_conf_filter")
 
     # Apply filters
     filtered_df = predictions_df.copy()
+
+    if status_filter == "Pending":
+        filtered_df = filtered_df[(filtered_df['completed'] == 0) | (filtered_df['completed'].isna())]
+    elif status_filter == "Completed":
+        filtered_df = filtered_df[filtered_df['completed'] == 1]
 
     if spread_filter == "Close (<5)":
         filtered_df = filtered_df[filtered_df['pred_spread'].abs() < 5]
@@ -1133,29 +1149,18 @@ def show_cbb_predictions_live():
 
     st.markdown(f"### Showing {len(filtered_df)} predictions")
 
-    # Display predictions as game cards
-    for idx, row in filtered_df.iterrows():
-        spread = row['pred_spread']
-        conf_pct = row['confidence'] * 100
+    # Rename columns to match display_game_card expectations
+    display_df = filtered_df.rename(columns={
+        'pred_home_score': 'predicted_home_score',
+        'pred_away_score': 'predicted_away_score',
+        'pred_spread': 'predicted_spread',
+        'pred_total': 'predicted_total',
+        'completed': 'game_completed'
+    })
 
-        with st.expander(f"🏀 {row['away_team']} @ {row['home_team']}", expanded=False):
-            col1, col2 = st.columns(2)
-
-            with col1:
-                st.markdown("**Prediction**")
-                st.write(f"Away: {row['pred_away_score']:.0f}")
-                st.write(f"Home: {row['pred_home_score']:.0f}")
-                st.write(f"Spread: {spread:+.1f}")
-                st.write(f"Total: {row['pred_total']:.1f}")
-
-            with col2:
-                st.markdown("**Pick**")
-                st.write(f"Winner: {row['predicted_winner']}")
-                st.write(f"Confidence: {conf_pct:.0f}%")
-
-                # Confidence bar
-                conf_color = "green" if conf_pct >= 80 else ("orange" if conf_pct >= 60 else "red")
-                st.progress(row['confidence'])
+    # Display predictions using unified display component
+    for idx, row in display_df.iterrows():
+        display_game_card(row, sport_emoji="🏀")
 
 
 def show_sport_predictions(sport: str, max_week: int, default_week: int):
