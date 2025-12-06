@@ -815,54 +815,53 @@ def show_nba_predictions_live():
             st.cache_data.clear()
             st.rerun()
 
-    # Calculate week from selected date for DB query
-    season_start = datetime(2024, 10, 22)  # NBA 2024-25 season start
-    week = max(0, (datetime.combine(selected_date, datetime.min.time()) - season_start).days // 7)
+    # Format selected date for SQL query (YYYY-MM-DD)
+    date_str = selected_date.strftime('%Y-%m-%d')
 
-    # Fetch NBA predictions
+    # Fetch NBA predictions for the selected date
     try:
         conn = sqlite3.connect('users.db')
         query = """
             SELECT * FROM prediction_cache
-            WHERE week = ? AND sport = 'NBA' AND season = ?
+            WHERE sport = 'NBA' AND season = ?
+            AND date(game_date) = date(?)
             ORDER BY game_date
         """
-        predictions_df = pd.read_sql_query(query, conn, params=(week, season))
+        predictions_df = pd.read_sql_query(query, conn, params=(season, date_str))
         conn.close()
     except Exception as e:
         st.error(f"Error loading predictions: {e}")
         predictions_df = pd.DataFrame()
 
     if predictions_df.empty:
-        st.warning(f"No predictions available for Week {week}")
+        st.info(f"No games scheduled for {selected_date.strftime('%B %d, %Y')}")
 
-        # Show all upcoming games
-        st.markdown("#### Upcoming Games")
+        # Show games on other days
         try:
             conn = sqlite3.connect('users.db')
-            upcoming_query = """
-                SELECT * FROM prediction_cache
-                WHERE sport = 'NBA' AND season = ? AND game_completed = 0
-                ORDER BY game_date
-                LIMIT 20
+            other_games_query = """
+                SELECT date(game_date) as game_day, COUNT(*) as count
+                FROM prediction_cache
+                WHERE sport = 'NBA' AND season = ?
+                GROUP BY date(game_date)
+                ORDER BY game_day DESC
+                LIMIT 14
             """
-            upcoming_df = pd.read_sql_query(upcoming_query, conn, params=(season,))
+            other_df = pd.read_sql_query(other_games_query, conn, params=(season,))
             conn.close()
 
-            if not upcoming_df.empty:
-                st.success(f"Found {len(upcoming_df)} upcoming games")
-                for _, row in upcoming_df.iterrows():
-                    spread = row['predicted_spread']
-                    if spread > 0:
-                        pick = f"{row['home_team']} by {spread:.1f}"
-                    else:
-                        pick = f"{row['away_team']} by {abs(spread):.1f}"
-                    st.write(f"**{row['away_team']}** @ **{row['home_team']}** - Pick: {pick}")
+            if not other_df.empty:
+                st.markdown("**Games available on other days:**")
+                for _, row in other_df.iterrows():
+                    game_day = pd.to_datetime(row['game_day']).strftime('%a %b %d')
+                    st.write(f"• {game_day}: {row['count']} games")
         except Exception as e:
-            st.warning(f"Could not load upcoming games: {e}")
+            st.warning(f"Could not load other games: {e}")
         return
 
-    st.success(f"Found {len(predictions_df)} games for Week {week}")
+    # Header with date
+    st.markdown(f"### 🏀 Games for {selected_date.strftime('%A, %B %d, %Y')}")
+    st.info(f"**{len(predictions_df)} games** scheduled")
 
     # Check if predictions are fallback (not from Deep Eagle)
     if is_fallback_predictions(predictions_df):
@@ -893,27 +892,6 @@ def show_nba_predictions_live():
         st.metric("Avg Confidence", f"{avg_conf:.0%}")
 
     st.markdown("---")
-
-    # High Confidence Picks Section
-    high_conf = predictions_df[predictions_df['confidence'] >= 0.88]
-    if len(high_conf) > 0:
-        st.markdown("### ⭐ High Confidence Picks (88%+)")
-        for _, row in high_conf.head(5).iterrows():
-            conf_pct = row['confidence'] * 100
-            spread = row['predicted_spread']
-            if spread > 0:
-                pick = f"{row['home_team']} {spread:+.1f}"
-            else:
-                pick = f"{row['away_team']} {abs(spread):+.1f}"
-
-            col1, col2, col3 = st.columns([3, 2, 1])
-            with col1:
-                st.write(f"**{row['away_team']}** @ **{row['home_team']}**")
-            with col2:
-                st.write(f"Pick: {pick}")
-            with col3:
-                st.write(f"🎯 {conf_pct:.0f}%")
-        st.markdown("---")
 
     # Filters
     col1, col2, col3 = st.columns(3)
