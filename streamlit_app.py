@@ -760,6 +760,149 @@ def display_game_card(row, sport_emoji="🏈"):
                 st.write(" | ".join(tags))
 
 
+def display_prediction_freshness(predictions_df, game_dates=None):
+    """
+    Display when predictions were generated and warn if stale.
+
+    Args:
+        predictions_df: DataFrame with predictions (should have 'created_at' column)
+        game_dates: Optional list/series of game dates for comparison
+    """
+    from datetime import datetime, timedelta
+
+    # Check if created_at column exists and has data
+    if 'created_at' not in predictions_df.columns:
+        st.caption("Prediction timestamp not available")
+        return
+
+    # Get the most recent prediction timestamp
+    created_times = predictions_df['created_at'].dropna()
+    if created_times.empty:
+        st.caption("Prediction timestamp not available")
+        return
+
+    # Parse timestamps - handle various formats
+    try:
+        # Try to get the latest created_at time
+        latest_created = pd.to_datetime(created_times).max()
+        if pd.isna(latest_created):
+            st.caption("Prediction timestamp not available")
+            return
+    except Exception:
+        st.caption("Prediction timestamp not available")
+        return
+
+    now = datetime.now()
+    age = now - latest_created.to_pydatetime()
+    hours_old = age.total_seconds() / 3600
+
+    # Format the timestamp
+    created_str = latest_created.strftime('%a %b %d, %I:%M %p')
+
+    # Determine freshness status
+    if hours_old < 12:
+        # Fresh - generated within 12 hours
+        st.success(f"Predictions generated: **{created_str}** ({hours_old:.0f}h ago)")
+    elif hours_old < 24:
+        # Getting stale - 12-24 hours old
+        st.warning(f"Predictions generated: **{created_str}** ({hours_old:.0f}h ago) - Consider refreshing")
+    elif hours_old < 48:
+        # Stale - 1-2 days old
+        st.warning(f"Predictions generated: **{created_str}** ({hours_old/24:.1f} days ago) - Predictions may be stale")
+    else:
+        # Very stale - over 2 days old
+        days_old = hours_old / 24
+        st.error(f"Predictions generated: **{created_str}** ({days_old:.0f} days ago) - Predictions are stale, please refresh!")
+
+
+def display_top_picks(predictions_df, sport_emoji="🏈", max_picks=5, min_disagreement=5.0):
+    """
+    Display top picks where model disagrees most with Vegas.
+
+    Args:
+        predictions_df: DataFrame with predictions and Vegas lines
+        sport_emoji: Emoji for the sport
+        max_picks: Maximum number of picks to show
+        min_disagreement: Minimum disagreement threshold in points
+    """
+    # Get column names based on sport (CBB uses different column names)
+    spread_col = 'pred_spread' if 'pred_spread' in predictions_df.columns else 'predicted_spread'
+    total_col = 'pred_total' if 'pred_total' in predictions_df.columns else 'predicted_total'
+
+    # Filter to games with Vegas odds
+    df = predictions_df.copy()
+    df = df[df['vegas_spread'].notna() & df['vegas_total'].notna()]
+
+    if df.empty:
+        return
+
+    # Calculate disagreement
+    # Model spread: home - away (positive = home wins)
+    # Vegas spread: negative = home favored
+    # To compare: convert model to Vegas convention by negating
+    df['spread_disagreement'] = abs((-df[spread_col]) - df['vegas_spread'])
+    df['total_disagreement'] = abs(df[total_col] - df['vegas_total'])
+    df['max_disagreement'] = df[['spread_disagreement', 'total_disagreement']].max(axis=1)
+
+    # Filter by minimum threshold and sort
+    top_picks = df[df['max_disagreement'] >= min_disagreement].nlargest(max_picks, 'max_disagreement')
+
+    if top_picks.empty:
+        return
+
+    st.markdown("### 🎯 Top Picks - Model vs Vegas Disagreements")
+    st.caption(f"Games where model disagrees with Vegas by {min_disagreement}+ points")
+
+    for idx, row in top_picks.iterrows():
+        home_team = row.get('home_team', 'Home')
+        away_team = row.get('away_team', 'Away')
+        model_spread = row[spread_col]
+        vegas_spread = row['vegas_spread']
+        model_total = row[total_col]
+        vegas_total = row['vegas_total']
+        spread_diff = row['spread_disagreement']
+        total_diff = row['total_disagreement']
+
+        # Determine which disagreement is larger
+        if spread_diff >= total_diff:
+            # Spread is the bigger disagreement
+            # Convert model spread to Vegas convention
+            model_vegas_spread = -model_spread
+            if model_vegas_spread < vegas_spread:
+                # Model likes home more than Vegas
+                pick_team = home_team
+                pick_desc = f"Model: {model_vegas_spread:+.1f} vs Vegas: {vegas_spread:+.1f}"
+            else:
+                # Model likes away more than Vegas
+                pick_team = away_team
+                pick_desc = f"Model: {model_vegas_spread:+.1f} vs Vegas: {vegas_spread:+.1f}"
+            disagreement_type = "Spread"
+            disagreement_val = spread_diff
+        else:
+            # Total is the bigger disagreement
+            if model_total > vegas_total:
+                pick_desc = f"OVER {vegas_total:.1f} (Model: {model_total:.1f})"
+            else:
+                pick_desc = f"UNDER {vegas_total:.1f} (Model: {model_total:.1f})"
+            pick_team = ""
+            disagreement_type = "Total"
+            disagreement_val = total_diff
+
+        # Display the pick
+        col1, col2, col3 = st.columns([3, 3, 1])
+        with col1:
+            st.write(f"{sport_emoji} **{away_team}** @ **{home_team}**")
+        with col2:
+            if disagreement_type == "Spread":
+                st.write(f"Spread: {pick_desc}")
+            else:
+                st.write(f"{pick_desc}")
+        with col3:
+            st.write(f"**{disagreement_val:.1f}** pts")
+
+    st.markdown("---")
+
+
 def show_nba_predictions():
     """Show NBA predictions - coming soon placeholder (legacy function)"""
     show_nba_predictions_live()
@@ -863,6 +1006,9 @@ def show_nba_predictions_live():
     st.markdown(f"### 🏀 Games for {selected_date.strftime('%A, %B %d, %Y')}")
     st.info(f"**{len(predictions_df)} games** scheduled")
 
+    # Show prediction freshness
+    display_prediction_freshness(predictions_df)
+
     # Check if predictions are fallback (not from Deep Eagle)
     if is_fallback_predictions(predictions_df):
         st.warning("These predictions are using fallback values (not Deep Eagle). "
@@ -892,6 +1038,9 @@ def show_nba_predictions_live():
         st.metric("Avg Confidence", f"{avg_conf:.0%}")
 
     st.markdown("---")
+
+    # Top Picks - Model vs Vegas Disagreements
+    display_top_picks(predictions_df, sport_emoji="🏀", max_picks=5, min_disagreement=5.0)
 
     # Filters
     col1, col2, col3 = st.columns(3)
@@ -1065,6 +1214,27 @@ def show_cbb_predictions_live():
     st.markdown(f"### 🏀 Games for {selected_date.strftime('%A, %B %d, %Y')}")
     st.info(f"**{len(filtered_df)} games** scheduled")
 
+    # Show prediction freshness (CBB uses CSV file, check file modification time)
+    try:
+        import os
+        csv_path = 'cbb_predictions.csv'
+        if os.path.exists(csv_path):
+            mod_time = datetime.fromtimestamp(os.path.getmtime(csv_path))
+            now = datetime.now()
+            age = now - mod_time
+            hours_old = age.total_seconds() / 3600
+            mod_str = mod_time.strftime('%a %b %d, %I:%M %p')
+            if hours_old < 12:
+                st.success(f"Predictions generated: **{mod_str}** ({hours_old:.0f}h ago)")
+            elif hours_old < 24:
+                st.warning(f"Predictions generated: **{mod_str}** ({hours_old:.0f}h ago) - Consider refreshing")
+            elif hours_old < 48:
+                st.warning(f"Predictions generated: **{mod_str}** ({hours_old/24:.1f} days ago) - Predictions may be stale")
+            else:
+                st.error(f"Predictions generated: **{mod_str}** ({hours_old/24:.0f} days ago) - Predictions are stale, please refresh!")
+    except Exception:
+        pass
+
     # Use filtered_df for the rest of the function
     predictions_df = filtered_df
 
@@ -1086,6 +1256,9 @@ def show_cbb_predictions_live():
         st.metric("Avg Confidence", f"{avg_conf:.0%}")
 
     st.markdown("---")
+
+    # Top Picks - Model vs Vegas Disagreements (CBB uses pred_spread/pred_total columns)
+    display_top_picks(predictions_df, sport_emoji="🏀", max_picks=5, min_disagreement=5.0)
 
     # Filters
     col1, col2, col3 = st.columns(3)
@@ -1188,6 +1361,9 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
 
     st.success(f"Found {len(predictions_df)} games for Week {week}")
 
+    # Show prediction freshness
+    display_prediction_freshness(predictions_df)
+
     # Check if predictions are fallback (not from Deep Eagle)
     if is_fallback_predictions(predictions_df):
         st.warning("These predictions are using fallback values (not Deep Eagle). "
@@ -1218,6 +1394,10 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
         st.metric("Avg Confidence", f"{avg_conf:.0%}")
 
     st.markdown("---")
+
+    # Top Picks - Model vs Vegas Disagreements
+    sport_emoji_top = "🏈" if sport == "NFL" else "🏟️"
+    display_top_picks(predictions_df, sport_emoji=sport_emoji_top, max_picks=5, min_disagreement=5.0)
 
     # High Confidence Picks Section - fill NaN confidence with 0.85
     if 'confidence' in predictions_df.columns:
