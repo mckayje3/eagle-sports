@@ -1,0 +1,123 @@
+season,date,bowl_name,winner,winner_rank,winner_score,loser,loser_rank,loser_score,margin,total_points
+2021,2022-01-10,College Football Playoff National Championship,Georgia,3,33,Alabama,1,18,15,51
+2021,2022-01-04,Texas Bowl,Kansas State,,42,Louisiana State,,20,22,62
+2021,2022-01-01,Sugar Bowl,Baylor,6,21,Mississippi,8,7,14,28
+2021,2022-01-01,Rose Bowl,Ohio State,7,48,Utah,10,45,3,93
+2021,2022-01-01,Citrus Bowl,Kentucky,25,20,Iowa,17,17,3,37
+2021,2022-01-01,Fiesta Bowl,Oklahoma State,9,37,Notre Dame,5,35,2,72
+2021,2022-01-01,Outback Bowl,Arkansas,22,24,Penn State,,10,14,34
+2021,2021-12-31,Orange Bowl,Georgia,3,34,Michigan,2,11,23,45
+2021,2021-12-31,Cotton Bowl,Alabama,1,27,Cincinnati,4,6,21,33
+2021,2021-12-31,Sun Bowl,Central Michigan,,24,Washington State,,21,3,45
+2021,2021-12-31,Gator Bowl,Wake Forest,20,38,Rutgers,,10,28,48
+2021,2021-12-30,Las Vegas Bowl,Wisconsin,,20,Arizona State,,13,7,33
+2021,2021-12-30,Peach Bowl,Michigan State,11,31,Pittsburgh,13,21,10,52
+2021,2021-12-30,Music City Bowl,Purdue,,48,Tennessee,,45,3,93
+2021,2021-12-30,Duke's Mayo Bowl,South Carolina,,38,North Carolina,,21,17,59
+2021,2021-12-29,Alamo Bowl,Oklahoma,14,47,Oregon,15,32,15,79
+2021,2021-12-29,Cheez-It Bowl,Clemson,19,20,Iowa State,,13,7,33
+2021,2021-12-29,Pinstripe Bowl,Maryland,,54,Virginia Tech,,10,44,64
+2021,2021-12-28,Guaranteed Rate Bowl,Minnesota,,18,West Virginia,,6,12,24
+2021,2021-12-28,Liberty Bowl,Texas Tech,,34,Mississippi State,,7,27,41
+2021,2021-12-28,First Responder Bowl,Air Force,,31,Louisville,,28,3,59
+2021,2021-12-28,Birmingham Bowl,Houston,21,17,Auburn,,13,4,30
+2021,2021-12-27,Quick Lane Bowl,Western Michigan,,52,Nevada,,24,28,76
+2021,2021-12-25,Camellia Bowl,Georgia State,,51,Ball State,,20,31,71
+2021,2021-12-23,Union Home Mortgage Gasparilla Bowl,Central Florida,,29,Florida,,17,12,46
+2021,2021-12-23,Frisco Football Classic,Miami (OH),,27,North Texas,,14,13,41
+2021,2021-12-22,Armed Forces Bowl,Army,,24,Missouri,,22,2,46
+2021,2021-12-21,Frisco Bowl,San Diego State,,38,Texas-San Antonio,24,24,14,62
+2021,2021-12-21,Famous Idaho Potato Bowl,Wyoming,,52,Kent State,,38,14,90
+2021,2021-12-20,Myrtle Beach Bowl,Tulsa,,30,Old Dominion,,17,13,47
+2021,2021-12-18,New Orleans Bowl,Louisiana,16,36,Marshall,,21,15,57
+2021,2021-12-18,LA Bowl,Utah State,,24,Oregon State,,13,11,37
+2021,2021-12-18,LendingTree Bowl,Liberty,,56,Eastern Michigan,,20,36,76
+2021,2021-12-18,Independence Bowl,Alabama-Birmingham,,31,Brigham Young,12,28,3,59
+2021,2021-12-18,New Mexico Bowl,Fresno State,,31,Texas-El Paso,,24,7,55
+2021,2021-12-18,Boca Raton Bowl,Western Kentucky,,59,Appalachian State,,38,21,97
+2021,2021-12-17,Cure Bowl,Coastal Carolina,,47,Northern Illinois,,41,6,88
+2021,2021-12-17,Bahamas Bowl,Middle Tennessee State,,31,Toledo,,24,7,55
+2022,2023-01-09,College Football Playoff National Championship,Georgia,1,65,Texas Christian,3,7,58,72
+2022,2023-01-02,Rose Bowl,Penn State,9,35,Utah,7,21,14,56
+2022,2023-01-02,Citrus Bowl,Louisiana State,16,63,Purdue,,7,56,70
+2022,2023-01-02,Cotton Bowl,Tulane,14,46,Southern California,8,45,1,91
+2022,2023-01-02,ReliaQuest Bowl,Mississippi State,24,19,Illinois,,10,9,29
+2022,2022-12-31,Peach Bowl,Georgia,1,42,Ohio State,4,41,1,83
+2022,2022-12-31,Fiesta Bowl,Texas Christian,3,51,Michigan,2,45,6,96
+2022,2022-12-31,Music City Bowl,Iowa,,21,Kentucky,,0,21,21
+2022,2022-12-31,Sugar Bowl,Alabama,5,45,Kansas State,11,20,25,65
+2022,2022-12-30,Orange Bowl,Tennessee,6,31,Clemson,10,14,17,45
+2022,2022-12-30,Arizona Bowl,Ohio,,30,Wyoming,,27,3,57
+2022,2022-12-30,Gator Bowl,Notre Dame,19,45,South Carolina,20,38,7,83
+2022,2022-12-30,Sun Bowl,Pittsburgh,,37,UCLA,18,35,2,72
+2022,2022-12-30,Duke's Mayo Bowl,Maryland,,16,North Carolina State,25,12,4,28
+2022,2022-12-29,Alamo Bowl,Washington,12,27,Texas,21,20,7,47
+2022,2022-12-29,Cheez-It Bowl,Florida State,13,35,Oklahoma,,32,3,67
+2022,2022-12-29,Pinstripe Bowl,Minnesota,,28,Syracuse,,20,8,48
+2022,2022-12-28,Texas Bowl,Texas Tech,,42,Mississippi,,25,17,67
+2022,2022-12-28,Holiday Bowl,Oregon,15,28,North Carolina,,27,1,55
+2022,2022-12-28,Liberty Bowl,Arkansas,,55,Kansas,,53,2,108
+2022,2022-12-28,Military Bowl,Duke,,30,Central Florida,,13,17,43
+2022,2022-12-27,Guaranteed Rate Bowl,Wisconsin,,24,Oklahoma State,,17,7,41
+2022,2022-12-27,Birmingham Bowl,East Carolina,,53,Coastal Carolina,,29,24,82
+2022,2022-12-27,First Responder Bowl,Memphis,,38,Utah State,,10,28,48
+2022,2022-12-27,Camellia Bowl,Buffalo,,23,Georgia Southern,,21,2,44
+2022,2022-12-26,Quick Lane Bowl,New Mexico State,,24,Bowling Green,,19,5,43
+2022,2022-12-24,Hawaii Bowl,Middle Tennessee State,,25,San Diego State,,23,2,48
+2022,2022-12-23,Union Home Mortgage Gasparilla Bowl,Wake Forest,,27,Missouri,,17,10,44
+2022,2022-12-23,Independence Bowl,Houston,,23,Louisiana,,16,7,39
+2022,2022-12-22,Armed Forces Bowl,Air Force,,30,Baylor,,15,15,45
+2022,2022-12-21,New Orleans Bowl,Western Kentucky,,44,South Alabama,,23,21,67
+2022,2022-12-20,Boca Raton Bowl,Toledo,,21,Liberty,,19,2,40
+2022,2022-12-20,Famous Idaho Potato Bowl,Eastern Michigan,,41,San Jose State,,27,14,68
+2022,2022-12-19,Myrtle Beach Bowl,Marshall,,28,Connecticut,,14,14,42
+2022,2022-12-17,Frisco Bowl,Boise State,,35,North Texas,,32,3,67
+2022,2022-12-17,New Mexico Bowl,Brigham Young,,24,Southern Methodist,,23,1,47
+2022,2022-12-17,LendingTree Bowl,Southern Mississippi,,38,Rice,,24,14,62
+2022,2022-12-17,LA Bowl,Fresno State,,29,Washington State,,6,23,35
+2022,2022-12-17,Las Vegas Bowl,Oregon State,17,30,Florida,,3,27,33
+2022,2022-12-17,Fenway Bowl,Louisville,,24,Cincinnati,,7,17,31
+2022,2022-12-16,Cure Bowl,Troy,23,18,Texas-San Antonio,22,12,6,30
+2022,2022-12-16,Bahamas Bowl,Alabama-Birmingham,,24,Miami (OH),,20,4,44
+2023,2024-01-08,College Football Playoff National Championship,Michigan,1,34,Washington,2,13,21,47
+2023,2024-01-01,Sugar Bowl,Washington,2,37,Texas,3,31,6,68
+2023,2024-01-01,Rose Bowl,Michigan,1,27,Alabama,5,20,7,47
+2023,2024-01-01,Citrus Bowl,Tennessee,25,35,Iowa,20,0,35,35
+2023,2024-01-01,Fiesta Bowl,Oregon,8,45,Liberty,18,6,39,51
+2023,2024-01-01,ReliaQuest Bowl,Louisiana State,13,35,Wisconsin,,31,4,66
+2023,2023-12-30,Arizona Bowl,Wyoming,,16,Toledo,,15,1,31
+2023,2023-12-30,Orange Bowl,Georgia,6,63,Florida State,4,3,60,66
+2023,2023-12-30,Music City Bowl,Maryland,,31,Auburn,,13,18,44
+2023,2023-12-30,Peach Bowl,Mississippi,11,38,Penn State,10,25,13,63
+2023,2023-12-29,Cotton Bowl,Missouri,9,14,Ohio State,7,3,11,17
+2023,2023-12-29,Sun Bowl,Notre Dame,15,40,Oregon State,21,8,32,48
+2023,2023-12-29,Liberty Bowl,Memphis,,36,Iowa State,,26,10,62
+2023,2023-12-29,Gator Bowl,Clemson,,38,Kentucky,,35,3,73
+2023,2023-12-28,Alamo Bowl,Arizona,14,38,Oklahoma,12,24,14,62
+2023,2023-12-28,Pop-Tarts Bowl,Kansas State,,28,North Carolina State,19,19,9,47
+2023,2023-12-28,Pinstripe Bowl,Rutgers,,31,Miami (FL),,24,7,55
+2023,2023-12-28,Fenway Bowl,Boston College,,23,Southern Methodist,17,14,9,37
+2023,2023-12-27,Texas Bowl,Oklahoma State,22,31,Texas A&M,,23,8,54
+2023,2023-12-27,Holiday Bowl,Southern California,,42,Louisville,16,28,14,70
+2023,2023-12-27,Duke's Mayo Bowl,West Virginia,,30,North Carolina,,10,20,40
+2023,2023-12-27,Military Bowl,Virginia Tech,,41,Tulane,23,20,21,61
+2023,2023-12-26,Guaranteed Rate Bowl,Kansas,,49,Nevada-Las Vegas,,36,13,85
+2023,2023-12-26,First Responder Bowl,Texas State,,45,Rice,,21,24,66
+2023,2023-12-26,Quick Lane Bowl,Minnesota,,30,Bowling Green,,24,6,54
+2023,2023-12-23,Hawaii Bowl,Coastal Carolina,,24,San Jose State,,14,10,38
+2023,2023-12-23,Las Vegas Bowl,Northwestern,,14,Utah,,7,7,21
+2023,2023-12-23,68 Ventures Bowl,South Alabama,,59,Eastern Michigan,,10,49,69
+2023,2023-12-23,Armed Forces Bowl,Air Force,,31,James Madison,24,21,10,52
+2023,2023-12-23,Famous Idaho Potato Bowl,Georgia State,,45,Utah State,,22,23,67
+2023,2023-12-23,Birmingham Bowl,Duke,,17,Troy,,10,7,27
+2023,2023-12-23,Camellia Bowl,Northern Illinois,,21,Arkansas State,,19,2,40
+2023,2023-12-22,Union Home Mortgage Gasparilla Bowl,Georgia Tech,,30,Central Florida,,17,13,47
+2023,2023-12-21,Boca Raton Bowl,South Florida,,45,Syracuse,,0,45,45
+2023,2023-12-19,Frisco Bowl,Texas-San Antonio,,35,Marshall,,17,18,52
+2023,2023-12-18,Famous Toastery Bowl,Western Kentucky,,38,Old Dominion,,35,3,73
+2023,2023-12-16,Independence Bowl,Texas Tech,,34,California,,14,20,48
+2023,2023-12-16,LA Bowl,UCLA,,35,Boise State,,22,13,57
+2023,2023-12-16,New Mexico Bowl,Fresno State,,37,New Mexico State,,10,27,47
+2023,2023-12-16,Cure Bowl,Appalachian State,,13,Miami (OH),,9,4,22
+2023,2023-12-16,New Orleans Bowl,Jacksonville State,,34,Louisiana,,31,3,65
+2023,2023-12-16,Myrtle Beach Bowl,Ohio,,41,Georgia Southern,,21,20,62
