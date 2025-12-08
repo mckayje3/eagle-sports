@@ -422,101 +422,61 @@ def show_predictions():
 
 
 def run_nfl_predictions_update(week: int = None):
-    """Run the NFL predictions update script"""
+    """Run the NFL predictions update - calls module directly"""
     try:
-        script_path = os.path.join(os.path.dirname(__file__), 'update_predictions.py')
-        cmd = ['py', script_path]
-        if week:
-            cmd.extend(['--week', str(week)])
-
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=120,  # 2 minute timeout
-            cwd=os.path.dirname(__file__)
-        )
-
-        if result.returncode == 0:
-            return True, "Predictions updated successfully!"
+        from update_predictions import update_predictions
+        success, predictions_df = update_predictions(force_week=week)
+        if success:
+            return True, "NFL predictions updated successfully!"
         else:
-            return False, f"Update failed: {result.stderr}"
-    except subprocess.TimeoutExpired:
-        return False, "Update timed out (>2 minutes)"
+            return False, "Failed to generate NFL predictions"
+    except ImportError as e:
+        return False, f"Import error: {str(e)}"
     except Exception as e:
         return False, f"Error running update: {str(e)}"
 
 
 def run_cfb_predictions_update(week: int = None):
-    """Run the CFB predictions update script"""
+    """Run the CFB predictions update - calls module directly"""
     try:
-        script_path = os.path.join(os.path.dirname(__file__), 'update_predictions_cfb.py')
-        cmd = ['py', script_path]
-        if week:
-            cmd.extend(['--week', str(week)])
-
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=180,  # 3 minute timeout for CFB (more games)
-            cwd=os.path.dirname(__file__)
-        )
-
-        if result.returncode == 0:
+        from update_predictions_cfb import update_predictions
+        success, predictions_df = update_predictions(force_week=week)
+        if success:
             return True, "CFB predictions updated successfully!"
         else:
-            return False, f"Update failed: {result.stderr}"
-    except subprocess.TimeoutExpired:
-        return False, "Update timed out (>3 minutes)"
+            return False, "Failed to generate CFB predictions"
+    except ImportError as e:
+        return False, f"Import error: {str(e)}"
     except Exception as e:
         return False, f"Error running update: {str(e)}"
 
 
 def run_nba_predictions_update(days: int = 7):
-    """Run the NBA predictions update script"""
+    """Run the NBA predictions update - calls module directly"""
     try:
-        script_path = os.path.join(os.path.dirname(__file__), 'update_predictions_nba.py')
-        cmd = ['py', script_path, '--days', str(days)]
-
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=180,  # 3 minute timeout
-            cwd=os.path.dirname(__file__)
-        )
-
-        if result.returncode == 0:
+        from update_predictions_nba import update_predictions
+        success, predictions_df = update_predictions(days=days)
+        if success:
             return True, "NBA predictions updated successfully!"
         else:
-            return False, f"Update failed: {result.stderr}"
-    except subprocess.TimeoutExpired:
-        return False, "Update timed out (>3 minutes)"
+            return False, "Failed to generate NBA predictions"
+    except ImportError as e:
+        return False, f"Import error: {str(e)}"
     except Exception as e:
         return False, f"Error running update: {str(e)}"
 
 
 def run_cbb_predictions_update(days: int = 7):
-    """Run the CBB predictions update script"""
+    """Run the CBB predictions update - calls module directly"""
     try:
-        script_path = os.path.join(os.path.dirname(__file__), 'update_predictions_cbb.py')
-        cmd = ['py', script_path, '--days', str(days)]
-
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=180,  # 3 minute timeout
-            cwd=os.path.dirname(__file__)
-        )
-
-        if result.returncode == 0:
+        from update_predictions_cbb import update_predictions
+        success, predictions_df = update_predictions(days=days)
+        if success:
             return True, "CBB predictions updated successfully!"
         else:
-            return False, f"Update failed: {result.stderr}"
-    except subprocess.TimeoutExpired:
-        return False, "Update timed out (>3 minutes)"
+            return False, "Failed to generate CBB predictions"
+    except ImportError as e:
+        return False, f"Import error: {str(e)}"
     except Exception as e:
         return False, f"Error running update: {str(e)}"
 
