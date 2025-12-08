@@ -1,0 +1,261 @@
+"""
+Update CFB Predictions Script
+Fetches latest odds from ESPN and regenerates predictions.
+Called by the dashboard "Update Predictions" button.
+
+Usage:
+    py update_predictions_cfb.py              # Update with latest odds
+    py update_predictions_cfb.py --week 14    # Force specific week
+"""
+
+import sys
+import subprocess
+import sqlite3
+import pandas as pd
+import logging
+from datetime import datetime
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+def get_current_cfb_week():
+    """Calculate current CFB week based on date"""
+    today = datetime.now()
+
+    # CFB 2025 season starts late August
+    if today.year == 2025:
+        season_start = datetime(2025, 8, 23)
+    else:
+        season_start = datetime(2024, 8, 24)
+
+    if today < season_start:
+        return 0, today.year
+
+    days_since_start = (today - season_start).days
+    week = (days_since_start // 7) + 1
+    week = min(week, 15)  # CFB regular season is ~15 weeks
+
+    return week, season_start.year
+
+
+def fetch_latest_odds():
+    """Fetch latest odds from ESPN via espn_unified_odds.py"""
+    logger.info("Fetching latest CFB odds from ESPN...")
+
+    try:
+        result = subprocess.run(
+            ['py', 'espn_unified_odds.py', 'cfb', '--days', '7'],
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+
+        if result.returncode == 0:
+            logger.info("Odds fetched successfully")
+            return True
+        else:
+            logger.warning(f"Odds fetch returned non-zero: {result.stderr}")
+            return True  # Continue anyway - we might have cached odds
+
+    except subprocess.TimeoutExpired:
+        logger.warning("Odds fetch timed out, continuing with cached odds")
+        return True
+    except Exception as e:
+        logger.error(f"Error fetching odds: {e}")
+        return False
+
+
+def generate_predictions(season, week):
+    """Generate predictions using Deep Eagle model"""
+    logger.info(f"Generating Week {week} CFB predictions...")
+
+    try:
+        from predict_deep_eagle import predict_upcoming_games
+
+        model_path = f'models/deep_eagle_cfb_{season}.pt'
+        scaler_path = f'models/deep_eagle_cfb_{season}_scaler.pkl'
+
+        predictions_df = predict_upcoming_games(
+            sport='cfb',
+            season=season,
+            db_path='cfb_games.db',
+            model_path=model_path,
+            scaler_path=scaler_path,
+            min_week=week
+        )
+
+        if predictions_df is not None and len(predictions_df) > 0:
+            # Save predictions
+            predictions_df.to_csv('cfb_current_predictions.csv', index=False)
+            predictions_df.to_csv(f'cfb_week{week}_predictions.csv', index=False)
+
+            # Save to database
+            save_to_database(predictions_df, season)
+
+            logger.info(f"Generated {len(predictions_df)} predictions")
+            return predictions_df
+
+        return None
+
+    except Exception as e:
+        logger.error(f"Error generating predictions: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+
+def save_to_database(predictions_df, season):
+    """Save predictions to cfb_games.db"""
+    conn = sqlite3.connect('cfb_games.db')
+    cursor = conn.cursor()
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS predictions (
+            game_id INTEGER PRIMARY KEY,
+            pred_home_score REAL,
+            pred_away_score REAL,
+            pred_spread REAL,
+            pred_total REAL,
+            pred_home_win INTEGER,
+            pred_home_win_prob REAL,
+            vegas_spread REAL,
+            vegas_total REAL,
+            spread_edge REAL,
+            total_edge REAL,
+            prediction_date TEXT,
+            model_version TEXT
+        )
+    ''')
+
+    for _, row in predictions_df.iterrows():
+        cursor.execute('''
+            INSERT OR REPLACE INTO predictions
+            (game_id, pred_home_score, pred_away_score, pred_spread, pred_total,
+             pred_home_win, pred_home_win_prob, vegas_spread, vegas_total,
+             spread_edge, total_edge, prediction_date, model_version)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            int(row['game_id']),
+            row.get('pred_home_score'),
+            row.get('pred_away_score'),
+            row.get('pred_spread'),
+            row.get('pred_total'),
+            int(row.get('pred_home_win', 0)),
+            row.get('pred_home_win_prob'),
+            row.get('vegas_spread'),
+            row.get('vegas_total'),
+            row.get('spread_edge'),
+            row.get('total_edge'),
+            datetime.now().isoformat(),
+            f'deep_eagle_cfb_{season}'
+        ))
+
+    conn.commit()
+    conn.close()
+
+
+def sync_to_cache():
+    """Sync predictions to users.db prediction_cache for dashboard"""
+    try:
+        cfb_conn = sqlite3.connect('cfb_games.db')
+        users_conn = sqlite3.connect('users.db')
+
+        # Get predictions with game info
+        query = '''
+            SELECT
+                p.game_id, g.date, g.week, g.season,
+                ht.name as home_team, at.name as away_team,
+                p.pred_home_score, p.pred_away_score,
+                p.pred_spread, p.pred_total,
+                p.pred_home_win_prob as confidence
+            FROM predictions p
+            JOIN games g ON p.game_id = g.game_id
+            JOIN teams ht ON g.home_team_id = ht.team_id
+            JOIN teams at ON g.away_team_id = at.team_id
+            WHERE g.completed = 0
+        '''
+
+        predictions = pd.read_sql_query(query, cfb_conn)
+
+        if len(predictions) > 0:
+            cursor = users_conn.cursor()
+
+            for _, row in predictions.iterrows():
+                winner = row['home_team'] if row['pred_spread'] > 0 else row['away_team']
+
+                cursor.execute('''
+                    INSERT OR REPLACE INTO prediction_cache
+                    (game_id, sport, season, week, game_date, home_team, away_team,
+                     predicted_winner, predicted_spread, predicted_total, confidence)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    int(row['game_id']), 'CFB', int(row['season']), int(row['week']),
+                    row['date'], row['home_team'], row['away_team'],
+                    winner, row['pred_spread'], row['pred_total'], row['confidence']
+                ))
+
+            users_conn.commit()
+            logger.info(f"Synced {len(predictions)} predictions to cache")
+
+        cfb_conn.close()
+        users_conn.close()
+        return True, f"Synced {len(predictions)} predictions"
+
+    except Exception as e:
+        logger.error(f"Error syncing to cache: {e}")
+        return False, str(e)
+
+
+def update_predictions(force_week=None):
+    """Main function to update predictions with latest odds"""
+    logger.info("\n" + "="*60)
+    logger.info("UPDATING CFB PREDICTIONS")
+    logger.info("="*60)
+
+    current_week, season = get_current_cfb_week()
+    if force_week:
+        current_week = force_week
+
+    # Use 2025 season for current predictions
+    season = 2025
+
+    logger.info(f"Season: {season}, Week: {current_week}")
+
+    # Step 1: Fetch latest odds from ESPN
+    fetch_latest_odds()
+
+    # Step 2: Generate predictions
+    predictions_df = generate_predictions(season, current_week)
+
+    if predictions_df is not None:
+        # Step 3: Sync to dashboard cache
+        sync_to_cache()
+
+        logger.info("\n" + "="*60)
+        logger.info("UPDATE COMPLETE")
+        logger.info("="*60)
+        return True, predictions_df
+    else:
+        logger.error("Failed to generate predictions")
+        return False, None
+
+
+def main():
+    force_week = None
+
+    for i, arg in enumerate(sys.argv[1:], 1):
+        if arg == '--week' and i < len(sys.argv) - 1:
+            force_week = int(sys.argv[i + 1])
+        elif arg.startswith('--week='):
+            force_week = int(arg.split('=')[1])
+
+    success, _ = update_predictions(force_week)
+    sys.exit(0 if success else 1)
+
+
+if __name__ == '__main__':
+    main()

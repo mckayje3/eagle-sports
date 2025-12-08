@@ -447,6 +447,80 @@ def run_nfl_predictions_update(week: int = None):
         return False, f"Error running update: {str(e)}"
 
 
+def run_cfb_predictions_update(week: int = None):
+    """Run the CFB predictions update script"""
+    try:
+        script_path = os.path.join(os.path.dirname(__file__), 'update_predictions_cfb.py')
+        cmd = ['py', script_path]
+        if week:
+            cmd.extend(['--week', str(week)])
+
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=180,  # 3 minute timeout for CFB (more games)
+            cwd=os.path.dirname(__file__)
+        )
+
+        if result.returncode == 0:
+            return True, "CFB predictions updated successfully!"
+        else:
+            return False, f"Update failed: {result.stderr}"
+    except subprocess.TimeoutExpired:
+        return False, "Update timed out (>3 minutes)"
+    except Exception as e:
+        return False, f"Error running update: {str(e)}"
+
+
+def run_nba_predictions_update(days: int = 7):
+    """Run the NBA predictions update script"""
+    try:
+        script_path = os.path.join(os.path.dirname(__file__), 'update_predictions_nba.py')
+        cmd = ['py', script_path, '--days', str(days)]
+
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=180,  # 3 minute timeout
+            cwd=os.path.dirname(__file__)
+        )
+
+        if result.returncode == 0:
+            return True, "NBA predictions updated successfully!"
+        else:
+            return False, f"Update failed: {result.stderr}"
+    except subprocess.TimeoutExpired:
+        return False, "Update timed out (>3 minutes)"
+    except Exception as e:
+        return False, f"Error running update: {str(e)}"
+
+
+def run_cbb_predictions_update(days: int = 7):
+    """Run the CBB predictions update script"""
+    try:
+        script_path = os.path.join(os.path.dirname(__file__), 'update_predictions_cbb.py')
+        cmd = ['py', script_path, '--days', str(days)]
+
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=180,  # 3 minute timeout
+            cwd=os.path.dirname(__file__)
+        )
+
+        if result.returncode == 0:
+            return True, "CBB predictions updated successfully!"
+        else:
+            return False, f"Update failed: {result.stderr}"
+    except subprocess.TimeoutExpired:
+        return False, "Update timed out (>3 minutes)"
+    except Exception as e:
+        return False, f"Error running update: {str(e)}"
+
+
 def sync_nfl_predictions_to_cache():
     """Sync NFL predictions from nfl_games.db to users.db prediction_cache"""
     try:
@@ -760,13 +834,14 @@ def display_game_card(row, sport_emoji="🏈"):
                 st.write(" | ".join(tags))
 
 
-def display_prediction_freshness(predictions_df, game_dates=None):
+def display_prediction_freshness(predictions_df, game_dates=None, is_past_games=False):
     """
-    Display when predictions were generated and warn if stale.
+    Display when predictions were generated and warn if stale (only for upcoming games).
 
     Args:
         predictions_df: DataFrame with predictions (should have 'created_at' column)
         game_dates: Optional list/series of game dates for comparison
+        is_past_games: If True, games are in the past so don't warn about staleness
     """
     from datetime import datetime, timedelta
 
@@ -799,7 +874,12 @@ def display_prediction_freshness(predictions_df, game_dates=None):
     # Format the timestamp
     created_str = latest_created.strftime('%a %b %d, %I:%M %p')
 
-    # Determine freshness status
+    # For past games, just show info without stale warnings
+    if is_past_games:
+        st.info(f"Predictions generated: **{created_str}**")
+        return
+
+    # Determine freshness status (only warn for upcoming games)
     if hours_old < 12:
         # Fresh - generated within 12 hours
         st.success(f"Predictions generated: **{created_str}** ({hours_old:.0f}h ago)")
@@ -958,6 +1038,17 @@ def show_nba_predictions_live():
             st.cache_data.clear()
             st.rerun()
 
+    with col2:
+        if st.button("📊 Update Predictions", use_container_width=True, key="nba_update"):
+            with st.spinner("Fetching latest odds and updating predictions..."):
+                success, msg = run_nba_predictions_update(days=7)
+                if success:
+                    st.success(msg)
+                    st.cache_data.clear()
+                    st.rerun()
+                else:
+                    st.error(msg)
+
     # Format selected date for SQL query (YYYY-MM-DD)
     date_str = selected_date.strftime('%Y-%m-%d')
 
@@ -1006,8 +1097,11 @@ def show_nba_predictions_live():
     st.markdown(f"### 🏀 Games for {selected_date.strftime('%A, %B %d, %Y')}")
     st.info(f"**{len(predictions_df)} games** scheduled")
 
+    # Check if viewing past games
+    is_past_games = selected_date.date() < datetime.now().date()
+
     # Show prediction freshness
-    display_prediction_freshness(predictions_df)
+    display_prediction_freshness(predictions_df, is_past_games=is_past_games)
 
     # Check if predictions are fallback (not from Deep Eagle)
     if is_fallback_predictions(predictions_df):
@@ -1139,27 +1233,21 @@ def show_cbb_predictions_live():
             st.rerun()
 
     with col2:
-        if st.button("📊 Generate Predictions", use_container_width=True, key="cbb_generate"):
-            with st.spinner("Generating CBB predictions..."):
-                import subprocess
-                result = subprocess.run(
-                    ['py', 'cbb_predictor.py', '7'],  # Generate for 7 days
-                    capture_output=True,
-                    text=True,
-                    timeout=120
-                )
-                if result.returncode == 0:
-                    st.success("Predictions generated!")
+        if st.button("📊 Update Predictions", use_container_width=True, key="cbb_update"):
+            with st.spinner("Fetching latest odds and updating predictions..."):
+                success, msg = run_cbb_predictions_update(days=7)
+                if success:
+                    st.success(msg)
                     st.cache_data.clear()
                     st.rerun()
                 else:
-                    st.error(f"Error: {result.stderr}")
+                    st.error(msg)
 
     # Load predictions from CSV file
     try:
         predictions_df = pd.read_csv('cbb_predictions.csv')
     except FileNotFoundError:
-        st.warning("No predictions file found. Click 'Generate Predictions' to create predictions.")
+        st.warning("No predictions file found. Click 'Update Predictions' to create predictions.")
         return
     except Exception as e:
         st.error(f"Error loading predictions: {e}")
@@ -1214,6 +1302,16 @@ def show_cbb_predictions_live():
     st.markdown(f"### 🏀 Games for {selected_date.strftime('%A, %B %d, %Y')}")
     st.info(f"**{len(filtered_df)} games** scheduled")
 
+    # Determine if viewing past games (for freshness display)
+    is_past_games = False
+    if 'date' in filtered_df.columns and not filtered_df.empty:
+        try:
+            latest_game_date = pd.to_datetime(filtered_df['date']).max()
+            if pd.notna(latest_game_date) and latest_game_date.date() < datetime.now().date():
+                is_past_games = True
+        except Exception:
+            pass
+
     # Show prediction freshness (CBB uses CSV file, check file modification time)
     try:
         import os
@@ -1224,7 +1322,11 @@ def show_cbb_predictions_live():
             age = now - mod_time
             hours_old = age.total_seconds() / 3600
             mod_str = mod_time.strftime('%a %b %d, %I:%M %p')
-            if hours_old < 12:
+
+            # For past games, just show info without stale warnings
+            if is_past_games:
+                st.info(f"Predictions generated: **{mod_str}**")
+            elif hours_old < 12:
                 st.success(f"Predictions generated: **{mod_str}** ({hours_old:.0f}h ago)")
             elif hours_old < 24:
                 st.warning(f"Predictions generated: **{mod_str}** ({hours_old:.0f}h ago) - Consider refreshing")
@@ -1319,11 +1421,8 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
     sport_emoji = "🏈" if sport == "CFB" else "🏟️"
     st.markdown(f"### {sport_emoji} {sport} Week {default_week} Predictions")
 
-    # Week selector and action buttons
-    if sport == "NFL":
-        col1, col2, col3 = st.columns([3, 1, 1])
-    else:
-        col1, col2 = st.columns([3, 1])
+    # Week selector and action buttons - all sports get 3 columns now
+    col1, col2, col3 = st.columns([3, 1, 1])
 
     with col1:
         week = st.number_input(f"Select {sport} Week", min_value=1, max_value=max_week, value=default_week, key=f"{sport}_week")
@@ -1333,15 +1432,14 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
             st.cache_data.clear()
             st.rerun()
 
-    # NFL-specific: Update Predictions button
-    if sport == "NFL":
-        with col3:
-            if st.button("📊 Update Odds", use_container_width=True, key=f"{sport}_update"):
-                with st.spinner("Fetching latest odds and updating predictions..."):
-                    # Step 1: Run update script
+    # Update Predictions button for NFL and CFB
+    with col3:
+        if st.button("📊 Update Predictions", use_container_width=True, key=f"{sport}_update"):
+            with st.spinner("Fetching latest odds and updating predictions..."):
+                if sport == "NFL":
+                    # Run NFL update script
                     success, msg = run_nfl_predictions_update(week)
                     if success:
-                        # Step 2: Sync to dashboard cache
                         sync_success, sync_msg = sync_nfl_predictions_to_cache()
                         if sync_success:
                             st.success(f"Updated! {sync_msg}")
@@ -1349,6 +1447,15 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
                             st.rerun()
                         else:
                             st.warning(f"Predictions updated but sync failed: {sync_msg}")
+                    else:
+                        st.error(msg)
+                elif sport == "CFB":
+                    # Run CFB update script
+                    success, msg = run_cfb_predictions_update(week)
+                    if success:
+                        st.success(msg)
+                        st.cache_data.clear()
+                        st.rerun()
                     else:
                         st.error(msg)
 
@@ -1361,8 +1468,18 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
 
     st.success(f"Found {len(predictions_df)} games for Week {week}")
 
+    # Determine if viewing past games
+    is_past_games = False
+    if 'date' in predictions_df.columns and not predictions_df.empty:
+        try:
+            latest_game_date = pd.to_datetime(predictions_df['date']).max()
+            if pd.notna(latest_game_date) and latest_game_date.date() < datetime.now().date():
+                is_past_games = True
+        except Exception:
+            pass
+
     # Show prediction freshness
-    display_prediction_freshness(predictions_df)
+    display_prediction_freshness(predictions_df, is_past_games=is_past_games)
 
     # Check if predictions are fallback (not from Deep Eagle)
     if is_fallback_predictions(predictions_df):
@@ -1909,7 +2026,7 @@ def show_model_insights():
     """)
 
     # Sport-specific tabs
-    sport_tab = st.tabs(["NFL", "College Football", "NBA"])
+    sport_tab = st.tabs(["NFL", "College Football", "NBA", "College Basketball"])
 
     # =========================================================================
     # NFL TAB
@@ -2131,6 +2248,94 @@ def show_model_insights():
             st.metric("Last Updated", "December 2025")
 
         st.info("NBA model is actively being improved with additional historical data and features.")
+
+    # =========================================================================
+    # CBB TAB
+    # =========================================================================
+    with sport_tab[3]:
+        st.markdown("## College Basketball Model: Deep Eagle v1.0")
+
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Model File", "deep_eagle_cbb_2025.pt")
+        with col2:
+            st.metric("Total Features", "78")
+        with col3:
+            st.metric("Training Games", "~5,300")
+        with col4:
+            st.metric("Seasons", "2024-2025")
+
+        st.markdown("""
+        ### Architecture
+        - **Type:** Deep Neural Network (PyTorch)
+        - **Hidden Layers:** 256 -> 128 -> 64 neurons
+        - **Activation:** ReLU with Batch Normalization
+        - **Regularization:** Dropout (0.3), Early Stopping (patience=20)
+        - **Output:** Dual heads for home/away score prediction
+        """)
+
+        st.markdown("### Feature Categories (78 total)")
+        cbb_features = {
+            "Vegas Odds": {
+                "features": ["Opening Spread", "Latest Spread", "Opening Total", "Latest Total", "Home/Away Moneylines"],
+                "count": 8,
+                "description": "Market consensus from major sportsbooks via ESPN"
+            },
+            "Historical Team Stats": {
+                "features": ["Games Played", "PPG", "Points Allowed/Game", "FG%", "3P%", "FT%", "Rebounds", "Assists"],
+                "count": 14,
+                "description": "Season-to-date team averages calculated BEFORE each game"
+            },
+            "Home/Away Splits": {
+                "features": ["Home Games", "Home PPG", "Home Points Allowed", "Home Win %", "Away equivalents", "Venue PPG Diff"],
+                "count": 18,
+                "description": "Venue-specific performance - captures home court advantage"
+            },
+            "Shooting Efficiency": {
+                "features": ["eFG%", "True Shooting %", "3P Attempt Rate", "FT Rate", "Offensive Rating", "Defensive Rating"],
+                "count": 12,
+                "description": "Advanced shooting and efficiency metrics"
+            },
+            "Rebounding & Turnovers": {
+                "features": ["Offensive Rebounds", "Defensive Rebounds", "Total Rebounds", "Turnovers", "Steals", "Blocks"],
+                "count": 12,
+                "description": "Possession-related statistics"
+            },
+            "Game Context": {
+                "features": ["Week", "Week Normalized (0-1)", "Neutral Site", "Conference Game"],
+                "count": 6,
+                "description": "Situational factors affecting game outcome"
+            },
+            "Matchup Differentials": {
+                "features": ["PPG Differential", "Points Allowed Differential", "Win % Differential", "Efficiency Differential", "Venue PPG Differential"],
+                "count": 8,
+                "description": "Head-to-head comparisons between teams"
+            }
+        }
+
+        for category, info in cbb_features.items():
+            with st.expander(f"**{category}** ({info['count']} features)"):
+                st.markdown(f"**Description:** {info['description']}")
+                st.markdown(f"**Key Features:** {', '.join(info['features'])}")
+
+        st.markdown("### Performance (Validation Set)")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Winner Accuracy", "64.9%")
+            st.metric("Spread MAE", "9.5 points")
+        with col2:
+            st.metric("Home Score MAE", "8.5 points")
+            st.metric("Away Score MAE", "8.6 points")
+
+        st.markdown("""
+        ### Key Characteristics
+        1. **High Volume:** ~6,300 games per season across 350+ teams
+        2. **Conference Diversity:** Big differences between Power 5 and smaller conferences
+        3. **Home Court Advantage:** Stronger effect than professional basketball
+        4. **March Madness:** Tournament games have different dynamics (neutral sites)
+        """)
+
+        st.success("CBB model trained on 2024-25 season data with 12,500+ total games across both seasons.")
 
     # =========================================================================
     # COMMON METHODOLOGY SECTION
