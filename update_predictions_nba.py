@@ -23,30 +23,21 @@ logger = logging.getLogger(__name__)
 
 
 def fetch_latest_odds():
-    """Fetch latest odds from ESPN via espn_unified_odds.py"""
+    """Fetch latest odds from ESPN via direct import"""
     logger.info("Fetching latest NBA odds from ESPN...")
 
     try:
-        result = subprocess.run(
-            ['py', 'espn_unified_odds.py', 'nba', '--days', '7'],
-            capture_output=True,
-            text=True,
-            timeout=120
-        )
-
-        if result.returncode == 0:
-            logger.info("Odds fetched successfully")
-            return True
-        else:
-            logger.warning(f"Odds fetch returned non-zero: {result.stderr}")
-            return True  # Continue anyway - we might have cached odds
-
-    except subprocess.TimeoutExpired:
-        logger.warning("Odds fetch timed out, continuing with cached odds")
+        from espn_unified_odds import ESPNOddsScraper
+        scraper = ESPNOddsScraper()
+        scraper.fetch_odds('nba', days=7)
+        logger.info("Odds fetched successfully")
+        return True
+    except ImportError:
+        logger.warning("espn_unified_odds not available, continuing with cached odds")
         return True
     except Exception as e:
-        logger.error(f"Error fetching odds: {e}")
-        return False
+        logger.warning(f"Odds fetch failed: {e}, continuing with cached odds")
+        return True
 
 
 def generate_predictions(days=7):
