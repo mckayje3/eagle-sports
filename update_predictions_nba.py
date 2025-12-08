@@ -48,6 +48,11 @@ def generate_predictions(days=7):
         from nba_predictor import NBAPredictor
 
         predictor = NBAPredictor()
+
+        if predictor.model is None:
+            logger.warning("NBA model not loaded - no predictions generated")
+            return None
+
         predictions_df = predictor.predict_upcoming(days=days)
 
         if predictions_df is not None and len(predictions_df) > 0:
@@ -60,33 +65,8 @@ def generate_predictions(days=7):
             logger.info(f"Generated {len(predictions_df)} predictions")
             return predictions_df
 
+        logger.warning("No upcoming NBA games found")
         return None
-
-    except ImportError:
-        # Fallback: use predict_deep_eagle if nba_predictor doesn't exist
-        logger.info("Using Deep Eagle predictor fallback...")
-        try:
-            from predict_deep_eagle import predict_upcoming_games
-
-            predictions_df = predict_upcoming_games(
-                sport='nba',
-                season=2025,
-                db_path='nba_games.db',
-                model_path='models/deep_eagle_nba_2025.pt',
-                scaler_path='models/deep_eagle_nba_2025_scaler.pkl'
-            )
-
-            if predictions_df is not None and len(predictions_df) > 0:
-                predictions_df.to_csv('nba_current_predictions.csv', index=False)
-                save_to_database(predictions_df)
-                logger.info(f"Generated {len(predictions_df)} predictions")
-                return predictions_df
-
-            return None
-
-        except Exception as e:
-            logger.error(f"Error with Deep Eagle fallback: {e}")
-            return None
 
     except Exception as e:
         logger.error(f"Error generating predictions: {e}")

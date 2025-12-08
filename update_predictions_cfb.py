@@ -65,19 +65,18 @@ def generate_predictions(season, week):
     logger.info(f"Generating Week {week} CFB predictions...")
 
     try:
-        from predict_deep_eagle import predict_upcoming_games
+        from cfb_deep_eagle_predictor import CFBDeepEaglePredictor
 
-        model_path = f'models/deep_eagle_cfb_{season}.pt'
-        scaler_path = f'models/deep_eagle_cfb_{season}_scaler.pkl'
-
-        predictions_df = predict_upcoming_games(
-            sport='cfb',
-            season=season,
-            db_path='cfb_games.db',
-            model_path=model_path,
-            scaler_path=scaler_path,
-            min_week=week
+        predictor = CFBDeepEaglePredictor(
+            model_path=f'models/deep_eagle_cfb_{season}.pt',
+            scaler_path=f'models/deep_eagle_cfb_{season}_scaler.pkl'
         )
+
+        if predictor.model is None:
+            logger.warning("CFB model not loaded - no predictions generated")
+            return None
+
+        predictions_df = predictor.predict_upcoming(week=week)
 
         if predictions_df is not None and len(predictions_df) > 0:
             # Save predictions
@@ -90,6 +89,7 @@ def generate_predictions(season, week):
             logger.info(f"Generated {len(predictions_df)} predictions")
             return predictions_df
 
+        logger.warning("No upcoming CFB games found")
         return None
 
     except Exception as e:

@@ -52,15 +52,12 @@ def fetch_latest_odds():
 
         from fetch_latest_odds import OddsAPIFetcher
         fetcher = OddsAPIFetcher(api_key)
-
-        # Update latest lines (NOT opening)
         fetcher.update_odds('nfl', 'nfl_games.db', is_opening=False)
-
         return True
 
     except Exception as e:
-        logger.error(f"Error fetching odds: {e}")
-        return False
+        logger.warning(f"Odds fetch failed: {e}, continuing with cached odds")
+        return True
 
 
 def generate_predictions(season, week):
@@ -68,31 +65,27 @@ def generate_predictions(season, week):
     logger.info(f"Generating Week {week} predictions...")
 
     try:
-        from predict_deep_eagle import predict_upcoming_games, display_predictions
+        from nfl_predictor import NFLPredictor
 
-        model_path = f'models/deep_eagle_nfl_{season}.pt'
-        scaler_path = f'models/deep_eagle_nfl_{season}_scaler.pkl'
-
-        predictions_df = predict_upcoming_games(
-            sport='nfl',
-            season=season,
-            db_path='nfl_games.db',
-            model_path=model_path,
-            scaler_path=scaler_path,
-            min_week=week
+        predictor = NFLPredictor(
+            model_path=f'models/deep_eagle_nfl_{season}.pt',
+            scaler_path=f'models/deep_eagle_nfl_{season}_scaler.pkl'
         )
 
-        if predictions_df is not None:
-            # Save predictions
+        if predictor.model is None:
+            logger.warning("NFL model not loaded - no predictions generated")
+            return None
+
+        predictions_df = predictor.predict_upcoming(week=week)
+
+        if predictions_df is not None and len(predictions_df) > 0:
             predictions_df.to_csv('nfl_current_predictions.csv', index=False)
             predictions_df.to_csv(f'nfl_week{week}_predictions.csv', index=False)
-
-            # Save to database
             save_to_database(predictions_df, season)
-
             logger.info(f"Generated {len(predictions_df)} predictions")
             return predictions_df
 
+        logger.warning("No upcoming NFL games found")
         return None
 
     except Exception as e:
@@ -107,39 +100,17 @@ def save_to_database(predictions_df, season):
     conn = sqlite3.connect('nfl_games.db')
     cursor = conn.cursor()
 
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS predictions (
-            game_id INTEGER PRIMARY KEY,
-            pred_home_score REAL,
-            pred_away_score REAL,
-            pred_spread REAL,
-            pred_total REAL,
-            pred_home_win INTEGER,
-            pred_home_win_prob REAL,
-            vegas_spread REAL,
-            vegas_total REAL,
-            spread_edge REAL,
-            total_edge REAL,
-            prediction_date TEXT,
-            model_version TEXT
-        )
-    ''')
+    cursor.execute('CREATE TABLE IF NOT EXISTS predictions (game_id INTEGER PRIMARY KEY, pred_home_score REAL, pred_away_score REAL, pred_spread REAL, pred_total REAL, pred_home_win INTEGER, pred_home_win_prob REAL, vegas_spread REAL, vegas_total REAL, spread_edge REAL, total_edge REAL, prediction_date TEXT, model_version TEXT)')
 
     for _, row in predictions_df.iterrows():
-        cursor.execute('''
-            INSERT OR REPLACE INTO predictions
-            (game_id, pred_home_score, pred_away_score, pred_spread, pred_total,
-             pred_home_win, pred_home_win_prob, vegas_spread, vegas_total,
-             spread_edge, total_edge, prediction_date, model_version)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
+        cursor.execute('INSERT OR REPLACE INTO predictions (game_id, pred_home_score, pred_away_score, pred_spread, pred_total, pred_home_win, pred_home_win_prob, vegas_spread, vegas_total, spread_edge, total_edge, prediction_date, model_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (
             int(row['game_id']),
             row.get('pred_home_score'),
             row.get('pred_away_score'),
             row.get('pred_spread'),
             row.get('pred_total'),
             int(row.get('pred_home_win', 0)),
-            row.get('pred_home_win_prob'),
+            row.get('pred_home_win_prob', row.get('confidence', 0.5)),
             row.get('vegas_spread'),
             row.get('vegas_total'),
             row.get('spread_edge'),
@@ -154,7 +125,8 @@ def save_to_database(predictions_df, season):
 
 def update_predictions(force_week=None):
     """Main function to update predictions with latest odds"""
-    logger.info("\n" + "="*60)
+    logger.info("
+" + "="*60)
     logger.info("UPDATING NFL PREDICTIONS")
     logger.info("="*60)
 
@@ -164,14 +136,12 @@ def update_predictions(force_week=None):
 
     logger.info(f"Season: {season}, Week: {current_week}")
 
-    # Step 1: Fetch latest odds
     fetch_latest_odds()
-
-    # Step 2: Generate predictions
     predictions_df = generate_predictions(season, current_week)
 
     if predictions_df is not None:
-        logger.info("\n" + "="*60)
+        logger.info("
+" + "="*60)
         logger.info("UPDATE COMPLETE")
         logger.info("="*60)
         return True, predictions_df
