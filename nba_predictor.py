@@ -269,8 +269,8 @@ class NBAPredictor:
 
         cursor.execute('''
             SELECT
-                COALESCE(current_spread_home, opening_spread_home) as spread,
-                COALESCE(current_total, opening_total) as total,
+                COALESCE(closing_spread_home, opening_spread_home) as spread,
+                COALESCE(closing_total, opening_total) as total,
                 opening_moneyline_home,
                 opening_moneyline_away
             FROM game_odds WHERE game_id = ?

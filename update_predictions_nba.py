@@ -47,7 +47,11 @@ def generate_predictions(days=7):
     try:
         from nba_predictor import NBAPredictor
 
-        predictor = NBAPredictor()
+        # Use 2024 model (most recent trained model)
+        predictor = NBAPredictor(
+            model_path='models/deep_eagle_nba_2024.pt',
+            scaler_path='models/deep_eagle_nba_2024_scaler.pkl'
+        )
 
         if predictor.model is None:
             logger.warning("NBA model not loaded - no predictions generated")
