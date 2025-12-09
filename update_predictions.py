@@ -125,10 +125,9 @@ def save_to_database(predictions_df, season):
 
 def update_predictions(force_week=None):
     """Main function to update predictions with latest odds"""
-    logger.info("
-" + "="*60)
+    logger.info("=" * 60)
     logger.info("UPDATING NFL PREDICTIONS")
-    logger.info("="*60)
+    logger.info("=" * 60)
 
     current_week, season = get_current_nfl_week()
     if force_week:
@@ -140,10 +139,9 @@ def update_predictions(force_week=None):
     predictions_df = generate_predictions(season, current_week)
 
     if predictions_df is not None:
-        logger.info("
-" + "="*60)
+        logger.info("=" * 60)
         logger.info("UPDATE COMPLETE")
-        logger.info("="*60)
+        logger.info("=" * 60)
         return True, predictions_df
     else:
         logger.error("Failed to generate predictions")
