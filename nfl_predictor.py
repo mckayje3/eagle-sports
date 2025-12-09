@@ -276,8 +276,8 @@ class NFLPredictor:
                 AVG(ts.turnovers) as turnovers_pg,
                 AVG(ts.fumbles_lost) as fumbles_pg,
                 AVG(ts.interceptions_thrown) as ints_pg,
-                AVG(ts.third_down_pct) as third_down_pct,
-                AVG(ts.fourth_down_pct) as fourth_down_pct,
+                AVG(CAST(ts.third_down_conversions AS FLOAT) / NULLIF(ts.third_down_attempts, 0)) as third_down_pct,
+                AVG(CAST(ts.fourth_down_conversions AS FLOAT) / NULLIF(ts.fourth_down_attempts, 0)) as fourth_down_pct,
                 AVG(ts.possession_time) as avg_possession,
                 AVG(ts.sacks) as sacks_pg
             FROM team_game_stats ts
