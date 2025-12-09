@@ -3,10 +3,12 @@ streamlit>=1.28.0
 pandas>=2.0.0
 plotly>=5.14.0
 requests>=2.31.0
+numpy>=1.24.0
 
 # News aggregator
 feedparser>=6.0.0
 beautifulsoup4>=4.12.0
 
-# Note: deep-eagle module is optional - app falls back to statistical predictions if unavailable
-# To install locally: pip install git+https://github.com/mckayje3/deep-eagle.git
+# ML dependencies for Deep Eagle predictions
+torch>=2.0.0
+scikit-learn>=1.3.0
