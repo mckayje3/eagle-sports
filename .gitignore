@@ -1,8 +1,12 @@
-# Database files
-*.db
+# Database files (but allow sports databases)
 *.db-journal
 *.sqlite
 *.sqlite3
+# Include sports databases for cloud deployment
+!nfl_games.db
+!cfb_games.db
+!nba_games.db
+!cbb_games.db
 
 # Log files
 *.log
