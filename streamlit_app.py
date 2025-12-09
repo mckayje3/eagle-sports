@@ -829,7 +829,13 @@ def display_prediction_freshness(predictions_df, game_dates=None, is_past_games=
         return
 
     now = now_eastern()
-    age = now - latest_created.to_pydatetime()
+    # Convert to naive datetime for comparison (both are effectively Eastern Time)
+    latest_dt = latest_created.to_pydatetime()
+    if latest_dt.tzinfo is None:
+        # Naive datetime - compare with naive now
+        age = now.replace(tzinfo=None) - latest_dt
+    else:
+        age = now - latest_dt
     hours_old = age.total_seconds() / 3600
 
     # Format the timestamp
