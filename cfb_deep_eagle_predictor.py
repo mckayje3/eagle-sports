@@ -12,10 +12,11 @@ from datetime import datetime, timedelta
 
 
 class DeepEagleModel(nn.Module):
-    """Deep Eagle neural network for score prediction"""
+    """Deep Eagle neural network for score prediction - supports both old and new architectures"""
 
-    def __init__(self, input_dim, hidden_dims=[256, 128, 64]):
+    def __init__(self, input_dim, hidden_dims=[256, 128, 64], head_hidden=32, use_old_names=False):
         super(DeepEagleModel, self).__init__()
+        self.use_old_names = use_old_names
 
         layers = []
         prev_dim = input_dim
@@ -27,25 +28,65 @@ class DeepEagleModel(nn.Module):
             layers.append(nn.Dropout(0.3))
             prev_dim = hidden_dim
 
-        self.feature_extractor = nn.Sequential(*layers)
-
-        self.home_score_head = nn.Sequential(
-            nn.Linear(prev_dim, 32),
-            nn.ReLU(),
-            nn.Linear(32, 1)
-        )
-
-        self.away_score_head = nn.Sequential(
-            nn.Linear(prev_dim, 32),
-            nn.ReLU(),
-            nn.Linear(32, 1)
-        )
+        # Use different attribute names based on model version
+        if use_old_names:
+            self.features = nn.Sequential(*layers)
+            self.home_head = nn.Sequential(
+                nn.Linear(prev_dim, head_hidden),
+                nn.ReLU(),
+                nn.Linear(head_hidden, 1)
+            )
+            self.away_head = nn.Sequential(
+                nn.Linear(prev_dim, head_hidden),
+                nn.ReLU(),
+                nn.Linear(head_hidden, 1)
+            )
+        else:
+            self.feature_extractor = nn.Sequential(*layers)
+            self.home_score_head = nn.Sequential(
+                nn.Linear(prev_dim, head_hidden),
+                nn.ReLU(),
+                nn.Linear(head_hidden, 1)
+            )
+            self.away_score_head = nn.Sequential(
+                nn.Linear(prev_dim, head_hidden),
+                nn.ReLU(),
+                nn.Linear(head_hidden, 1)
+            )
 
     def forward(self, x):
-        features = self.feature_extractor(x)
-        home_score = self.home_score_head(features)
-        away_score = self.away_score_head(features)
+        if self.use_old_names:
+            features = self.features(x)
+            home_score = self.home_head(features)
+            away_score = self.away_head(features)
+        else:
+            features = self.feature_extractor(x)
+            home_score = self.home_score_head(features)
+            away_score = self.away_score_head(features)
         return torch.cat([home_score, away_score], dim=1)
+
+
+def infer_model_architecture(state_dict):
+    """Infer model architecture from state dict layer shapes"""
+    use_old_names = any(key.startswith('features.') for key in state_dict.keys())
+    prefix = 'features' if use_old_names else 'feature_extractor'
+    head_prefix = 'home_head' if use_old_names else 'home_score_head'
+
+    # Infer hidden dims from feature extractor layers
+    hidden_dims = []
+    layer_idx = 0
+    while f'{prefix}.{layer_idx}.weight' in state_dict:
+        weight = state_dict[f'{prefix}.{layer_idx}.weight']
+        hidden_dims.append(weight.shape[0])
+        layer_idx += 4  # Skip linear, batchnorm, relu, dropout
+
+    # Infer input dim
+    input_dim = state_dict[f'{prefix}.0.weight'].shape[1]
+
+    # Infer head hidden dim
+    head_hidden = state_dict[f'{head_prefix}.0.weight'].shape[0]
+
+    return input_dim, hidden_dims, head_hidden, use_old_names
 
 
 class CFBDeepEaglePredictor:
@@ -69,22 +110,33 @@ class CFBDeepEaglePredictor:
             checkpoint = torch.load(self.model_path, map_location=self.device, weights_only=False)
             self.feature_cols = checkpoint.get('feature_cols', [])
 
-            # Rebuild model with correct input dimension
-            input_dim = len(self.feature_cols)
-            self.model = DeepEagleModel(input_dim).to(self.device)
-            self.model.load_state_dict(checkpoint['model_state_dict'])
+            # Infer architecture from saved state dict
+            state_dict = checkpoint['model_state_dict']
+            input_dim, hidden_dims, head_hidden, use_old_names = infer_model_architecture(state_dict)
+
+            # Rebuild model with correct architecture
+            self.model = DeepEagleModel(
+                input_dim, hidden_dims=hidden_dims, head_hidden=head_hidden, use_old_names=use_old_names
+            ).to(self.device)
+            self.model.load_state_dict(state_dict)
             self.model.eval()
 
             # Load scaler
             with open(self.scaler_path, 'rb') as f:
                 self.scaler = pickle.load(f)
 
+            arch_type = "old" if use_old_names else "new"
             print(f"Loaded CFB Deep Eagle model from {self.model_path}")
-            print(f"  Features: {len(self.feature_cols)}")
+            print(f"  Features: {input_dim}, Hidden: {hidden_dims}, Architecture: {arch_type}")
 
         except FileNotFoundError:
             print(f"Model not found at {self.model_path}")
             print("Train a model first: py train_deep_eagle.py cfb 2025 ...")
+            self.model = None
+        except Exception as e:
+            print(f"Error loading model: {e}")
+            import traceback
+            traceback.print_exc()
             self.model = None
 
     def get_current_week(self):
@@ -272,8 +324,8 @@ class CFBDeepEaglePredictor:
                 AVG(ts.passing_yards) as pass_yards_pg,
                 AVG(ts.rushing_yards) as rush_yards_pg,
                 AVG(ts.turnovers) as turnovers_pg,
-                AVG(ts.third_down_pct) as third_down_pct,
-                AVG(ts.fourth_down_pct) as fourth_down_pct,
+                AVG(CAST(ts.third_down_conversions AS FLOAT) / NULLIF(ts.third_down_attempts, 0)) as third_down_pct,
+                AVG(CAST(ts.fourth_down_conversions AS FLOAT) / NULLIF(ts.fourth_down_attempts, 0)) as fourth_down_pct,
                 AVG(ts.possession_time) as avg_possession
             FROM team_game_stats ts
             JOIN games g ON ts.game_id = g.game_id
