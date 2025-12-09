@@ -1058,7 +1058,7 @@ def show_nba_predictions_live():
     st.info(f"**{len(predictions_df)} games** scheduled")
 
     # Check if viewing past games
-    is_past_games = selected_date.date() < datetime.now().date()
+    is_past_games = selected_date < datetime.now().date()
 
     # Show prediction freshness
     display_prediction_freshness(predictions_df, is_past_games=is_past_games)
