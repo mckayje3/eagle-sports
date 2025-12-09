@@ -12,6 +12,7 @@ import hashlib
 import subprocess
 import os
 import requests
+from timezone_utils import now_eastern, today_eastern
 
 # Try to import feedparser for RSS feeds
 try:
@@ -827,7 +828,7 @@ def display_prediction_freshness(predictions_df, game_dates=None, is_past_games=
         st.caption("Prediction timestamp not available")
         return
 
-    now = datetime.now()
+    now = now_eastern()
     age = now - latest_created.to_pydatetime()
     hours_old = age.total_seconds() / 3600
 
@@ -955,10 +956,10 @@ def show_nba_predictions_live():
     # NBA uses season=2025 for 2024-25 season
     season = 2025
 
-    from datetime import datetime, timedelta
+    from datetime import timedelta
 
     # Calendar-style date picker for basketball (3 days before, today, 3 days after)
-    today = datetime.now().date()
+    today = today_eastern()
 
     # Create a row of date buttons: 3 before + today + 3 after = 7 days
     st.markdown("**Select Date:**")
@@ -1058,7 +1059,7 @@ def show_nba_predictions_live():
     st.info(f"**{len(predictions_df)} games** scheduled")
 
     # Check if viewing past games
-    is_past_games = selected_date < datetime.now().date()
+    is_past_games = selected_date < today_eastern()
 
     # Show prediction freshness
     display_prediction_freshness(predictions_df, is_past_games=is_past_games)
@@ -1148,10 +1149,10 @@ def show_cbb_predictions_live():
     # CBB uses season=2025 for 2024-25 season
     season = 2025
 
-    from datetime import datetime, timedelta
+    from datetime import timedelta
 
     # Calendar-style date picker for basketball (3 days before, today, 3 days after)
-    today = datetime.now().date()
+    today = today_eastern()
 
     # Create a row of date buttons: 3 before + today + 3 after = 7 days
     st.markdown("**Select Date:**")
@@ -1267,7 +1268,7 @@ def show_cbb_predictions_live():
     if 'date' in filtered_df.columns and not filtered_df.empty:
         try:
             latest_game_date = pd.to_datetime(filtered_df['date']).max()
-            if pd.notna(latest_game_date) and latest_game_date.date() < datetime.now().date():
+            if pd.notna(latest_game_date) and latest_game_date.date() < today_eastern():
                 is_past_games = True
         except Exception:
             pass
@@ -1278,7 +1279,7 @@ def show_cbb_predictions_live():
         csv_path = 'cbb_predictions.csv'
         if os.path.exists(csv_path):
             mod_time = datetime.fromtimestamp(os.path.getmtime(csv_path))
-            now = datetime.now()
+            now = now_eastern()
             age = now - mod_time
             hours_old = age.total_seconds() / 3600
             mod_str = mod_time.strftime('%a %b %d, %I:%M %p')
@@ -1433,7 +1434,7 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
     if 'date' in predictions_df.columns and not predictions_df.empty:
         try:
             latest_game_date = pd.to_datetime(predictions_df['date']).max()
-            if pd.notna(latest_game_date) and latest_game_date.date() < datetime.now().date():
+            if pd.notna(latest_game_date) and latest_game_date.date() < today_eastern():
                 is_past_games = True
         except Exception:
             pass

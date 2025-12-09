@@ -7,6 +7,7 @@ import sqlite3
 from datetime import datetime, timedelta
 import time
 from cbb_database import CBBDatabase, create_cbb_database
+from timezone_utils import convert_espn_date
 
 
 class CBBESPNScraper:
@@ -112,9 +113,13 @@ class CBBESPNScraper:
             neutral_site = competition.get('neutralSite', False)
             conference_competition = competition.get('conferenceCompetition', False)
 
+            # Convert UTC date to Eastern Time
+            date_str_utc = event.get('date', '')
+            date_str = convert_espn_date(date_str_utc) or date_str_utc
+
             games.append({
                 'game_id': game_id,
-                'date': event.get('date', ''),
+                'date': date_str,
                 'home_team_id': int(home_team.get('team', {}).get('id', 0)),
                 'away_team_id': int(away_team.get('team', {}).get('id', 0)),
                 'home_score': home_score,
