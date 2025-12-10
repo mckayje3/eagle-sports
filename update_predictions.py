@@ -123,6 +123,66 @@ def save_to_database(predictions_df, season):
     conn.close()
 
 
+def sync_to_cache():
+    """Sync predictions to users.db prediction_cache for dashboard"""
+    try:
+        nfl_conn = sqlite3.connect('nfl_games.db')
+        users_conn = sqlite3.connect('users.db')
+
+        # Get predictions with game info
+        query = '''
+            SELECT
+                p.game_id, g.date, g.week, g.season,
+                ht.name as home_team, at.name as away_team,
+                p.pred_home_score, p.pred_away_score,
+                p.pred_spread, p.pred_total,
+                p.pred_home_win_prob as confidence,
+                p.prediction_date
+            FROM predictions p
+            JOIN games g ON p.game_id = g.game_id
+            JOIN teams ht ON g.home_team_id = ht.team_id
+            JOIN teams at ON g.away_team_id = at.team_id
+            WHERE g.completed = 0
+        '''
+
+        predictions = pd.read_sql_query(query, nfl_conn)
+
+        if len(predictions) > 0:
+            cursor = users_conn.cursor()
+            now = datetime.now().isoformat()
+
+            for _, row in predictions.iterrows():
+                winner = row['home_team'] if row['pred_spread'] > 0 else row['away_team']
+                confidence = row['confidence'] if row['confidence'] else 0.5
+                # Use prediction_date from nfl_games.db if available, otherwise use now
+                created_at = row.get('prediction_date') or now
+
+                cursor.execute('''
+                    INSERT OR REPLACE INTO prediction_cache
+                    (game_id, sport, season, week, game_date, home_team, away_team,
+                     predicted_home_score, predicted_away_score,
+                     predicted_spread, predicted_total, confidence, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    int(row['game_id']), 'NFL', int(row['season']), int(row['week']),
+                    row['date'], row['home_team'], row['away_team'],
+                    row['pred_home_score'], row['pred_away_score'],
+                    row['pred_spread'], row['pred_total'], confidence,
+                    created_at
+                ))
+
+            users_conn.commit()
+            logger.info(f"Synced {len(predictions)} predictions to cache with timestamp")
+
+        nfl_conn.close()
+        users_conn.close()
+        return True, f"Synced {len(predictions)} predictions"
+
+    except Exception as e:
+        logger.error(f"Error syncing to cache: {e}")
+        return False, str(e)
+
+
 def update_predictions(force_week=None):
     """Main function to update predictions with latest odds"""
     logger.info("=" * 60)
@@ -139,6 +199,9 @@ def update_predictions(force_week=None):
     predictions_df = generate_predictions(season, current_week)
 
     if predictions_df is not None:
+        # Sync to dashboard cache
+        sync_to_cache()
+
         logger.info("=" * 60)
         logger.info("UPDATE COMPLETE")
         logger.info("=" * 60)

@@ -162,7 +162,8 @@ def sync_to_cache():
                 ht.name as home_team, at.name as away_team,
                 p.pred_home_score, p.pred_away_score,
                 p.pred_spread, p.pred_total,
-                p.pred_home_win_prob as confidence
+                p.pred_home_win_prob as confidence,
+                p.prediction_date
             FROM predictions p
             JOIN games g ON p.game_id = g.game_id
             JOIN teams ht ON g.home_team_id = ht.team_id
@@ -174,23 +175,29 @@ def sync_to_cache():
 
         if len(predictions) > 0:
             cursor = users_conn.cursor()
+            now = datetime.now().isoformat()
 
             for _, row in predictions.iterrows():
                 winner = row['home_team'] if row['pred_spread'] > 0 else row['away_team']
+                # Use prediction_date from cfb_games.db if available, otherwise use now
+                created_at = row.get('prediction_date') or now
 
                 cursor.execute('''
                     INSERT OR REPLACE INTO prediction_cache
                     (game_id, sport, season, week, game_date, home_team, away_team,
-                     predicted_winner, predicted_spread, predicted_total, confidence)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     predicted_home_score, predicted_away_score,
+                     predicted_spread, predicted_total, confidence, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     int(row['game_id']), 'CFB', int(row['season']), int(row['week']),
                     row['date'], row['home_team'], row['away_team'],
-                    winner, row['pred_spread'], row['pred_total'], row['confidence']
+                    row['pred_home_score'], row['pred_away_score'],
+                    row['pred_spread'], row['pred_total'], row['confidence'],
+                    created_at
                 ))
 
             users_conn.commit()
-            logger.info(f"Synced {len(predictions)} predictions to cache")
+            logger.info(f"Synced {len(predictions)} predictions to cache with timestamp")
 
         cfb_conn.close()
         users_conn.close()
