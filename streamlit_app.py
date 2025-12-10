@@ -795,7 +795,7 @@ def display_game_card(row, sport_emoji="🏈"):
                 st.write(" | ".join(tags))
 
 
-def display_prediction_freshness(predictions_df, game_dates=None, is_past_games=False):
+def display_prediction_freshness(predictions_df, game_dates=None, is_past_games=False, sport=None):
     """
     Display when predictions were generated and warn if stale (only for upcoming games).
 
@@ -803,30 +803,42 @@ def display_prediction_freshness(predictions_df, game_dates=None, is_past_games=
         predictions_df: DataFrame with predictions (should have 'created_at' column)
         game_dates: Optional list/series of game dates for comparison
         is_past_games: If True, games are in the past so don't warn about staleness
+        sport: Optional sport identifier for session state timestamp lookup
     """
     from datetime import datetime, timedelta
 
-    # Check if created_at column exists and has data
-    if 'created_at' not in predictions_df.columns:
-        st.caption("Prediction timestamp not available")
-        return
+    latest_created = None
 
-    # Get the most recent prediction timestamp
-    created_times = predictions_df['created_at'].dropna()
-    if created_times.empty:
-        st.caption("Prediction timestamp not available")
-        return
+    # First check session state for recent update timestamp (persists across reruns)
+    if sport:
+        session_key = f'{sport.lower()}_last_update'
+        if session_key in st.session_state:
+            session_timestamp = st.session_state[session_key]
+            latest_created = pd.to_datetime(session_timestamp)
 
-    # Parse timestamps - handle various formats
-    try:
-        # Try to get the latest created_at time
-        latest_created = pd.to_datetime(created_times).max()
-        if pd.isna(latest_created):
+    # Fall back to database timestamp if no session state
+    if latest_created is None:
+        # Check if created_at column exists and has data
+        if 'created_at' not in predictions_df.columns:
             st.caption("Prediction timestamp not available")
             return
-    except Exception:
-        st.caption("Prediction timestamp not available")
-        return
+
+        # Get the most recent prediction timestamp
+        created_times = predictions_df['created_at'].dropna()
+        if created_times.empty:
+            st.caption("Prediction timestamp not available")
+            return
+
+        # Parse timestamps - handle various formats
+        try:
+            # Try to get the latest created_at time
+            latest_created = pd.to_datetime(created_times).max()
+            if pd.isna(latest_created):
+                st.caption("Prediction timestamp not available")
+                return
+        except Exception:
+            st.caption("Prediction timestamp not available")
+            return
 
     now = now_eastern()
     # Convert to naive datetime for comparison (both are effectively Eastern Time)
@@ -1010,6 +1022,7 @@ def show_nba_predictions_live():
             with st.spinner("Fetching latest odds and updating predictions..."):
                 success, msg = run_nba_predictions_update(days=7)
                 if success:
+                    st.session_state['nba_last_update'] = datetime.now().isoformat()
                     st.success(msg)
                     st.cache_data.clear()
                     st.rerun()
@@ -1068,7 +1081,7 @@ def show_nba_predictions_live():
     is_past_games = selected_date < today_eastern()
 
     # Show prediction freshness
-    display_prediction_freshness(predictions_df, is_past_games=is_past_games)
+    display_prediction_freshness(predictions_df, is_past_games=is_past_games, sport='NBA')
 
     # Check if predictions are fallback (not from Deep Eagle)
     if is_fallback_predictions(predictions_df):
@@ -1204,6 +1217,7 @@ def show_cbb_predictions_live():
             with st.spinner("Fetching latest odds and updating predictions..."):
                 success, msg = run_cbb_predictions_update(days=7)
                 if success:
+                    st.session_state['cbb_last_update'] = datetime.now().isoformat()
                     st.success(msg)
                     st.cache_data.clear()
                     st.rerun()
@@ -1279,13 +1293,22 @@ def show_cbb_predictions_live():
         except Exception:
             pass
 
-    # Show prediction freshness (CBB uses CSV file, check file modification time)
+    # Show prediction freshness (CBB - check session state first, then CSV file)
     try:
         import os
-        csv_path = 'cbb_predictions.csv'
-        if os.path.exists(csv_path):
-            mod_time = datetime.fromtimestamp(os.path.getmtime(csv_path))
-            now = now_eastern()
+        now = now_eastern()
+        mod_time = None
+
+        # Check session state for recent update timestamp (persists across reruns)
+        if 'cbb_last_update' in st.session_state:
+            mod_time = datetime.fromisoformat(st.session_state['cbb_last_update'])
+        else:
+            # Fall back to CSV file modification time
+            csv_path = 'cbb_predictions.csv'
+            if os.path.exists(csv_path):
+                mod_time = datetime.fromtimestamp(os.path.getmtime(csv_path))
+
+        if mod_time:
             age = now - mod_time
             hours_old = age.total_seconds() / 3600
             mod_str = mod_time.strftime('%a %b %d, %I:%M %p')
@@ -1409,6 +1432,7 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
                     if success:
                         sync_success, sync_msg = sync_nfl_predictions_to_cache()
                         if sync_success:
+                            st.session_state['nfl_last_update'] = datetime.now().isoformat()
                             st.success(f"Updated! {sync_msg}")
                             st.cache_data.clear()
                             st.rerun()
@@ -1420,6 +1444,7 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
                     # Run CFB update script
                     success, msg = run_cfb_predictions_update(week)
                     if success:
+                        st.session_state['cfb_last_update'] = datetime.now().isoformat()
                         st.success(msg)
                         st.cache_data.clear()
                         st.rerun()
@@ -1446,7 +1471,7 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
             pass
 
     # Show prediction freshness
-    display_prediction_freshness(predictions_df, is_past_games=is_past_games)
+    display_prediction_freshness(predictions_df, is_past_games=is_past_games, sport=sport)
 
     # Check if predictions are fallback (not from Deep Eagle)
     if is_fallback_predictions(predictions_df):
