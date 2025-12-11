@@ -1296,12 +1296,15 @@ def show_cbb_predictions_live():
     # Show prediction freshness (CBB - check session state first, then CSV file)
     try:
         import os
-        now = now_eastern()
+        now = datetime.now()  # Use naive datetime for comparison
         mod_time = None
 
         # Check session state for recent update timestamp (persists across reruns)
         if 'cbb_last_update' in st.session_state:
             mod_time = datetime.fromisoformat(st.session_state['cbb_last_update'])
+            # Remove timezone info if present for comparison
+            if mod_time.tzinfo is not None:
+                mod_time = mod_time.replace(tzinfo=None)
         else:
             # Fall back to CSV file modification time
             csv_path = 'cbb_predictions.csv'
