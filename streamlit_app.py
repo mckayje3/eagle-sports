@@ -561,16 +561,16 @@ def sync_nfl_predictions_to_cache():
                 INSERT OR REPLACE INTO prediction_cache
                 (game_id, season, week, sport, game_date, home_team, away_team,
                  predicted_spread, predicted_total, predicted_home_score, predicted_away_score,
-                 home_win_probability, confidence, vegas_spread, vegas_total, spread_edge,
+                 home_win_probability, confidence, vegas_spread, vegas_total,
                  game_completed, actual_home_score, actual_away_score)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 row['game_id'], row['season'], row['week'], row['sport'],
                 row['game_date'], row['home_team'], row['away_team'],
                 row['predicted_spread'], row['predicted_total'],
                 row.get('predicted_home_score'), row.get('predicted_away_score'),
                 row.get('home_win_probability'), row.get('confidence'),
-                row.get('vegas_spread'), row.get('vegas_total'), row.get('spread_edge'),
+                row.get('vegas_spread'), row.get('vegas_total'),
                 row['game_completed'], row.get('actual_home_score'), row.get('actual_away_score')
             ))
 
