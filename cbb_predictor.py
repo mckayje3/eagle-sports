@@ -370,6 +370,17 @@ class CBBPredictor:
 
         return pd.DataFrame(predictions)
 
+    def predict_upcoming(self, days=7):
+        """Get and predict upcoming games"""
+        games = self.get_upcoming_games(days=days)
+
+        if games.empty:
+            print("No upcoming games found")
+            return None
+
+        print(f"Found {len(games)} upcoming games")
+        return self.predict(games)
+
     def save_predictions(self, predictions_df, output_path='cbb_predictions.csv'):
         """Save predictions to CSV"""
         predictions_df.to_csv(output_path, index=False)

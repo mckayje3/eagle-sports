@@ -511,7 +511,7 @@ def sync_nfl_predictions_to_cache():
             JOIN games g ON p.game_id = g.game_id
             JOIN teams ht ON g.home_team_id = ht.team_id
             JOIN teams at ON g.away_team_id = at.team_id
-            WHERE g.season = 2025
+            WHERE g.date >= date('now', '-7 days')
             ORDER BY g.week, g.date
         '''
         predictions_df = pd.read_sql_query(predictions_query, nfl_conn)
