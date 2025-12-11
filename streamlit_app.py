@@ -1265,8 +1265,8 @@ def show_cbb_predictions_live():
     except Exception as e:
         st.warning(f"Could not load odds/results from database: {e}")
 
-    # Filter by selected date
-    predictions_df['game_date'] = pd.to_datetime(predictions_df['date']).dt.date
+    # Filter by selected date - handle mixed date formats (YYYY-MM-DD and ISO with time)
+    predictions_df['game_date'] = pd.to_datetime(predictions_df['date'], format='mixed', utc=True).dt.date
     filtered_df = predictions_df[predictions_df['game_date'] == selected_date]
 
     if filtered_df.empty:
