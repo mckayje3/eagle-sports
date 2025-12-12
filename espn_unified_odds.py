@@ -120,7 +120,7 @@ class ESPNOddsScraper:
                     ps = home_open.get('pointSpread', {})
                     if ps.get('american'):
                         try:
-                            result['opening_spread_home'] = float(str(ps['american']).replace('+', ''))
+                            result['opening_spread'] = float(str(ps['american']).replace('+', ''))
                         except (ValueError, TypeError):
                             pass
                     ml = home_open.get('moneyLine', {})
@@ -186,33 +186,49 @@ class ESPNOddsScraper:
             columns = [col[1] for col in cursor.fetchall()]
             source_col = 'source' if 'source' in columns else 'sportsbook'
 
-            # Upsert odds
+            # Get current values
+            opening_spread = odds_data.get('opening_spread')
+            latest_spread = odds_data.get('spread')
+            opening_total = odds_data.get('over_under')
+            latest_total = odds_data.get('over_under')
+            opening_ml = odds_data.get('opening_ml_home')
+            latest_ml = odds_data.get('closing_ml_home') or odds_data.get('home_moneyline')
+            
+            # Calculate movements
+            spread_movement = (latest_spread - opening_spread) if (opening_spread and latest_spread) else None
+            total_movement = (latest_total - opening_total) if (opening_total and latest_total) else None
+            ml_movement = (latest_ml - opening_ml) if (opening_ml and latest_ml) else None
+            
+            # Upsert odds with simplified schema
             cursor.execute(f'''
                 INSERT INTO game_odds (
                     game_id, {source_col},
-                    opening_spread_home, closing_spread_home,
-                    opening_total, closing_total,
-                    opening_moneyline_home, opening_moneyline_away,
-                    closing_moneyline_home, closing_moneyline_away,
+                    opening_spread, latest_spread,
+                    opening_total, latest_total,
+                    opening_moneyline, latest_moneyline,
+                    spread_movement, total_movement, moneyline_movement,
                     updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(game_id, {source_col}) DO UPDATE SET
-                    closing_spread_home = excluded.closing_spread_home,
-                    closing_total = excluded.closing_total,
-                    closing_moneyline_home = excluded.closing_moneyline_home,
-                    closing_moneyline_away = excluded.closing_moneyline_away,
+                    latest_spread = excluded.latest_spread,
+                    latest_total = excluded.latest_total,
+                    latest_moneyline = excluded.latest_moneyline,
+                    spread_movement = excluded.spread_movement,
+                    total_movement = excluded.total_movement,
+                    moneyline_movement = excluded.moneyline_movement,
                     updated_at = excluded.updated_at
             ''', (
                 game_id,
                 odds_data.get('source', 'ESPN'),
-                odds_data.get('opening_spread_home'),
-                odds_data.get('spread'),  # Current spread = closing
-                odds_data.get('over_under'),  # Opening total
-                odds_data.get('over_under'),  # Closing total
-                odds_data.get('opening_ml_home'),
-                odds_data.get('opening_ml_away'),
-                odds_data.get('closing_ml_home') or odds_data.get('home_moneyline'),
-                odds_data.get('closing_ml_away') or odds_data.get('away_moneyline'),
+                opening_spread,
+                latest_spread,
+                opening_total,
+                latest_total,
+                opening_ml,
+                latest_ml,
+                spread_movement,
+                total_movement,
+                ml_movement,
                 datetime.now().isoformat()
             ))
 
@@ -378,9 +394,9 @@ def sync_odds_to_prediction_cache(sport: str):
     cursor = conn.cursor()
 
     cursor.execute('''
-        SELECT game_id, closing_spread_home, closing_total
+        SELECT game_id, latest_spread, latest_total
         FROM game_odds
-        WHERE closing_spread_home IS NOT NULL
+        WHERE latest_spread IS NOT NULL
     ''')
     odds_records = cursor.fetchall()
     conn.close()

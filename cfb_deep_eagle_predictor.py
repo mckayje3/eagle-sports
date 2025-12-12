@@ -378,10 +378,10 @@ class CFBDeepEaglePredictor:
 
         cursor.execute('''
             SELECT
-                COALESCE(current_spread_home, opening_spread_home) as spread,
-                COALESCE(current_total, opening_total) as total,
-                opening_moneyline_home,
-                opening_moneyline_away
+                COALESCE(latest_spread, opening_spread) as spread,
+                COALESCE(latest_total, opening_total) as total,
+                opening_moneyline,
+                latest_moneyline
             FROM game_odds WHERE game_id = ?
             ORDER BY updated_at DESC LIMIT 1
         ''', (game_id,))

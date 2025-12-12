@@ -4,7 +4,7 @@ Comprehensive feature extraction from all database tables:
 - games
 - team_game_stats
 - game_odds
-- odds_movement
+- spread_movement, total_movement, moneyline_movement columns in game_odds
 - drives (NEW)
 """
 import sqlite3
@@ -140,6 +140,19 @@ class DeepEagleFeatureExtractor:
         features['ppd_differential'] = home_drive_stats.get('ppd', 0) - away_drive_stats.get('ppd', 0)
         features['scoring_pct_differential'] = home_drive_stats.get('scoring_pct', 0) - away_drive_stats.get('scoring_pct', 0)
 
+        # NEW: Home/away venue-adjusted differentials
+        # For home team: use their home_ppg vs away team's away_ppg (how they perform in this venue)
+        # This is the KEY feature that captures home field advantage
+        features['venue_ppg_differential'] = home_hist.get('home_ppg', 0) - away_hist.get('away_ppg', 0)
+        features['venue_win_pct_differential'] = home_hist.get('home_win_pct', 0) - away_hist.get('away_win_pct', 0)
+
+        # Combined home field advantage signal
+        # Positive = home team has venue advantage
+        features['combined_home_advantage'] = (
+            home_hist.get('home_away_ppg_diff', 0) +  # Home team's home boost
+            away_hist.get('home_away_ppg_diff', 0)    # Away team usually drops on road (positive value here means they're better at home too)
+        ) / 2  # Average the two teams' home/away differentials
+
         return features
 
     def _get_team_game_stats(self, game_id, team_id):
@@ -171,13 +184,16 @@ class DeepEagleFeatureExtractor:
         return result.iloc[0].to_dict()
 
     def _get_historical_stats(self, team_id, season, current_week):
-        """Get team's season stats up to (but not including) current week"""
+        """Get team's season stats up to (but not including) current week
+
+        Now includes home/away splits to help model understand venue impact.
+        """
         # Convert numpy types to Python native types for SQLite compatibility
         team_id = int(team_id)
         season = int(season)
         current_week = int(current_week)
 
-        # Get PPG and PAPG from games table (scores are there, not in team_game_stats)
+        # Get overall PPG and PAPG from games table
         ppg_query = '''
             SELECT
                 COUNT(*) as games_played,
@@ -191,6 +207,36 @@ class DeepEagleFeatureExtractor:
 
         ppg_result = pd.read_sql_query(ppg_query, self.conn,
             params=(team_id, team_id, team_id, season, current_week, team_id, team_id))
+
+        # Get HOME-only stats (when this team plays AT HOME)
+        home_query = '''
+            SELECT
+                COUNT(*) as home_games,
+                AVG(home_score) as home_ppg,
+                AVG(away_score) as home_papg,
+                SUM(CASE WHEN winner_team_id = ? THEN 1 ELSE 0 END) * 1.0 /
+                    NULLIF(COUNT(*), 0) as home_win_pct
+            FROM games
+            WHERE season = ? AND completed = 1 AND week < ?
+                AND home_team_id = ?
+        '''
+        home_result = pd.read_sql_query(home_query, self.conn,
+            params=(team_id, season, current_week, team_id))
+
+        # Get AWAY-only stats (when this team plays ON THE ROAD)
+        away_query = '''
+            SELECT
+                COUNT(*) as away_games,
+                AVG(away_score) as away_ppg,
+                AVG(home_score) as away_papg,
+                SUM(CASE WHEN winner_team_id = ? THEN 1 ELSE 0 END) * 1.0 /
+                    NULLIF(COUNT(*), 0) as away_win_pct
+            FROM games
+            WHERE season = ? AND completed = 1 AND week < ?
+                AND away_team_id = ?
+        '''
+        away_result = pd.read_sql_query(away_query, self.conn,
+            params=(team_id, season, current_week, team_id))
 
         # Get other stats from team_game_stats
         stats_query = '''
@@ -211,8 +257,26 @@ class DeepEagleFeatureExtractor:
         if ppg_result.empty or ppg_result.iloc[0]['games_played'] == 0:
             return {
                 'games_played': 0, 'ppg': 0, 'papg': 0, 'ypg': 0,
-                'turnover_pg': 0, 'win_pct': 0
+                'turnover_pg': 0, 'win_pct': 0,
+                'home_games': 0, 'home_ppg': 0, 'home_papg': 0, 'home_win_pct': 0,
+                'away_games': 0, 'away_ppg': 0, 'away_papg': 0, 'away_win_pct': 0,
+                'home_away_ppg_diff': 0
             }
+
+        # Extract home stats
+        home_games = home_result.iloc[0]['home_games'] if not home_result.empty else 0
+        home_ppg = home_result.iloc[0]['home_ppg'] if not home_result.empty and pd.notna(home_result.iloc[0]['home_ppg']) else 0
+        home_papg = home_result.iloc[0]['home_papg'] if not home_result.empty and pd.notna(home_result.iloc[0]['home_papg']) else 0
+        home_win_pct = home_result.iloc[0]['home_win_pct'] if not home_result.empty and pd.notna(home_result.iloc[0]['home_win_pct']) else 0
+
+        # Extract away stats
+        away_games = away_result.iloc[0]['away_games'] if not away_result.empty else 0
+        away_ppg = away_result.iloc[0]['away_ppg'] if not away_result.empty and pd.notna(away_result.iloc[0]['away_ppg']) else 0
+        away_papg = away_result.iloc[0]['away_papg'] if not away_result.empty and pd.notna(away_result.iloc[0]['away_papg']) else 0
+        away_win_pct = away_result.iloc[0]['away_win_pct'] if not away_result.empty and pd.notna(away_result.iloc[0]['away_win_pct']) else 0
+
+        # Calculate home/away differential (positive = team scores more at home)
+        home_away_ppg_diff = home_ppg - away_ppg if home_games > 0 and away_games > 0 else 0
 
         result = {
             'games_played': ppg_result.iloc[0]['games_played'],
@@ -220,7 +284,17 @@ class DeepEagleFeatureExtractor:
             'papg': ppg_result.iloc[0]['papg'] if pd.notna(ppg_result.iloc[0]['papg']) else 0,
             'win_pct': ppg_result.iloc[0]['win_pct'] if pd.notna(ppg_result.iloc[0]['win_pct']) else 0,
             'ypg': stats_result.iloc[0]['ypg'] if not stats_result.empty and pd.notna(stats_result.iloc[0]['ypg']) else 0,
-            'turnover_pg': stats_result.iloc[0]['turnover_pg'] if not stats_result.empty and pd.notna(stats_result.iloc[0]['turnover_pg']) else 0
+            'turnover_pg': stats_result.iloc[0]['turnover_pg'] if not stats_result.empty and pd.notna(stats_result.iloc[0]['turnover_pg']) else 0,
+            # NEW: Home/away splits
+            'home_games': home_games,
+            'home_ppg': home_ppg,
+            'home_papg': home_papg,
+            'home_win_pct': home_win_pct,
+            'away_games': away_games,
+            'away_ppg': away_ppg,
+            'away_papg': away_papg,
+            'away_win_pct': away_win_pct,
+            'home_away_ppg_diff': home_away_ppg_diff
         }
 
         return result
@@ -234,18 +308,16 @@ class DeepEagleFeatureExtractor:
 
         This ensures training and prediction see similar data distributions.
         """
-        # Get all odds for this game, prefer most recent current_spread
+        # Get odds from simplified schema
         query = '''
             SELECT
-                opening_spread_home, current_spread_home, closing_spread_home,
-                opening_total, current_total, closing_total,
-                opening_moneyline_home, current_moneyline_home, closing_moneyline_home,
-                opening_moneyline_away, current_moneyline_away, closing_moneyline_away
+                opening_spread, latest_spread,
+                opening_total, latest_total,
+                opening_moneyline, latest_moneyline,
+                spread_movement, total_movement, moneyline_movement
             FROM game_odds
             WHERE game_id = ?
-            ORDER BY
-                CASE WHEN current_spread_home IS NOT NULL THEN 0 ELSE 1 END,
-                updated_at DESC
+            ORDER BY updated_at DESC
             LIMIT 1
         '''
 
@@ -257,41 +329,27 @@ class DeepEagleFeatureExtractor:
                 'opening_total': 0, 'latest_total': 0,
                 'opening_ml_home': 0, 'latest_ml_home': 0,
                 'opening_ml_away': 0, 'latest_ml_away': 0,
+                'spread_movement': 0, 'total_movement': 0,
             }
 
         row = result.iloc[0]
 
-        # Use COALESCE logic: current -> opening (skip closing to avoid leakage)
-        latest_spread = (
-            row['current_spread_home'] if pd.notna(row['current_spread_home'])
-            else row['opening_spread_home'] if pd.notna(row['opening_spread_home'])
-            else 0
-        )
-        latest_total = (
-            row['current_total'] if pd.notna(row['current_total'])
-            else row['opening_total'] if pd.notna(row['opening_total'])
-            else 0
-        )
-        latest_ml_home = (
-            row['current_moneyline_home'] if pd.notna(row['current_moneyline_home'])
-            else row['opening_moneyline_home'] if pd.notna(row['opening_moneyline_home'])
-            else 0
-        )
-        latest_ml_away = (
-            row['current_moneyline_away'] if pd.notna(row['current_moneyline_away'])
-            else row['opening_moneyline_away'] if pd.notna(row['opening_moneyline_away'])
-            else 0
-        )
+        # Use latest values, fall back to opening
+        latest_spread = row['latest_spread'] if pd.notna(row['latest_spread']) else (row['opening_spread'] if pd.notna(row['opening_spread']) else 0)
+        latest_total = row['latest_total'] if pd.notna(row['latest_total']) else (row['opening_total'] if pd.notna(row['opening_total']) else 0)
+        latest_ml = row['latest_moneyline'] if pd.notna(row['latest_moneyline']) else (row['opening_moneyline'] if pd.notna(row['opening_moneyline']) else 0)
 
         return {
-            'opening_spread': row['opening_spread_home'] if pd.notna(row['opening_spread_home']) else 0,
+            'opening_spread': row['opening_spread'] if pd.notna(row['opening_spread']) else 0,
             'latest_spread': latest_spread,
             'opening_total': row['opening_total'] if pd.notna(row['opening_total']) else 0,
             'latest_total': latest_total,
-            'opening_ml_home': row['opening_moneyline_home'] if pd.notna(row['opening_moneyline_home']) else 0,
-            'latest_ml_home': latest_ml_home,
-            'opening_ml_away': row['opening_moneyline_away'] if pd.notna(row['opening_moneyline_away']) else 0,
-            'latest_ml_away': latest_ml_away,
+            'opening_ml_home': row['opening_moneyline'] if pd.notna(row['opening_moneyline']) else 0,
+            'latest_ml_home': latest_ml,
+            'opening_ml_away': 0,  # Simplified schema doesn't track away ML separately
+            'latest_ml_away': 0,
+            'spread_movement': row['spread_movement'] if pd.notna(row['spread_movement']) else 0,
+            'total_movement': row['total_movement'] if pd.notna(row['total_movement']) else 0,
         }
 
     def _get_drive_stats(self, team_id, season, current_week):

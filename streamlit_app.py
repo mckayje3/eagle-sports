@@ -1249,8 +1249,8 @@ def show_cbb_predictions_live():
                 g.completed,
                 g.home_score as actual_home_score,
                 g.away_score as actual_away_score,
-                o.closing_spread_home as vegas_spread,
-                o.closing_total as vegas_total
+                o.latest_spread as vegas_spread,
+                o.latest_total as vegas_total
             FROM games g
             LEFT JOIN game_odds o ON g.game_id = o.game_id
         """

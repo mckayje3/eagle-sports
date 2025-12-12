@@ -462,7 +462,7 @@ class DeepEaglePredictor:
                 g.completed,
                 g.home_score,
                 g.away_score,
-                go.closing_spread_home as vegas_spread,
+                go.latest_spread as vegas_spread,
                 go.closing_total as vegas_total
             FROM games g
             JOIN teams ht ON g.home_team_id = ht.team_id

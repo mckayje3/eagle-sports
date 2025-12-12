@@ -209,7 +209,7 @@ def predict_upcoming_games(sport, season, db_path, model_path, scaler_path, min_
     odds_df = pd.read_sql_query('''
         SELECT
             game_id,
-            COALESCE(MAX(current_spread_home), MAX(opening_spread_home)) as vegas_spread,
+            COALESCE(MAX(latest_spread), MAX(opening_spread)) as vegas_spread,
             COALESCE(MAX(current_total), MAX(opening_total)) as vegas_total
         FROM game_odds
         GROUP BY game_id
