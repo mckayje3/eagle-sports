@@ -140,23 +140,44 @@ class CFBDeepEaglePredictor:
             self.model = None
 
     def get_current_week(self):
-        """Calculate current CFB week based on date"""
+        """
+        Calculate current CFB week based on date.
+
+        CFB seasons typically start the last Saturday of August (Week 0/1).
+        This function dynamically calculates the season start for any year.
+        """
         today = datetime.now()
+        year = today.year
 
-        # CFB 2025 season starts late August
-        if today.year == 2025:
-            season_start = datetime(2025, 8, 23)
-        else:
-            season_start = datetime(2024, 8, 24)
+        # CFB season starts on the last Saturday of August
+        # Find last Saturday of August for the current year
+        def get_season_start(yr):
+            # Start from August 31 and work backwards to find Saturday
+            aug_31 = datetime(yr, 8, 31)
+            # weekday(): Monday=0, Saturday=5
+            days_to_subtract = (aug_31.weekday() - 5) % 7
+            last_saturday = aug_31 - timedelta(days=days_to_subtract)
+            return last_saturday
 
+        season_start = get_season_start(year)
+
+        # If we're before this year's season start, check if we're still
+        # in last year's season (bowl season runs into January)
         if today < season_start:
-            return 0, today.year
+            # Check if we're in bowl season (Dec-Jan) of previous season
+            if today.month <= 1:
+                # Still in previous year's bowl season
+                season_start = get_season_start(year - 1)
+                year = year - 1
+            else:
+                # Before season starts, return week 0
+                return 0, year
 
         days_since_start = (today - season_start).days
         week = (days_since_start // 7) + 1
-        week = min(week, 15)  # CFB regular season is ~15 weeks
+        week = min(week, 17)  # Cap at week 17 (includes conference championships + bowls)
 
-        return week, season_start.year
+        return week, year
 
     def get_upcoming_games(self, week=None, days=None):
         """Get upcoming CFB games from database"""
