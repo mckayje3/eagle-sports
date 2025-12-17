@@ -293,15 +293,14 @@ class CBBPredictor:
         }
 
     def _get_odds(self, conn, game_id):
-        """Get odds for a game"""
+        """Get odds for a game from odds_and_predictions table"""
         cursor = conn.cursor()
 
         cursor.execute('''
-            SELECT opening_spread_home, closing_spread_home, opening_total, closing_total,
-                   opening_moneyline_home, closing_moneyline_home,
-                   opening_moneyline_away, closing_moneyline_away
-            FROM game_odds WHERE game_id = ?
-            ORDER BY updated_at DESC LIMIT 1
+            SELECT opening_spread, latest_spread, opening_total, latest_total,
+                   opening_moneyline_home, latest_moneyline_home,
+                   opening_moneyline_away, latest_moneyline_away
+            FROM odds_and_predictions WHERE game_id = ?
         ''', (game_id,))
 
         row = cursor.fetchone()
@@ -311,17 +310,22 @@ class CBBPredictor:
                 'opening_total': 0, 'closing_total': 0,
                 'opening_ml_home': 0, 'closing_ml_home': 0,
                 'opening_ml_away': 0, 'closing_ml_away': 0,
+                '_missing_odds': True
             }
+
+        has_spread = row[0] is not None or row[1] is not None
+        has_total = row[2] is not None or row[3] is not None
 
         return {
             'opening_spread': row[0] or 0,
-            'closing_spread': row[1] or 0,
+            'closing_spread': row[1] or row[0] or 0,
             'opening_total': row[2] or 0,
-            'closing_total': row[3] or 0,
+            'closing_total': row[3] or row[2] or 0,
             'opening_ml_home': row[4] or 0,
-            'closing_ml_home': row[5] or 0,
+            'closing_ml_home': row[5] or row[4] or 0,
             'opening_ml_away': row[6] or 0,
-            'closing_ml_away': row[7] or 0,
+            'closing_ml_away': row[7] or row[6] or 0,
+            '_missing_odds': not (has_spread and has_total)
         }
 
     def predict(self, games_df):

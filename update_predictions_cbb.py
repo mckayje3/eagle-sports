@@ -96,49 +96,40 @@ def generate_predictions(days=7):
 
 
 def save_to_database(predictions_df):
-    """Save predictions to cbb_games.db"""
+    """Save predictions to cbb_games.db odds_and_predictions table"""
     conn = sqlite3.connect('cbb_games.db')
     cursor = conn.cursor()
 
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS predictions (
-            game_id INTEGER PRIMARY KEY,
-            pred_home_score REAL,
-            pred_away_score REAL,
-            pred_spread REAL,
-            pred_total REAL,
-            pred_home_win INTEGER,
-            pred_home_win_prob REAL,
-            vegas_spread REAL,
-            vegas_total REAL,
-            spread_edge REAL,
-            total_edge REAL,
-            prediction_date TEXT,
-            model_version TEXT
-        )
-    ''')
-
     for _, row in predictions_df.iterrows():
+        game_id = int(row['game_id'])
+
+        # Update existing odds_and_predictions row or insert new one
         cursor.execute('''
-            INSERT OR REPLACE INTO predictions
-            (game_id, pred_home_score, pred_away_score, pred_spread, pred_total,
-             pred_home_win, pred_home_win_prob, vegas_spread, vegas_total,
-             spread_edge, total_edge, prediction_date, model_version)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO odds_and_predictions (game_id, predicted_home_score, predicted_away_score,
+                predicted_home_MOE, predicted_away_MOE, predicted_spread_MOE, predicted_total_MOE,
+                home_win_probability, confidence, prediction_created)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(game_id) DO UPDATE SET
+                predicted_home_score = excluded.predicted_home_score,
+                predicted_away_score = excluded.predicted_away_score,
+                predicted_home_MOE = excluded.predicted_home_MOE,
+                predicted_away_MOE = excluded.predicted_away_MOE,
+                predicted_spread_MOE = excluded.predicted_spread_MOE,
+                predicted_total_MOE = excluded.predicted_total_MOE,
+                home_win_probability = excluded.home_win_probability,
+                confidence = excluded.confidence,
+                prediction_created = excluded.prediction_created
         ''', (
-            int(row['game_id']),
+            game_id,
             row.get('pred_home_score'),
             row.get('pred_away_score'),
-            row.get('pred_spread'),
-            row.get('pred_total'),
-            int(row.get('pred_home_win', 0)),
+            row.get('pred_home_MOE'),
+            row.get('pred_away_MOE'),
+            row.get('pred_spread_MOE'),
+            row.get('pred_total_MOE'),
             row.get('pred_home_win_prob', row.get('confidence', 0.5)),
-            row.get('vegas_spread'),
-            row.get('vegas_total'),
-            row.get('spread_edge'),
-            row.get('total_edge'),
-            datetime.now().isoformat(),
-            'deep_eagle_cbb_2025'
+            row.get('confidence', 0.5),
+            datetime.now().isoformat()
         ))
 
     conn.commit()
@@ -151,20 +142,22 @@ def sync_to_cache():
         cbb_conn = sqlite3.connect('cbb_games.db')
         users_conn = sqlite3.connect('users.db')
 
-        # Get predictions with game info
+        # Get predictions with game info from odds_and_predictions table
         query = '''
             SELECT
-                p.game_id, g.date, g.season,
+                op.game_id, g.date, g.season,
                 ht.name as home_team, at.name as away_team,
-                p.pred_home_score, p.pred_away_score,
-                p.pred_spread, p.pred_total,
-                p.pred_home_win_prob as confidence,
-                p.prediction_date
-            FROM predictions p
-            JOIN games g ON p.game_id = g.game_id
+                op.predicted_home_score as pred_home_score,
+                op.predicted_away_score as pred_away_score,
+                (op.predicted_home_score - op.predicted_away_score) as pred_spread,
+                (op.predicted_home_score + op.predicted_away_score) as pred_total,
+                op.confidence,
+                op.prediction_created as prediction_date
+            FROM odds_and_predictions op
+            JOIN games g ON op.game_id = g.game_id
             JOIN teams ht ON g.home_team_id = ht.team_id
             JOIN teams at ON g.away_team_id = at.team_id
-            WHERE g.completed = 0
+            WHERE g.completed = 0 AND op.predicted_home_score IS NOT NULL
         '''
 
         predictions = pd.read_sql_query(query, cbb_conn)

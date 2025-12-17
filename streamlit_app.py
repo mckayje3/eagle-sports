@@ -214,7 +214,7 @@ def load_database_stats():
 
     try:
         stats['games_with_odds'] = pd.read_sql_query(
-            "SELECT COUNT(DISTINCT game_id) as count FROM game_odds", conn
+            "SELECT COUNT(DISTINCT game_id) as count FROM odds_and_predictions WHERE latest_spread IS NOT NULL OR opening_spread IS NOT NULL", conn
         ).iloc[0]['count']
     except:
         stats['games_with_odds'] = 0
@@ -255,7 +255,7 @@ def load_nfl_stats():
         ).iloc[0]['count']
         try:
             stats['games_with_odds'] = pd.read_sql_query(
-                "SELECT COUNT(DISTINCT game_id) as count FROM game_odds", conn
+                "SELECT COUNT(DISTINCT game_id) as count FROM odds_and_predictions WHERE latest_spread IS NOT NULL OR opening_spread IS NOT NULL", conn
             ).iloc[0]['count']
         except:
             stats['games_with_odds'] = 0
@@ -1253,10 +1253,10 @@ def show_cbb_predictions_live():
                 g.completed,
                 g.home_score as actual_home_score,
                 g.away_score as actual_away_score,
-                COALESCE(o.closing_spread_home, o.opening_spread_home) as vegas_spread,
-                COALESCE(o.closing_total, o.opening_total) as vegas_total
+                COALESCE(o.latest_spread, o.opening_spread) as vegas_spread,
+                COALESCE(o.latest_total, o.opening_total) as vegas_total
             FROM games g
-            LEFT JOIN game_odds o ON g.game_id = o.game_id
+            LEFT JOIN odds_and_predictions o ON g.game_id = o.game_id
         """
         enrichment_df = pd.read_sql_query(enrichment_query, conn)
         conn.close()
@@ -1710,12 +1710,12 @@ def get_upcoming_games_with_odds():
         SELECT
             g.game_id, g.season, g.week, g.date,
             ht.name as home_team, at.name as away_team,
-            go.latest_line as spread,
-            go.latest_total_line as total
+            COALESCE(op.latest_spread, op.opening_spread) as spread,
+            COALESCE(op.latest_total, op.opening_total) as total
         FROM games g
         JOIN teams ht ON g.home_team_id = ht.team_id
         JOIN teams at ON g.away_team_id = at.team_id
-        LEFT JOIN game_odds go ON g.game_id = go.game_id
+        LEFT JOIN odds_and_predictions op ON g.game_id = op.game_id
         WHERE g.completed = 0 AND g.season = 2025
         ORDER BY g.date
         LIMIT 20
@@ -1736,12 +1736,12 @@ def get_nfl_upcoming_games_with_odds():
         SELECT
             g.game_id, g.season, g.week, g.date,
             ht.name as home_team, at.name as away_team,
-            go.latest_line as spread,
-            go.latest_total_line as total
+            COALESCE(op.latest_spread, op.opening_spread) as spread,
+            COALESCE(op.latest_total, op.opening_total) as total
         FROM games g
         JOIN teams ht ON g.home_team_id = ht.team_id
         JOIN teams at ON g.away_team_id = at.team_id
-        LEFT JOIN game_odds go ON g.game_id = go.game_id
+        LEFT JOIN odds_and_predictions op ON g.game_id = op.game_id
         WHERE g.completed = 0 AND g.season = 2025
         ORDER BY g.date
         LIMIT 20

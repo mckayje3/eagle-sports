@@ -158,7 +158,7 @@ class ESPNOddsScraper:
 
     def save_odds_to_db(self, odds_data: dict) -> bool:
         """
-        Save odds data to database
+        Save odds data to odds_and_predictions table
 
         Args:
             odds_data: Dictionary with odds from get_game_odds()
@@ -181,42 +181,42 @@ class ESPNOddsScraper:
                 conn.close()
                 return False
 
-            # Determine column name (some DBs use 'source', some use 'sportsbook')
-            cursor.execute("PRAGMA table_info(game_odds)")
-            columns = [col[1] for col in cursor.fetchall()]
-            source_col = 'source' if 'source' in columns else 'sportsbook'
-
             # Get current values
             opening_spread = odds_data.get('opening_spread')
             latest_spread = odds_data.get('spread')
             opening_total = odds_data.get('over_under')
             latest_total = odds_data.get('over_under')
-            opening_ml = odds_data.get('opening_ml_home')
-            latest_ml = odds_data.get('closing_ml_home') or odds_data.get('home_moneyline')
-            
+            opening_ml_home = odds_data.get('opening_ml_home')
+            latest_ml_home = odds_data.get('closing_ml_home') or odds_data.get('home_moneyline')
+            opening_ml_away = odds_data.get('opening_ml_away')
+            latest_ml_away = odds_data.get('closing_ml_away') or odds_data.get('away_moneyline')
+
             # Calculate movements
             spread_movement = (latest_spread - opening_spread) if (opening_spread and latest_spread) else None
             total_movement = (latest_total - opening_total) if (opening_total and latest_total) else None
-            ml_movement = (latest_ml - opening_ml) if (opening_ml and latest_ml) else None
-            
-            # Upsert odds with simplified schema
-            cursor.execute(f'''
-                INSERT INTO game_odds (
-                    game_id, {source_col},
+            ml_movement = (latest_ml_home - opening_ml_home) if (opening_ml_home and latest_ml_home) else None
+
+            # Upsert odds into odds_and_predictions table
+            cursor.execute('''
+                INSERT INTO odds_and_predictions (
+                    game_id, source,
                     opening_spread, latest_spread,
                     opening_total, latest_total,
-                    opening_moneyline, latest_moneyline,
+                    opening_moneyline_home, latest_moneyline_home,
+                    opening_moneyline_away, latest_moneyline_away,
                     spread_movement, total_movement, moneyline_movement,
-                    updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(game_id, {source_col}) DO UPDATE SET
+                    odds_updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(game_id) DO UPDATE SET
+                    source = excluded.source,
                     latest_spread = excluded.latest_spread,
                     latest_total = excluded.latest_total,
-                    latest_moneyline = excluded.latest_moneyline,
+                    latest_moneyline_home = excluded.latest_moneyline_home,
+                    latest_moneyline_away = excluded.latest_moneyline_away,
                     spread_movement = excluded.spread_movement,
                     total_movement = excluded.total_movement,
                     moneyline_movement = excluded.moneyline_movement,
-                    updated_at = excluded.updated_at
+                    odds_updated_at = excluded.odds_updated_at
             ''', (
                 game_id,
                 odds_data.get('source', 'ESPN'),
@@ -224,8 +224,10 @@ class ESPNOddsScraper:
                 latest_spread,
                 opening_total,
                 latest_total,
-                opening_ml,
-                latest_ml,
+                opening_ml_home,
+                latest_ml_home,
+                opening_ml_away,
+                latest_ml_away,
                 spread_movement,
                 total_movement,
                 ml_movement,
@@ -384,7 +386,7 @@ def sync_odds_to_prediction_cache(sport: str):
     Sync all odds from sport database to prediction_cache
 
     Args:
-        sport: One of 'nba', 'nfl', 'cfb'
+        sport: One of 'nba', 'nfl', 'cfb', 'cbb'
     """
     config = ESPNOddsScraper.SPORTS_CONFIG[sport.lower()]
     db_path = config['db_path']
@@ -394,9 +396,10 @@ def sync_odds_to_prediction_cache(sport: str):
     cursor = conn.cursor()
 
     cursor.execute('''
-        SELECT game_id, latest_spread, latest_total
-        FROM game_odds
-        WHERE latest_spread IS NOT NULL
+        SELECT game_id, COALESCE(latest_spread, opening_spread) as spread,
+               COALESCE(latest_total, opening_total) as total
+        FROM odds_and_predictions
+        WHERE latest_spread IS NOT NULL OR opening_spread IS NOT NULL
     ''')
     odds_records = cursor.fetchall()
     conn.close()

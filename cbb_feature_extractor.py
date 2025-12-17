@@ -392,17 +392,15 @@ class CBBFeatureExtractor:
         }
 
     def _get_odds_data(self, game_id):
-        """Get betting odds for the game"""
+        """Get betting odds for the game from odds_and_predictions table"""
         query = '''
             SELECT
-                opening_spread_home, closing_spread_home,
-                opening_total, closing_total,
-                opening_moneyline_home, closing_moneyline_home,
-                opening_moneyline_away, closing_moneyline_away
-            FROM game_odds
+                opening_spread, latest_spread,
+                opening_total, latest_total,
+                opening_moneyline_home, latest_moneyline_home,
+                opening_moneyline_away, latest_moneyline_away
+            FROM odds_and_predictions
             WHERE game_id = ?
-            ORDER BY updated_at DESC
-            LIMIT 1
         '''
 
         result = pd.read_sql_query(query, self.conn, params=(int(game_id),))
@@ -418,14 +416,14 @@ class CBBFeatureExtractor:
         row = result.iloc[0]
 
         return {
-            'opening_spread': float(row['opening_spread_home']) if pd.notna(row['opening_spread_home']) else 0,
-            'closing_spread': float(row['closing_spread_home']) if pd.notna(row['closing_spread_home']) else 0,
+            'opening_spread': float(row['opening_spread']) if pd.notna(row['opening_spread']) else 0,
+            'closing_spread': float(row['latest_spread']) if pd.notna(row['latest_spread']) else 0,
             'opening_total': float(row['opening_total']) if pd.notna(row['opening_total']) else 0,
-            'closing_total': float(row['closing_total']) if pd.notna(row['closing_total']) else 0,
+            'closing_total': float(row['latest_total']) if pd.notna(row['latest_total']) else 0,
             'opening_ml_home': float(row['opening_moneyline_home']) if pd.notna(row['opening_moneyline_home']) else 0,
-            'closing_ml_home': float(row['closing_moneyline_home']) if pd.notna(row['closing_moneyline_home']) else 0,
+            'closing_ml_home': float(row['latest_moneyline_home']) if pd.notna(row['latest_moneyline_home']) else 0,
             'opening_ml_away': float(row['opening_moneyline_away']) if pd.notna(row['opening_moneyline_away']) else 0,
-            'closing_ml_away': float(row['closing_moneyline_away']) if pd.notna(row['closing_moneyline_away']) else 0,
+            'closing_ml_away': float(row['latest_moneyline_away']) if pd.notna(row['latest_moneyline_away']) else 0,
         }
 
     def save_features(self, features_df, output_path):

@@ -146,6 +146,19 @@ class NBAFeatureExtractor:
         features['recent_ppg_diff'] = home_recent.get('ppg', 0) - away_recent.get('ppg', 0)
         features['recent_win_pct_diff'] = home_recent.get('win_pct', 0) - away_recent.get('win_pct', 0)
 
+        # NEW: Home/away venue-adjusted differentials
+        # For home team: use their home_ppg vs away team's away_ppg (how they perform in this venue)
+        # This is the KEY feature that captures home court advantage
+        features['venue_ppg_differential'] = home_hist.get('home_ppg', 0) - away_hist.get('away_ppg', 0)
+        features['venue_win_pct_differential'] = home_hist.get('home_win_pct', 0) - away_hist.get('away_win_pct', 0)
+
+        # Combined home court advantage signal
+        # Positive = home team has venue advantage
+        features['combined_home_advantage'] = (
+            home_hist.get('home_away_ppg_diff', 0) +  # Home team's home boost
+            away_hist.get('home_away_ppg_diff', 0)    # Away team usually drops on road
+        ) / 2  # Average the two teams' home/away differentials
+
         # Season progress-based reliability weighting
         # Early season: trust Vegas more; Late season: trust accumulated stats more
         games_played = home_hist.get('games_played', 0)
@@ -196,11 +209,14 @@ class NBAFeatureExtractor:
         return int(result.iloc[0]['games']) if not result.empty else 0
 
     def _get_historical_stats(self, team_id, season, current_date):
-        """Get team's season stats up to (but not including) current game date"""
+        """Get team's season stats up to (but not including) current game date
+
+        Now includes home/away splits to capture venue-specific performance.
+        """
         team_id = int(team_id)
         season = int(season)
 
-        # Get PPG and PAPG from games table
+        # Get PPG and PAPG from games table (overall)
         ppg_query = '''
             SELECT
                 COUNT(*) as games_played,
@@ -217,6 +233,34 @@ class NBAFeatureExtractor:
 
         ppg_result = pd.read_sql_query(ppg_query, self.conn,
             params=(team_id, team_id, team_id, team_id, season, current_date, team_id, team_id))
+
+        # Get HOME-only stats (when this team plays AT HOME)
+        home_query = '''
+            SELECT
+                COUNT(*) as home_games,
+                AVG(home_score) as home_ppg,
+                AVG(away_score) as home_papg,
+                SUM(CASE WHEN home_score > away_score THEN 1 ELSE 0 END) * 1.0 /
+                    NULLIF(COUNT(*), 0) as home_win_pct
+            FROM games
+            WHERE season = ? AND completed = 1 AND date < ?
+                AND home_team_id = ?
+        '''
+        home_result = pd.read_sql_query(home_query, self.conn, params=(season, current_date, team_id))
+
+        # Get AWAY-only stats (when this team plays ON THE ROAD)
+        away_query = '''
+            SELECT
+                COUNT(*) as away_games,
+                AVG(away_score) as away_ppg,
+                AVG(home_score) as away_papg,
+                SUM(CASE WHEN away_score > home_score THEN 1 ELSE 0 END) * 1.0 /
+                    NULLIF(COUNT(*), 0) as away_win_pct
+            FROM games
+            WHERE season = ? AND completed = 1 AND date < ?
+                AND away_team_id = ?
+        '''
+        away_result = pd.read_sql_query(away_query, self.conn, params=(season, current_date, team_id))
 
         # Get box score stats from team_game_stats
         stats_query = '''
@@ -267,6 +311,33 @@ class NBAFeatureExtractor:
             ppg_result = pd.read_sql_query(prev_ppg_query, self.conn,
                 params=(team_id, team_id, team_id, team_id, prev_season, team_id, team_id))
 
+            # Also get previous season home/away splits
+            prev_home_query = '''
+                SELECT
+                    COUNT(*) as home_games,
+                    AVG(home_score) as home_ppg,
+                    AVG(away_score) as home_papg,
+                    SUM(CASE WHEN home_score > away_score THEN 1 ELSE 0 END) * 1.0 /
+                        NULLIF(COUNT(*), 0) as home_win_pct
+                FROM games
+                WHERE season = ? AND completed = 1
+                    AND home_team_id = ?
+            '''
+            home_result = pd.read_sql_query(prev_home_query, self.conn, params=(prev_season, team_id))
+
+            prev_away_query = '''
+                SELECT
+                    COUNT(*) as away_games,
+                    AVG(away_score) as away_ppg,
+                    AVG(home_score) as away_papg,
+                    SUM(CASE WHEN away_score > home_score THEN 1 ELSE 0 END) * 1.0 /
+                        NULLIF(COUNT(*), 0) as away_win_pct
+                FROM games
+                WHERE season = ? AND completed = 1
+                    AND away_team_id = ?
+            '''
+            away_result = pd.read_sql_query(prev_away_query, self.conn, params=(prev_season, team_id))
+
             prev_stats_query = '''
                 SELECT
                     AVG(ts.field_goal_pct) as fg_pct,
@@ -297,7 +368,11 @@ class NBAFeatureExtractor:
                 'fg_pct': 45, 'three_pct': 35, 'ft_pct': 75,
                 'rebounds_pg': 44, 'off_rebounds_pg': 10, 'def_rebounds_pg': 34,
                 'assists_pg': 24, 'steals_pg': 7, 'blocks_pg': 5, 'turnovers_pg': 14,
-                'paint_pg': 48, 'fastbreak_pg': 12, 'bench_pg': 35
+                'paint_pg': 48, 'fastbreak_pg': 12, 'bench_pg': 35,
+                # Home/away splits (default to overall when no data)
+                'home_games': 0, 'home_ppg': 110, 'home_papg': 110, 'home_win_pct': 0.5,
+                'away_games': 0, 'away_ppg': 110, 'away_papg': 110, 'away_win_pct': 0.5,
+                'home_away_ppg_diff': 0
             }
 
         result = {
@@ -330,6 +405,34 @@ class NBAFeatureExtractor:
                 'assists_pg': 24, 'steals_pg': 7, 'blocks_pg': 5, 'turnovers_pg': 14,
                 'paint_pg': 48, 'fastbreak_pg': 12, 'bench_pg': 35
             })
+
+        # Add home/away splits from the queries we ran earlier
+        if not home_result.empty and home_result.iloc[0]['home_games'] > 0:
+            hr = home_result.iloc[0]
+            result['home_games'] = hr['home_games'] if pd.notna(hr['home_games']) else 0
+            result['home_ppg'] = hr['home_ppg'] if pd.notna(hr['home_ppg']) else result['ppg']
+            result['home_papg'] = hr['home_papg'] if pd.notna(hr['home_papg']) else result['papg']
+            result['home_win_pct'] = hr['home_win_pct'] if pd.notna(hr['home_win_pct']) else result['win_pct']
+        else:
+            result['home_games'] = 0
+            result['home_ppg'] = result['ppg']
+            result['home_papg'] = result['papg']
+            result['home_win_pct'] = result['win_pct']
+
+        if not away_result.empty and away_result.iloc[0]['away_games'] > 0:
+            ar = away_result.iloc[0]
+            result['away_games'] = ar['away_games'] if pd.notna(ar['away_games']) else 0
+            result['away_ppg'] = ar['away_ppg'] if pd.notna(ar['away_ppg']) else result['ppg']
+            result['away_papg'] = ar['away_papg'] if pd.notna(ar['away_papg']) else result['papg']
+            result['away_win_pct'] = ar['away_win_pct'] if pd.notna(ar['away_win_pct']) else result['win_pct']
+        else:
+            result['away_games'] = 0
+            result['away_ppg'] = result['ppg']
+            result['away_papg'] = result['papg']
+            result['away_win_pct'] = result['win_pct']
+
+        # Calculate home/away PPG differential (how much better at home vs on road)
+        result['home_away_ppg_diff'] = result['home_ppg'] - result['away_ppg']
 
         return result
 
@@ -439,17 +542,14 @@ class NBAFeatureExtractor:
         }
 
     def _get_odds_data(self, game_id):
-        """Get betting odds for the game - uses NBA-specific schema"""
+        """Get betting odds for the game from odds_and_predictions table"""
         query = '''
             SELECT
-                opening_line, latest_line,
-                opening_total_line, latest_total_line,
-                closing_spread_home, closing_total,
-                opening_spread_home, opening_total
-            FROM game_odds
+                opening_spread, latest_spread,
+                opening_total, latest_total,
+                spread_movement
+            FROM odds_and_predictions
             WHERE game_id = ?
-            ORDER BY updated_at DESC
-            LIMIT 1
         '''
 
         result = pd.read_sql_query(query, self.conn, params=(game_id,))
@@ -462,32 +562,14 @@ class NBAFeatureExtractor:
 
         row = result.iloc[0]
 
-        # Use various column fallbacks for NBA schema
-        opening_spread = (
-            row['opening_line'] if pd.notna(row.get('opening_line'))
-            else row['opening_spread_home'] if pd.notna(row.get('opening_spread_home'))
-            else row['closing_spread_home'] if pd.notna(row.get('closing_spread_home'))
-            else 0
-        )
-        latest_spread = (
-            row['latest_line'] if pd.notna(row.get('latest_line'))
-            else row['closing_spread_home'] if pd.notna(row.get('closing_spread_home'))
-            else opening_spread
-        )
-        # Calculate line movement
-        line_movement = (latest_spread - opening_spread) if opening_spread != 0 else 0
+        opening_spread = float(row['opening_spread']) if pd.notna(row['opening_spread']) else 0
+        latest_spread = float(row['latest_spread']) if pd.notna(row['latest_spread']) else opening_spread
 
-        opening_total = (
-            row['opening_total_line'] if pd.notna(row.get('opening_total_line'))
-            else row['opening_total'] if pd.notna(row.get('opening_total'))
-            else row['closing_total'] if pd.notna(row.get('closing_total'))
-            else 220
-        )
-        latest_total = (
-            row['latest_total_line'] if pd.notna(row.get('latest_total_line'))
-            else row['closing_total'] if pd.notna(row.get('closing_total'))
-            else opening_total
-        )
+        # Use spread_movement from table or calculate
+        line_movement = float(row['spread_movement']) if pd.notna(row['spread_movement']) else (latest_spread - opening_spread) if opening_spread != 0 else 0
+
+        opening_total = float(row['opening_total']) if pd.notna(row['opening_total']) else 220
+        latest_total = float(row['latest_total']) if pd.notna(row['latest_total']) else opening_total
 
         return {
             'opening_spread': opening_spread,

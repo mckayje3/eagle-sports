@@ -89,44 +89,34 @@ def create_cbb_database(db_path='cbb_games.db'):
         )
     ''')
 
-    # Game odds table
+    # Unified odds and predictions table (replaces separate game_odds and predictions tables)
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS game_odds (
+        CREATE TABLE IF NOT EXISTS odds_and_predictions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            game_id INTEGER NOT NULL,
-            source TEXT NOT NULL,
-            opening_spread_home REAL,
-            closing_spread_home REAL,
+            game_id INTEGER UNIQUE,
+            source TEXT,
+            opening_spread REAL,
+            latest_spread REAL,
             opening_total REAL,
-            closing_total REAL,
+            latest_total REAL,
             opening_moneyline_home INTEGER,
+            latest_moneyline_home INTEGER,
             opening_moneyline_away INTEGER,
-            closing_moneyline_home INTEGER,
-            closing_moneyline_away INTEGER,
-            timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
-            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (game_id) REFERENCES games (game_id),
-            UNIQUE(game_id, source)
-        )
-    ''')
-
-    # Predictions table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS predictions (
-            game_id INTEGER PRIMARY KEY,
-            pred_home_score REAL,
-            pred_away_score REAL,
-            pred_spread REAL,
-            pred_total REAL,
-            pred_home_win INTEGER,
-            pred_home_win_prob REAL,
+            latest_moneyline_away INTEGER,
+            spread_movement REAL,
+            total_movement REAL,
+            moneyline_movement INTEGER,
+            odds_updated_at TEXT,
+            predicted_home_score REAL,
+            predicted_away_score REAL,
+            predicted_home_MOE REAL,
+            predicted_away_MOE REAL,
+            predicted_spread_MOE REAL,
+            predicted_total_MOE REAL,
+            home_win_probability REAL,
             confidence REAL,
-            vegas_spread REAL,
-            vegas_total REAL,
-            spread_edge REAL,
-            total_edge REAL,
-            prediction_date TEXT,
-            model_version TEXT
+            prediction_created TEXT,
+            FOREIGN KEY (game_id) REFERENCES games(game_id)
         )
     ''')
 
@@ -136,7 +126,7 @@ def create_cbb_database(db_path='cbb_games.db'):
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_games_completed ON games(completed)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_team_stats_game ON team_game_stats(game_id)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_team_stats_team ON team_game_stats(team_id)')
-    cursor.execute('CREATE INDEX IF NOT EXISTS idx_odds_game ON game_odds(game_id)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_odds_game ON odds_and_predictions(game_id)')
 
     conn.commit()
     conn.close()
@@ -244,9 +234,13 @@ class CBBDatabase:
     def insert_odds(self, game_id, spread, total, source='ESPN'):
         cursor = self.conn.cursor()
         cursor.execute('''
-            INSERT OR REPLACE INTO game_odds
-            (game_id, source, closing_spread_home, closing_total, updated_at)
+            INSERT INTO odds_and_predictions (game_id, source, latest_spread, latest_total, odds_updated_at)
             VALUES (?, ?, ?, ?, datetime('now'))
+            ON CONFLICT(game_id) DO UPDATE SET
+                source = excluded.source,
+                latest_spread = excluded.latest_spread,
+                latest_total = excluded.latest_total,
+                odds_updated_at = excluded.odds_updated_at
         ''', (game_id, source, spread, total))
         self.conn.commit()
 

@@ -332,18 +332,16 @@ class NBAPredictor:
         }
 
     def _get_odds(self, conn, game_id):
-        """Get odds for a game"""
+        """Get odds for a game from odds_and_predictions table"""
         cursor = conn.cursor()
 
-        # NBA game_odds uses latest_line (spread) and latest_total
         cursor.execute('''
             SELECT
-                COALESCE(latest_line, opening_line) as spread,
+                COALESCE(latest_spread, opening_spread) as spread,
                 COALESCE(latest_total, opening_total) as total,
                 COALESCE(latest_moneyline_home, opening_moneyline_home) as ml_home,
                 COALESCE(latest_moneyline_away, opening_moneyline_away) as ml_away
-            FROM game_odds WHERE game_id = ?
-            ORDER BY updated_at DESC LIMIT 1
+            FROM odds_and_predictions WHERE game_id = ?
         ''', (game_id,))
 
         row = cursor.fetchone()
