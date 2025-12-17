@@ -144,12 +144,20 @@ class NBAPredictor:
                     print(f"Error loading {model_path}: {e}")
                     continue
 
-        print("No NBA model found. Train a model first: py train_deep_eagle.py nba 2025 ...")
+        print("No NBA model found. Train a model first: py train_deep_eagle_nba.py 2025 nba_2025_deep_eagle_features.csv")
         self.model = None
 
     def get_upcoming_games(self, days=7):
         """Get upcoming NBA games from database"""
+        from datetime import datetime, timedelta
+
         conn = sqlite3.connect(self.db_path)
+
+        # NBA games are stored with ISO timestamps (e.g., 2025-12-18T01:00Z)
+        # Generate date range strings that match the database format
+        now = datetime.utcnow()
+        start_date = (now - timedelta(hours=12)).strftime('%Y-%m-%d')
+        end_date = (now + timedelta(days=days)).strftime('%Y-%m-%d')
 
         query = '''
             SELECT
@@ -164,12 +172,12 @@ class NBAPredictor:
             JOIN teams ht ON g.home_team_id = ht.team_id
             JOIN teams at ON g.away_team_id = at.team_id
             WHERE g.completed = 0
-                AND g.date >= date('now')
-                AND g.date <= date('now', ?)
+                AND g.date >= ?
+                AND g.date <= ?
             ORDER BY g.date
         '''
 
-        games = pd.read_sql_query(query, conn, params=(f'+{days} days',))
+        games = pd.read_sql_query(query, conn, params=(start_date, end_date + 'Z'))
         conn.close()
 
         return games
@@ -327,12 +335,13 @@ class NBAPredictor:
         """Get odds for a game"""
         cursor = conn.cursor()
 
+        # NBA game_odds uses latest_line (spread) and latest_total
         cursor.execute('''
             SELECT
-                COALESCE(closing_spread_home, opening_spread_home) as spread,
-                COALESCE(closing_total, opening_total) as total,
-                opening_moneyline_home,
-                opening_moneyline_away
+                COALESCE(latest_line, opening_line) as spread,
+                COALESCE(latest_total, opening_total) as total,
+                COALESCE(latest_moneyline_home, opening_moneyline_home) as ml_home,
+                COALESCE(latest_moneyline_away, opening_moneyline_away) as ml_away
             FROM game_odds WHERE game_id = ?
             ORDER BY updated_at DESC LIMIT 1
         ''', (game_id,))
@@ -342,13 +351,18 @@ class NBAPredictor:
             return {
                 'spread': 0, 'total': 0,
                 'ml_home': 0, 'ml_away': 0,
+                '_missing_odds': True
             }
+
+        has_spread = row[0] is not None
+        has_total = row[1] is not None
 
         return {
             'spread': row[0] or 0,
             'total': row[1] or 0,
             'ml_home': row[2] or 0,
             'ml_away': row[3] or 0,
+            '_missing_odds': not (has_spread and has_total)
         }
 
     def predict(self, games_df):

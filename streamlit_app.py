@@ -413,7 +413,7 @@ def show_predictions():
 
     # Show predictions for selected sport
     if selected_sport == "College Football":
-        show_sport_predictions('CFB', max_week=15, default_week=14)
+        show_sport_predictions('CFB', max_week=20, default_week=16)
     elif selected_sport == "NFL":
         show_sport_predictions('NFL', max_week=18, default_week=14)
     elif selected_sport == "NBA":
@@ -672,9 +672,13 @@ def display_game_card(row, sport_emoji="🏈"):
             return "NL"
         return f"{spread_val:+.1f}"
 
-    # Build the expander title
+    # Build the expander title with postseason type if applicable
     conf_pct = (confidence if confidence else 0.5) * 100
-    title = f"{sport_emoji} {away_team} @ {home_team}"
+    postseason_type = row.get('postseason_type', '')
+    if postseason_type and pd.notna(postseason_type):
+        title = f"{sport_emoji} [{postseason_type}] {away_team} @ {home_team}"
+    else:
+        title = f"{sport_emoji} {away_team} @ {home_team}"
 
     with st.expander(title, expanded=False):
         # Create 4 columns: Metric | Model | Vegas | Result
@@ -1249,8 +1253,8 @@ def show_cbb_predictions_live():
                 g.completed,
                 g.home_score as actual_home_score,
                 g.away_score as actual_away_score,
-                o.latest_spread as vegas_spread,
-                o.latest_total as vegas_total
+                COALESCE(o.closing_spread_home, o.opening_spread_home) as vegas_spread,
+                COALESCE(o.closing_total, o.opening_total) as vegas_total
             FROM games g
             LEFT JOIN game_odds o ON g.game_id = o.game_id
         """

@@ -89,7 +89,15 @@ class CBBPredictor:
 
     def get_upcoming_games(self, days=7):
         """Get upcoming CBB games from database"""
+        from datetime import datetime, timedelta
+
         conn = sqlite3.connect(self.db_path)
+
+        # CBB games are stored with ISO timestamps (e.g., 2025-12-18T01:00Z)
+        # Generate date range strings that match the database format
+        now = datetime.utcnow()
+        start_date = (now - timedelta(hours=12)).strftime('%Y-%m-%d')
+        end_date = (now + timedelta(days=days)).strftime('%Y-%m-%d')
 
         query = '''
             SELECT
@@ -105,12 +113,12 @@ class CBBPredictor:
             JOIN teams ht ON g.home_team_id = ht.team_id
             JOIN teams at ON g.away_team_id = at.team_id
             WHERE g.completed = 0
-                AND g.date >= date('now')
-                AND g.date <= date('now', ?)
+                AND g.date >= ?
+                AND g.date <= ?
             ORDER BY g.date
         '''
 
-        games = pd.read_sql_query(query, conn, params=(f'+{days} days',))
+        games = pd.read_sql_query(query, conn, params=(start_date, end_date + 'Z'))
         conn.close()
 
         return games
@@ -395,7 +403,7 @@ if __name__ == '__main__':
     if predictor.model is None:
         print("\nNo model available. Train a model first:")
         print("  1. Extract features: py cbb_feature_extractor.py 2024")
-        print("  2. Train model: py train_deep_eagle.py cbb 2025 cbb_2024_deep_eagle_features.csv")
+        print("  2. Train model: py train_deep_eagle_cbb.py 2025 cbb_2025_deep_eagle_features.csv")
         sys.exit(1)
 
     # Get upcoming games
