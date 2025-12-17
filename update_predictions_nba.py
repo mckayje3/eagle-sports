@@ -14,6 +14,7 @@ import sqlite3
 import pandas as pd
 import logging
 from datetime import datetime, timedelta
+from timezone_utils import utc_to_eastern_date
 
 logging.basicConfig(
     level=logging.INFO,
@@ -156,6 +157,10 @@ def sync_to_cache():
                 # Use prediction_date from nba_games.db if available, otherwise use now
                 created_at = row.get('prediction_date') or now
 
+                # Convert UTC date to Eastern date for correct day display
+                # ESPN stores dates in UTC (e.g., 2025-12-18T01:00Z for 8PM ET Dec 17)
+                game_date_eastern = utc_to_eastern_date(row['date']) or row['date']
+
                 cursor.execute('''
                     INSERT OR REPLACE INTO prediction_cache
                     (game_id, sport, season, week, game_date, home_team, away_team,
@@ -164,7 +169,7 @@ def sync_to_cache():
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     int(row['game_id']), 'NBA', int(row['season']), 0,
-                    row['date'], row['home_team'], row['away_team'],
+                    game_date_eastern, row['home_team'], row['away_team'],
                     row['pred_home_score'], row['pred_away_score'],
                     row['pred_spread'], row['pred_total'], confidence,
                     created_at
