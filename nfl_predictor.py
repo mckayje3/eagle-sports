@@ -84,7 +84,7 @@ class NFLPredictor:
 
         except FileNotFoundError:
             print(f"Model not found at {self.model_path}")
-            print("Train a model first: py train_deep_eagle.py nfl 2025 ...")
+            print("Train a model first: py train_deep_eagle_nfl.py 2025 nfl_2025_deep_eagle_features.csv")
             self.model = None
 
     def get_current_week(self):
@@ -179,7 +179,7 @@ class NFLPredictor:
         return games
 
     def extract_features(self, game_row):
-        """Extract features for a single game for prediction"""
+        """Extract features for a single game for prediction - matches training feature names"""
         conn = sqlite3.connect(self.db_path)
 
         features = {}
@@ -189,35 +189,66 @@ class NFLPredictor:
         features['neutral_site'] = game_row.get('neutral_site', 0) or 0
         features['conference_game'] = game_row.get('conference_game', 0) or 0
 
+        # Weather features (get from game if available, else defaults)
+        features['temperature'] = game_row.get('temperature', 65) or 65
+        features['wind_speed'] = game_row.get('wind_speed', 5) or 5
+        features['is_dome'] = game_row.get('is_dome', 0) or 0
+
         # Get historical stats for both teams
         season = game_row.get('season', 2025)
         home_stats = self._get_team_stats(conn, game_row['home_team_id'], season)
         away_stats = self._get_team_stats(conn, game_row['away_team_id'], season)
 
+        # Map stats to expected feature names
         for key, value in home_stats.items():
             features[f'home_hist_{key}'] = value
         for key, value in away_stats.items():
             features[f'away_hist_{key}'] = value
 
-        # Get odds
+        # Get odds with correct feature names
         odds = self._get_odds(conn, game_row['game_id'])
-        for key, value in odds.items():
-            features[f'odds_{key}'] = value
+        features['odds_opening_spread'] = odds.get('opening_spread', 0)
+        features['odds_latest_spread'] = odds.get('latest_spread', 0)
+        features['odds_opening_total'] = odds.get('opening_total', 45)
+        features['odds_latest_total'] = odds.get('latest_total', 45)
+        features['odds_opening_ml_home'] = odds.get('opening_ml_home', 0)
+        features['odds_latest_ml_home'] = odds.get('latest_ml_home', 0)
+        features['odds_opening_ml_away'] = odds.get('opening_ml_away', 0)
+        features['odds_latest_ml_away'] = odds.get('latest_ml_away', 0)
 
-        # Calculate differentials
+        # Drive features - use season averages as defaults since per-game drive data is complex
+        # NFL average: ~12 drives per game, ~2.0 ppd, ~30 ypd
+        home_drive = self._get_drive_stats(conn, game_row['home_team_id'], season)
+        away_drive = self._get_drive_stats(conn, game_row['away_team_id'], season)
+
+        for key, value in home_drive.items():
+            features[f'home_drive_{key}'] = value
+        for key, value in away_drive.items():
+            features[f'away_drive_{key}'] = value
+
+        # Calculate differentials matching training feature names
         features['ppg_differential'] = home_stats.get('ppg', 0) - away_stats.get('ppg', 0)
         features['papg_differential'] = home_stats.get('papg', 0) - away_stats.get('papg', 0)
         features['win_pct_differential'] = home_stats.get('win_pct', 0) - away_stats.get('win_pct', 0)
-        features['yard_differential'] = home_stats.get('total_yards_pg', 0) - away_stats.get('total_yards_pg', 0)
-        features['turnover_differential'] = home_stats.get('turnover_margin', 0) - away_stats.get('turnover_margin', 0)
-        features['third_down_differential'] = home_stats.get('third_down_pct', 0) - away_stats.get('third_down_pct', 0)
-        features['redzone_differential'] = home_stats.get('redzone_pct', 0) - away_stats.get('redzone_pct', 0)
+        features['ppd_differential'] = home_drive.get('ppd', 2.0) - away_drive.get('ppd', 2.0)
+        features['scoring_pct_differential'] = home_drive.get('scoring_pct', 0.35) - away_drive.get('scoring_pct', 0.35)
+
+        # Venue-based differentials
+        features['venue_ppg_differential'] = home_stats.get('home_ppg', 0) - away_stats.get('away_ppg', 0)
+        features['venue_win_pct_differential'] = home_stats.get('home_win_pct', 0) - away_stats.get('away_win_pct', 0)
+
+        # Combined home advantage
+        features['combined_home_advantage'] = (
+            features['venue_ppg_differential'] * 0.3 +
+            features['venue_win_pct_differential'] * 10 +
+            (3.0 if not features['neutral_site'] else 0)  # ~3 point home field advantage
+        )
 
         conn.close()
         return features
 
     def _get_team_stats(self, conn, team_id, season):
-        """Get team's season statistics"""
+        """Get team's season statistics - feature names match training data"""
         cursor = conn.cursor()
 
         # Get PPG and basic stats
@@ -243,6 +274,20 @@ class NFLPredictor:
             'win_pct': row[3] or 0,
         }
 
+        # Get box score stats for ypg and turnover_pg
+        cursor.execute('''
+            SELECT
+                AVG(ts.total_yards) as ypg,
+                AVG(ts.turnovers) as turnover_pg
+            FROM team_game_stats ts
+            JOIN games g ON ts.game_id = g.game_id
+            WHERE ts.team_id = ? AND g.season = ? AND g.completed = 1
+        ''', (team_id, season))
+        box_row = cursor.fetchone()
+
+        stats['ypg'] = box_row[0] or 300 if box_row else 300  # NFL avg ~330 ypg
+        stats['turnover_pg'] = box_row[1] or 1.0 if box_row else 1.0  # NFL avg ~1.0
+
         # Get home stats
         cursor.execute('''
             SELECT
@@ -267,25 +312,6 @@ class NFLPredictor:
         ''', (team_id, season, team_id))
         away_row = cursor.fetchone()
 
-        # Get box score stats
-        cursor.execute('''
-            SELECT
-                AVG(ts.total_yards) as total_yards_pg,
-                AVG(ts.passing_yards) as pass_yards_pg,
-                AVG(ts.rushing_yards) as rush_yards_pg,
-                AVG(ts.turnovers) as turnovers_pg,
-                AVG(ts.fumbles_lost) as fumbles_pg,
-                AVG(ts.interceptions_thrown) as ints_pg,
-                AVG(CAST(ts.third_down_conversions AS FLOAT) / NULLIF(ts.third_down_attempts, 0)) as third_down_pct,
-                AVG(CAST(ts.fourth_down_conversions AS FLOAT) / NULLIF(ts.fourth_down_attempts, 0)) as fourth_down_pct,
-                AVG(ts.possession_time) as avg_possession,
-                AVG(ts.sacks) as sacks_pg
-            FROM team_game_stats ts
-            JOIN games g ON ts.game_id = g.game_id
-            WHERE ts.team_id = ? AND g.season = ? AND g.completed = 1
-        ''', (team_id, season))
-        box_row = cursor.fetchone()
-
         stats['home_games'] = home_row[0] if home_row else 0
         stats['home_ppg'] = home_row[1] or 0 if home_row else 0
         stats['home_papg'] = home_row[2] or 0 if home_row else 0
@@ -296,69 +322,106 @@ class NFLPredictor:
         stats['away_papg'] = away_row[2] or 0 if away_row else 0
         stats['away_win_pct'] = away_row[3] or 0 if away_row else 0
 
-        if box_row:
-            stats['total_yards_pg'] = box_row[0] or 0
-            stats['pass_yards_pg'] = box_row[1] or 0
-            stats['rush_yards_pg'] = box_row[2] or 0
-            stats['turnovers_pg'] = box_row[3] or 0
-            stats['fumbles_pg'] = box_row[4] or 0
-            stats['ints_pg'] = box_row[5] or 0
-            stats['third_down_pct'] = box_row[6] or 0
-            stats['fourth_down_pct'] = box_row[7] or 0
-            stats['avg_possession'] = box_row[8] or 0
-            stats['sacks_pg'] = box_row[9] or 0
-            stats['turnover_margin'] = 0  # Would need opponent data
-            stats['redzone_pct'] = 0  # Placeholder
-        else:
-            for key in ['total_yards_pg', 'pass_yards_pg', 'rush_yards_pg', 'turnovers_pg',
-                        'fumbles_pg', 'ints_pg', 'third_down_pct', 'fourth_down_pct',
-                        'avg_possession', 'sacks_pg', 'turnover_margin', 'redzone_pct']:
-                stats[key] = 0
+        # Home/away PPG differential (for venue features)
+        stats['home_away_ppg_diff'] = stats['home_ppg'] - stats['away_ppg']
 
         return stats
 
     def _empty_stats(self):
-        """Return empty stats dict"""
+        """Return empty stats dict with NFL average defaults"""
         return {
-            'games_played': 0, 'ppg': 0, 'papg': 0, 'win_pct': 0,
-            'home_games': 0, 'home_ppg': 0, 'home_papg': 0, 'home_win_pct': 0,
-            'away_games': 0, 'away_ppg': 0, 'away_papg': 0, 'away_win_pct': 0,
-            'total_yards_pg': 0, 'pass_yards_pg': 0, 'rush_yards_pg': 0,
-            'turnovers_pg': 0, 'fumbles_pg': 0, 'ints_pg': 0,
-            'third_down_pct': 0, 'fourth_down_pct': 0, 'avg_possession': 0,
-            'sacks_pg': 0, 'turnover_margin': 0, 'redzone_pct': 0
+            'games_played': 0, 'ppg': 22, 'papg': 22, 'win_pct': 0.5,
+            'ypg': 330, 'turnover_pg': 1.0,
+            'home_games': 0, 'home_ppg': 23, 'home_papg': 21, 'home_win_pct': 0.55,
+            'away_games': 0, 'away_ppg': 21, 'away_papg': 23, 'away_win_pct': 0.45,
+            'home_away_ppg_diff': 2.0
         }
 
     def _get_odds(self, conn, game_id):
-        """Get odds for a game"""
+        """Get odds for a game - returns keys matching training features"""
         cursor = conn.cursor()
 
         cursor.execute('''
             SELECT
-                COALESCE(current_spread_home, opening_spread_home) as spread,
-                COALESCE(current_total, opening_total) as total,
+                opening_spread,
+                latest_spread,
+                opening_total,
+                latest_total,
                 opening_moneyline_home,
-                opening_moneyline_away
-            FROM game_odds WHERE game_id = ?
+                latest_moneyline_home,
+                opening_moneyline_away,
+                latest_moneyline_away
+            FROM odds_and_predictions WHERE game_id = ?
             ORDER BY updated_at DESC LIMIT 1
         ''', (game_id,))
 
         row = cursor.fetchone()
         if not row:
             return {
-                'spread': 0, 'total': 0,
-                'ml_home': 0, 'ml_away': 0,
+                'opening_spread': 0, 'latest_spread': 0,
+                'opening_total': 45, 'latest_total': 45,
+                'opening_ml_home': -110, 'latest_ml_home': -110,
+                'opening_ml_away': -110, 'latest_ml_away': -110,
             }
 
         return {
-            'spread': row[0] or 0,
-            'total': row[1] or 0,
-            'ml_home': row[2] or 0,
-            'ml_away': row[3] or 0,
+            'opening_spread': row[0] or 0,
+            'latest_spread': row[1] or row[0] or 0,
+            'opening_total': row[2] or 45,
+            'latest_total': row[3] or row[2] or 45,
+            'opening_ml_home': row[4] or -110,
+            'latest_ml_home': row[5] or row[4] or -110,
+            'opening_ml_away': row[6] or -110,
+            'latest_ml_away': row[7] or row[6] or -110,
         }
 
-    def predict(self, games_df):
-        """Generate predictions for games"""
+    def _get_drive_stats(self, conn, team_id, season):
+        """Get team's drive statistics - uses scoring data to estimate drive efficiency"""
+        cursor = conn.cursor()
+
+        # Estimate drive stats from game data
+        # NFL avg: ~12 drives/game, ~2.0 PPD, ~30 YPD, ~35% scoring, ~20% 3-and-out
+        cursor.execute('''
+            SELECT
+                COUNT(*) as games,
+                AVG(CASE WHEN home_team_id = ? THEN home_score ELSE away_score END) as ppg,
+                AVG(ts.total_yards) as ypg
+            FROM games g
+            LEFT JOIN team_game_stats ts ON g.game_id = ts.game_id AND ts.team_id = ?
+            WHERE g.season = ? AND g.completed = 1
+                AND (g.home_team_id = ? OR g.away_team_id = ?)
+        ''', (team_id, team_id, season, team_id, team_id))
+
+        row = cursor.fetchone()
+        games = row[0] if row else 0
+        ppg = row[1] or 22 if row else 22
+        ypg = row[2] or 330 if row else 330
+
+        # Estimate drive stats from PPG and YPG
+        # Assume ~12 drives per game
+        drives_per_game = 12
+        ppd = ppg / drives_per_game
+        ypd = ypg / drives_per_game
+        scoring_pct = ppd / 7 * 0.5  # Rough estimate based on PPD
+
+        return {
+            'total_drives': drives_per_game * games if games else 0,
+            'ppd': ppd,
+            'ypd': ypd,
+            'plays_per_drive': 6.0,  # NFL average
+            'seconds_per_drive': 150,  # ~2.5 minutes
+            'scoring_pct': min(0.5, scoring_pct),
+            'redzone_pct': 0.55,  # NFL average
+            'three_and_out_pct': 0.20,  # NFL average
+            'explosive_drive_pct': 0.15,  # NFL average
+            'def_ppd': 2.0,  # Default defensive PPD
+            'def_ypd': 28,  # Default defensive YPD
+            'def_scoring_pct': 0.35,
+            'def_three_and_out_forced': 0.22,
+        }
+
+    def predict(self, games_df, mc_passes=100):
+        """Generate predictions for games using MC Dropout for uncertainty estimation"""
         if self.model is None:
             print("No model loaded")
             return None
@@ -378,19 +441,49 @@ class NFLPredictor:
                 feature_vector = np.nan_to_num(feature_vector, nan=0.0, posinf=0.0, neginf=0.0)
                 feature_vector = self.scaler.transform(feature_vector)
 
-                # Predict
+                X = torch.FloatTensor(feature_vector).to(self.device)
+
+                # MC Dropout: run multiple passes with dropout enabled
+                # Keep model in eval mode (for BatchNorm) but enable Dropout layers
+                self.model.eval()
+                for module in self.model.modules():
+                    if isinstance(module, nn.Dropout):
+                        module.train()
+
+                mc_predictions = []
                 with torch.no_grad():
-                    X = torch.FloatTensor(feature_vector).to(self.device)
-                    pred = self.model(X).cpu().numpy()[0]
+                    for _ in range(mc_passes):
+                        pred = self.model(X).cpu().numpy()[0]
+                        mc_predictions.append(pred)
 
-                home_score = max(0, pred[0])
-                away_score = max(0, pred[1])
-                spread = home_score - away_score
-                total = home_score + away_score
+                # Reset all to eval mode
+                self.model.eval()
 
-                # Calculate confidence
-                score_diff = abs(spread)
-                confidence = min(0.95, 0.5 + score_diff / 20)
+                mc_predictions = np.array(mc_predictions)
+                home_scores = np.maximum(0, mc_predictions[:, 0])
+                away_scores = np.maximum(0, mc_predictions[:, 1])
+                spreads = home_scores - away_scores
+                totals = home_scores + away_scores
+
+                # Calculate means
+                home_score = np.mean(home_scores)
+                away_score = np.mean(away_scores)
+                spread = np.mean(spreads)
+                total = np.mean(totals)
+
+                # Calculate MOE (standard deviations) directly from passes
+                home_moe = np.std(home_scores)
+                away_moe = np.std(away_scores)
+                spread_moe = np.std(spreads)
+                total_moe = np.std(totals)
+
+                # Calculate home win probability from MC passes
+                home_wins = np.sum(spreads > 0)  # Home wins when spread is positive (home - away > 0)
+                home_win_prob = home_wins / mc_passes
+
+                # Confidence based on spread MOE (lower MOE = higher confidence)
+                # Scale: MOE of 0 -> 95% confidence, MOE of 10+ -> 50% confidence
+                confidence = max(0.5, min(0.95, 0.95 - (spread_moe / 10) * 0.45))
 
                 # Get vegas odds for comparison
                 conn = sqlite3.connect(self.db_path)
@@ -407,9 +500,14 @@ class NFLPredictor:
                     'pred_away_score': round(away_score, 1),
                     'pred_spread': round(spread, 1),
                     'pred_total': round(total, 1),
-                    'vegas_spread': odds['spread'],
-                    'vegas_total': odds['total'],
+                    'pred_home_MOE': round(home_moe, 2),
+                    'pred_away_MOE': round(away_moe, 2),
+                    'pred_spread_MOE': round(spread_moe, 2),
+                    'pred_total_MOE': round(total_moe, 2),
+                    'vegas_spread': odds['latest_spread'],
+                    'vegas_total': odds['latest_total'],
                     'confidence': round(confidence, 3),
+                    'pred_home_win_prob': round(home_win_prob, 3),
                     'predicted_winner': game['home_team'] if spread > 0 else game['away_team']
                 })
 
@@ -474,9 +572,11 @@ if __name__ == '__main__':
         for _, pred in predictions.iterrows():
             print(f"\nWeek {pred['week']}: {pred['away_team']} @ {pred['home_team']}")
             print(f"  Predicted: {pred['pred_away_score']:.0f} - {pred['pred_home_score']:.0f}")
-            print(f"  Spread: {pred['predicted_winner']} by {abs(pred['pred_spread']):.1f}")
-            print(f"  Total: {pred['pred_total']:.1f}")
-            print(f"  Confidence: {pred['confidence']:.1%}")
+            print(f"  Spread: {pred['predicted_winner']} by {abs(pred['pred_spread']):.1f} (MOE: ±{pred['pred_spread_MOE']:.1f})")
+            print(f"  Total: {pred['pred_total']:.1f} (MOE: ±{pred['pred_total_MOE']:.1f})")
+            if pred['vegas_spread'] is not None:
+                print(f"  Vegas: Spread {pred['vegas_spread']:+.1f}, Total {pred['vegas_total']:.1f}")
+            print(f"  Home Win Prob: {pred['pred_home_win_prob']:.0%} | Confidence: {pred['confidence']:.1%}")
 
         # Save predictions
         predictor.save_predictions(predictions)

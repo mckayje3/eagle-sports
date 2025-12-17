@@ -131,7 +131,7 @@ class CFBDeepEaglePredictor:
 
         except FileNotFoundError:
             print(f"Model not found at {self.model_path}")
-            print("Train a model first: py train_deep_eagle.py cfb 2025 ...")
+            print("Train a model first: py train_deep_eagle_cfb.py 2025 cfb_2025_deep_eagle_features.csv")
             self.model = None
         except Exception as e:
             print(f"Error loading model: {e}")
@@ -145,6 +145,16 @@ class CFBDeepEaglePredictor:
 
         CFB seasons typically start the last Saturday of August (Week 0/1).
         This function dynamically calculates the season start for any year.
+
+        Returns:
+            tuple: (week_number, season_year)
+
+        Week numbers:
+        - 0-15: Regular season and conference championships
+        - 16-17: Bowl games and CFP First Round
+        - 18: Bowl games and CFP Quarterfinals
+        - 19: CFP Semifinals
+        - 20: CFP National Championship
         """
         today = datetime.now()
         year = today.year
@@ -175,9 +185,15 @@ class CFBDeepEaglePredictor:
 
         days_since_start = (today - season_start).days
         week = (days_since_start // 7) + 1
-        week = min(week, 17)  # Cap at week 17 (includes conference championships + bowls)
+        week = min(week, 20)  # Cap at week 20 (National Championship)
 
         return week, year
+
+    def get_postseason_label(self, postseason_type):
+        """Get display label for postseason type"""
+        if not postseason_type:
+            return None
+        return postseason_type
 
     def get_upcoming_games(self, week=None, days=None):
         """Get upcoming CFB games from database"""
@@ -195,7 +211,8 @@ class CFBDeepEaglePredictor:
                     ht.display_name as home_team,
                     at.display_name as away_team,
                     g.neutral_site,
-                    g.conference_game
+                    g.conference_game,
+                    g.postseason_type
                 FROM games g
                 JOIN teams ht ON g.home_team_id = ht.team_id
                 JOIN teams at ON g.away_team_id = at.team_id
@@ -215,7 +232,8 @@ class CFBDeepEaglePredictor:
                     ht.display_name as home_team,
                     at.display_name as away_team,
                     g.neutral_site,
-                    g.conference_game
+                    g.conference_game,
+                    g.postseason_type
                 FROM games g
                 JOIN teams ht ON g.home_team_id = ht.team_id
                 JOIN teams at ON g.away_team_id = at.team_id
@@ -237,7 +255,8 @@ class CFBDeepEaglePredictor:
                     ht.display_name as home_team,
                     at.display_name as away_team,
                     g.neutral_site,
-                    g.conference_game
+                    g.conference_game,
+                    g.postseason_type
                 FROM games g
                 JOIN teams ht ON g.home_team_id = ht.team_id
                 JOIN teams at ON g.away_team_id = at.team_id
@@ -401,28 +420,28 @@ class CFBDeepEaglePredictor:
             SELECT
                 COALESCE(latest_spread, opening_spread) as spread,
                 COALESCE(latest_total, opening_total) as total,
-                opening_moneyline,
-                latest_moneyline
-            FROM game_odds WHERE game_id = ?
-            ORDER BY updated_at DESC LIMIT 1
+                COALESCE(latest_moneyline_home, opening_moneyline_home) as moneyline_home,
+                COALESCE(latest_moneyline_away, opening_moneyline_away) as moneyline_away
+            FROM odds_and_predictions WHERE game_id = ?
+            ORDER BY odds_updated_at DESC LIMIT 1
         ''', (game_id,))
 
         row = cursor.fetchone()
         if not row:
             return {
                 'spread': 0, 'total': 0,
-                'ml_home': 0, 'ml_away': 0,
+                'moneyline_home': 0, 'moneyline_away': 0,
             }
 
         return {
             'spread': row[0] or 0,
             'total': row[1] or 0,
-            'ml_home': row[2] or 0,
-            'ml_away': row[3] or 0,
+            'moneyline_home': row[2] or 0,
+            'moneyline_away': row[3] or 0,
         }
 
-    def predict(self, games_df):
-        """Generate predictions for games"""
+    def predict(self, games_df, mc_passes=100):
+        """Generate predictions for games using MC Dropout for uncertainty estimation"""
         if self.model is None:
             print("No model loaded")
             return None
@@ -442,19 +461,42 @@ class CFBDeepEaglePredictor:
                 feature_vector = np.nan_to_num(feature_vector, nan=0.0, posinf=0.0, neginf=0.0)
                 feature_vector = self.scaler.transform(feature_vector)
 
-                # Predict
+                X = torch.FloatTensor(feature_vector).to(self.device)
+
+                # MC Dropout: run multiple passes with dropout enabled
+                self.model.train()  # Enable dropout
+                mc_predictions = []
                 with torch.no_grad():
-                    X = torch.FloatTensor(feature_vector).to(self.device)
-                    pred = self.model(X).cpu().numpy()[0]
+                    for _ in range(mc_passes):
+                        pred = self.model(X).cpu().numpy()[0]
+                        mc_predictions.append(pred)
+                self.model.eval()  # Disable dropout
 
-                home_score = max(0, pred[0])
-                away_score = max(0, pred[1])
-                spread = home_score - away_score
-                total = home_score + away_score
+                mc_predictions = np.array(mc_predictions)
+                home_scores = np.maximum(0, mc_predictions[:, 0])
+                away_scores = np.maximum(0, mc_predictions[:, 1])
+                spreads = away_scores - home_scores
+                totals = home_scores + away_scores
 
-                # Calculate confidence
-                score_diff = abs(spread)
-                confidence = min(0.95, 0.5 + score_diff / 30)
+                # Calculate means
+                home_score = np.mean(home_scores)
+                away_score = np.mean(away_scores)
+                spread = np.mean(spreads)
+                total = np.mean(totals)
+
+                # Calculate MOE (standard deviations) directly from passes
+                home_moe = np.std(home_scores)
+                away_moe = np.std(away_scores)
+                spread_moe = np.std(spreads)
+                total_moe = np.std(totals)
+
+                # Calculate home win probability from MC passes
+                home_wins = np.sum(spreads < 0)  # Home wins when spread is negative
+                home_win_prob = home_wins / mc_passes
+
+                # Confidence based on spread MOE (lower MOE = higher confidence)
+                # Scale: MOE of 0 -> 95% confidence, MOE of 10+ -> 50% confidence
+                confidence = max(0.5, min(0.95, 0.95 - (spread_moe / 10) * 0.45))
 
                 # Get vegas odds for comparison
                 conn = sqlite3.connect(self.db_path)
@@ -465,17 +507,22 @@ class CFBDeepEaglePredictor:
                     'game_id': game['game_id'],
                     'date': game['date'],
                     'week': game.get('week', 0),
+                    'postseason_type': game.get('postseason_type', None),
                     'home_team': game['home_team'],
                     'away_team': game['away_team'],
                     'pred_home_score': round(home_score, 1),
                     'pred_away_score': round(away_score, 1),
                     'pred_spread': round(spread, 1),
                     'pred_total': round(total, 1),
+                    'pred_home_MOE': round(home_moe, 2),
+                    'pred_away_MOE': round(away_moe, 2),
+                    'pred_spread_MOE': round(spread_moe, 2),
+                    'pred_total_MOE': round(total_moe, 2),
                     'vegas_spread': odds['spread'],
                     'vegas_total': odds['total'],
                     'confidence': round(confidence, 3),
-                    'pred_home_win_prob': round(confidence, 3),
-                    'predicted_winner': game['home_team'] if spread > 0 else game['away_team']
+                    'pred_home_win_prob': round(home_win_prob, 3),
+                    'predicted_winner': game['home_team'] if spread < 0 else game['away_team']
                 })
 
             except Exception as e:
@@ -537,7 +584,14 @@ if __name__ == '__main__':
         print("CFB PREDICTIONS")
         print('='*80)
         for _, pred in predictions.iterrows():
-            print(f"\nWeek {pred['week']}: {pred['away_team']} @ {pred['home_team']}")
+            # Display postseason type if applicable
+            postseason = pred.get('postseason_type', '')
+            if postseason:
+                game_type = f" [{postseason}]"
+            else:
+                game_type = ""
+
+            print(f"\nWeek {pred['week']}{game_type}: {pred['away_team']} @ {pred['home_team']}")
             print(f"  Predicted: {pred['pred_away_score']:.0f} - {pred['pred_home_score']:.0f}")
             print(f"  Spread: {pred['predicted_winner']} by {abs(pred['pred_spread']):.1f}")
             print(f"  Total: {pred['pred_total']:.1f}")

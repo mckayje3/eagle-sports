@@ -23,23 +23,45 @@ logger = logging.getLogger(__name__)
 
 
 def get_current_cfb_week():
-    """Calculate current CFB week based on date"""
+    """
+    Calculate current CFB week based on date.
+    Season starts the last Saturday of August each year.
+
+    Returns:
+        tuple: (week_number, season_year)
+
+    Week numbers:
+    - 0-15: Regular season and conference championships
+    - 16-17: Bowl games and CFP First Round
+    - 18: Bowl games and CFP Quarterfinals
+    - 19: CFP Semifinals
+    - 20: CFP National Championship
+    """
     today = datetime.now()
+    year = today.year
+    from datetime import timedelta
 
-    # CFB 2025 season starts late August
-    if today.year == 2025:
-        season_start = datetime(2025, 8, 23)
-    else:
-        season_start = datetime(2024, 8, 24)
+    def get_season_start(yr):
+        """Find last Saturday of August for a given year"""
+        aug_31 = datetime(yr, 8, 31)
+        days_to_subtract = (aug_31.weekday() - 5) % 7  # Saturday = 5
+        return aug_31 - timedelta(days=days_to_subtract)
 
+    season_start = get_season_start(year)
+
+    # Check if we're in previous year's bowl season
     if today < season_start:
-        return 0, today.year
+        if today.month <= 1:
+            season_start = get_season_start(year - 1)
+            year = year - 1
+        else:
+            return 0, year
 
     days_since_start = (today - season_start).days
     week = (days_since_start // 7) + 1
-    week = min(week, 15)  # CFB regular season is ~15 weeks
+    week = min(week, 20)  # Cap at week 20 (National Championship)
 
-    return week, season_start.year
+    return week, year
 
 
 def fetch_latest_odds():
@@ -100,53 +122,71 @@ def generate_predictions(season, week):
 
 
 def save_to_database(predictions_df, season):
-    """Save predictions to cfb_games.db"""
+    """Save predictions to odds_and_predictions table in cfb_games.db"""
     conn = sqlite3.connect('cfb_games.db')
     cursor = conn.cursor()
 
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS predictions (
-            game_id INTEGER PRIMARY KEY,
-            pred_home_score REAL,
-            pred_away_score REAL,
-            pred_spread REAL,
-            pred_total REAL,
-            pred_home_win INTEGER,
-            pred_home_win_prob REAL,
-            vegas_spread REAL,
-            vegas_total REAL,
-            spread_edge REAL,
-            total_edge REAL,
-            prediction_date TEXT,
-            model_version TEXT
-        )
-    ''')
+    now = datetime.now().isoformat()
 
     for _, row in predictions_df.iterrows():
-        cursor.execute('''
-            INSERT OR REPLACE INTO predictions
-            (game_id, pred_home_score, pred_away_score, pred_spread, pred_total,
-             pred_home_win, pred_home_win_prob, vegas_spread, vegas_total,
-             spread_edge, total_edge, prediction_date, model_version)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            int(row['game_id']),
-            row.get('pred_home_score'),
-            row.get('pred_away_score'),
-            row.get('pred_spread'),
-            row.get('pred_total'),
-            int(row.get('pred_home_win', 0)),
-            row.get('pred_home_win_prob'),
-            row.get('vegas_spread'),
-            row.get('vegas_total'),
-            row.get('spread_edge'),
-            row.get('total_edge'),
-            datetime.now().isoformat(),
-            f'deep_eagle_cfb_{season}'
-        ))
+        game_id = int(row['game_id'])
+
+        # Check if row exists for this game
+        cursor.execute('SELECT id FROM odds_and_predictions WHERE game_id = ?', (game_id,))
+        existing = cursor.fetchone()
+
+        if existing:
+            # Update existing row with predictions
+            cursor.execute('''
+                UPDATE odds_and_predictions SET
+                    predicted_home_score = ?,
+                    predicted_away_score = ?,
+                    predicted_home_MOE = ?,
+                    predicted_away_MOE = ?,
+                    predicted_spread_MOE = ?,
+                    predicted_total_MOE = ?,
+                    home_win_probability = ?,
+                    confidence = ?,
+                    prediction_created = ?
+                WHERE game_id = ?
+            ''', (
+                row.get('pred_home_score'),
+                row.get('pred_away_score'),
+                row.get('pred_home_MOE'),
+                row.get('pred_away_MOE'),
+                row.get('pred_spread_MOE'),
+                row.get('pred_total_MOE'),
+                row.get('pred_home_win_prob'),
+                row.get('confidence'),
+                now,
+                game_id
+            ))
+        else:
+            # Insert new row with predictions (odds may be added later)
+            cursor.execute('''
+                INSERT INTO odds_and_predictions
+                (game_id, source, predicted_home_score, predicted_away_score,
+                 predicted_home_MOE, predicted_away_MOE,
+                 predicted_spread_MOE, predicted_total_MOE,
+                 home_win_probability, confidence, prediction_created)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                game_id,
+                'DeepEagle',
+                row.get('pred_home_score'),
+                row.get('pred_away_score'),
+                row.get('pred_home_MOE'),
+                row.get('pred_away_MOE'),
+                row.get('pred_spread_MOE'),
+                row.get('pred_total_MOE'),
+                row.get('pred_home_win_prob'),
+                row.get('confidence'),
+                now
+            ))
 
     conn.commit()
     conn.close()
+    logger.info(f"Saved {len(predictions_df)} predictions to odds_and_predictions table")
 
 
 def sync_to_cache():
@@ -155,20 +195,25 @@ def sync_to_cache():
         cfb_conn = sqlite3.connect('cfb_games.db')
         users_conn = sqlite3.connect('users.db')
 
-        # Get predictions with game info
+        # Get predictions from odds_and_predictions table with game info
         query = '''
             SELECT
-                p.game_id, g.date, g.week, g.season,
+                op.game_id, g.date, g.week, g.season,
                 ht.name as home_team, at.name as away_team,
-                p.pred_home_score, p.pred_away_score,
-                p.pred_spread, p.pred_total,
-                p.pred_home_win_prob as confidence,
-                p.prediction_date
-            FROM predictions p
-            JOIN games g ON p.game_id = g.game_id
+                op.predicted_home_score, op.predicted_away_score,
+                (op.predicted_home_score - op.predicted_away_score) as pred_spread,
+                (op.predicted_home_score + op.predicted_away_score) as pred_total,
+                op.confidence,
+                op.prediction_created,
+                g.postseason_type,
+                op.latest_spread as vegas_spread,
+                op.latest_total as vegas_total
+            FROM odds_and_predictions op
+            JOIN games g ON op.game_id = g.game_id
             JOIN teams ht ON g.home_team_id = ht.team_id
             JOIN teams at ON g.away_team_id = at.team_id
             WHERE g.completed = 0
+              AND op.predicted_home_score IS NOT NULL
         '''
 
         predictions = pd.read_sql_query(query, cfb_conn)
@@ -178,22 +223,24 @@ def sync_to_cache():
             now = datetime.now().isoformat()
 
             for _, row in predictions.iterrows():
-                winner = row['home_team'] if row['pred_spread'] > 0 else row['away_team']
-                # Use prediction_date from cfb_games.db if available, otherwise use now
-                created_at = row.get('prediction_date') or now
+                # Use prediction_created from cfb_games.db if available, otherwise use now
+                created_at = row.get('prediction_created') or now
+                postseason_type = row.get('postseason_type')
 
                 cursor.execute('''
                     INSERT OR REPLACE INTO prediction_cache
                     (game_id, sport, season, week, game_date, home_team, away_team,
                      predicted_home_score, predicted_away_score,
-                     predicted_spread, predicted_total, confidence, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     predicted_spread, predicted_total, confidence, created_at,
+                     postseason_type, vegas_spread, vegas_total)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     int(row['game_id']), 'CFB', int(row['season']), int(row['week']),
                     row['date'], row['home_team'], row['away_team'],
-                    row['pred_home_score'], row['pred_away_score'],
+                    row['predicted_home_score'], row['predicted_away_score'],
                     row['pred_spread'], row['pred_total'], row['confidence'],
-                    created_at
+                    created_at, postseason_type,
+                    row.get('vegas_spread'), row.get('vegas_total')
                 ))
 
             users_conn.commit()
