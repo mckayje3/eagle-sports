@@ -183,6 +183,7 @@ class NFLPredictor:
         conn = sqlite3.connect(self.db_path)
 
         features = {}
+        warnings = []
 
         # Game context
         features['week_normalized'] = game_row.get('week', 10) / 18.0
@@ -199,14 +200,27 @@ class NFLPredictor:
         home_stats = self._get_team_stats(conn, game_row['home_team_id'], season)
         away_stats = self._get_team_stats(conn, game_row['away_team_id'], season)
 
+        # Check for missing team stats
+        if home_stats.get('_missing_stats'):
+            warnings.append(f"No game data for {game_row['home_team']} - using defaults")
+        if away_stats.get('_missing_stats'):
+            warnings.append(f"No game data for {game_row['away_team']} - using defaults")
+
         # Map stats to expected feature names
         for key, value in home_stats.items():
-            features[f'home_hist_{key}'] = value
+            if not key.startswith('_'):
+                features[f'home_hist_{key}'] = value
         for key, value in away_stats.items():
-            features[f'away_hist_{key}'] = value
+            if not key.startswith('_'):
+                features[f'away_hist_{key}'] = value
 
         # Get odds with correct feature names
         odds = self._get_odds(conn, game_row['game_id'])
+
+        # Check for missing odds
+        if odds.get('_missing_odds'):
+            warnings.append(f"No odds data for {game_row['away_team']} @ {game_row['home_team']} - using defaults")
+
         features['odds_opening_spread'] = odds.get('opening_spread', 0)
         features['odds_latest_spread'] = odds.get('latest_spread', 0)
         features['odds_opening_total'] = odds.get('opening_total', 45)
@@ -215,6 +229,9 @@ class NFLPredictor:
         features['odds_latest_ml_home'] = odds.get('latest_ml_home', 0)
         features['odds_opening_ml_away'] = odds.get('opening_ml_away', 0)
         features['odds_latest_ml_away'] = odds.get('latest_ml_away', 0)
+
+        # Store warnings in features for later retrieval
+        features['_warnings'] = warnings
 
         # Drive features - use season averages as defaults since per-game drive data is complex
         # NFL average: ~12 drives per game, ~2.0 ppd, ~30 ypd
@@ -334,7 +351,8 @@ class NFLPredictor:
             'ypg': 330, 'turnover_pg': 1.0,
             'home_games': 0, 'home_ppg': 23, 'home_papg': 21, 'home_win_pct': 0.55,
             'away_games': 0, 'away_ppg': 21, 'away_papg': 23, 'away_win_pct': 0.45,
-            'home_away_ppg_diff': 2.0
+            'home_away_ppg_diff': 2.0,
+            '_missing_stats': True
         }
 
     def _get_odds(self, conn, game_id):
@@ -362,7 +380,12 @@ class NFLPredictor:
                 'opening_total': 45, 'latest_total': 45,
                 'opening_ml_home': -110, 'latest_ml_home': -110,
                 'opening_ml_away': -110, 'latest_ml_away': -110,
+                '_missing_odds': True
             }
+
+        # Check if we have actual spread/total data
+        has_spread = row[0] is not None or row[1] is not None
+        has_total = row[2] is not None or row[3] is not None
 
         return {
             'opening_spread': row[0] or 0,
@@ -373,6 +396,7 @@ class NFLPredictor:
             'latest_ml_home': row[5] or row[4] or -110,
             'opening_ml_away': row[6] or -110,
             'latest_ml_away': row[7] or row[6] or -110,
+            '_missing_odds': not (has_spread and has_total)
         }
 
     def _get_drive_stats(self, conn, team_id, season):
@@ -427,10 +451,15 @@ class NFLPredictor:
             return None
 
         predictions = []
+        all_warnings = []
 
         for idx, game in games_df.iterrows():
             try:
                 features = self.extract_features(game)
+
+                # Collect any warnings
+                game_warnings = features.pop('_warnings', [])
+                all_warnings.extend(game_warnings)
 
                 # Build feature vector in correct order
                 feature_vector = []
@@ -514,6 +543,16 @@ class NFLPredictor:
             except Exception as e:
                 print(f"Error predicting game {game['game_id']}: {e}")
                 continue
+
+        # Display warnings if any
+        if all_warnings:
+            print(f"\n{'='*60}")
+            print(f"DATA WARNINGS ({len(all_warnings)} issues)")
+            print('='*60)
+            for warning in all_warnings:
+                print(f"  * {warning}")
+            print("Note: Predictions using default values may be less accurate")
+            print('='*60)
 
         return pd.DataFrame(predictions)
 

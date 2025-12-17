@@ -273,6 +273,7 @@ class CFBDeepEaglePredictor:
         conn = sqlite3.connect(self.db_path)
 
         features = {}
+        warnings = []
 
         # Game context
         features['week_normalized'] = game_row.get('week', 10) / 15.0
@@ -284,15 +285,29 @@ class CFBDeepEaglePredictor:
         home_stats = self._get_team_stats(conn, game_row['home_team_id'], season)
         away_stats = self._get_team_stats(conn, game_row['away_team_id'], season)
 
+        # Check for missing team stats
+        if home_stats.get('_missing_stats'):
+            warnings.append(f"No game data for {game_row['home_team']} - using defaults")
+        if away_stats.get('_missing_stats'):
+            warnings.append(f"No game data for {game_row['away_team']} - using defaults")
+
         for key, value in home_stats.items():
-            features[f'home_hist_{key}'] = value
+            if not key.startswith('_'):
+                features[f'home_hist_{key}'] = value
         for key, value in away_stats.items():
-            features[f'away_hist_{key}'] = value
+            if not key.startswith('_'):
+                features[f'away_hist_{key}'] = value
 
         # Get odds
         odds = self._get_odds(conn, game_row['game_id'])
+
+        # Check for missing odds
+        if odds.get('_missing_odds'):
+            warnings.append(f"No odds data for {game_row['away_team']} @ {game_row['home_team']} - using defaults")
+
         for key, value in odds.items():
-            features[f'odds_{key}'] = value
+            if not key.startswith('_'):
+                features[f'odds_{key}'] = value
 
         # Calculate differentials
         features['ppg_differential'] = home_stats.get('ppg', 0) - away_stats.get('ppg', 0)
@@ -302,6 +317,9 @@ class CFBDeepEaglePredictor:
         features['turnover_differential'] = home_stats.get('turnover_margin', 0) - away_stats.get('turnover_margin', 0)
         features['third_down_differential'] = home_stats.get('third_down_pct', 0) - away_stats.get('third_down_pct', 0)
         features['redzone_differential'] = home_stats.get('redzone_pct', 0) - away_stats.get('redzone_pct', 0)
+
+        # Store warnings in features for later retrieval
+        features['_warnings'] = warnings
 
         conn.close()
         return features
@@ -409,7 +427,8 @@ class CFBDeepEaglePredictor:
             'away_games': 0, 'away_ppg': 0, 'away_papg': 0, 'away_win_pct': 0,
             'total_yards_pg': 0, 'pass_yards_pg': 0, 'rush_yards_pg': 0,
             'turnovers_pg': 0, 'third_down_pct': 0, 'fourth_down_pct': 0,
-            'avg_possession': 0, 'turnover_margin': 0, 'redzone_pct': 0
+            'avg_possession': 0, 'turnover_margin': 0, 'redzone_pct': 0,
+            '_missing_stats': True
         }
 
     def _get_odds(self, conn, game_id):
@@ -431,13 +450,19 @@ class CFBDeepEaglePredictor:
             return {
                 'spread': 0, 'total': 0,
                 'moneyline_home': 0, 'moneyline_away': 0,
+                '_missing_odds': True
             }
+
+        # Check if we have actual spread/total data
+        has_spread = row[0] is not None
+        has_total = row[1] is not None
 
         return {
             'spread': row[0] or 0,
             'total': row[1] or 0,
             'moneyline_home': row[2] or 0,
             'moneyline_away': row[3] or 0,
+            '_missing_odds': not (has_spread and has_total)
         }
 
     def predict(self, games_df, mc_passes=100):
@@ -447,10 +472,15 @@ class CFBDeepEaglePredictor:
             return None
 
         predictions = []
+        all_warnings = []
 
         for idx, game in games_df.iterrows():
             try:
                 features = self.extract_features(game)
+
+                # Collect any warnings
+                game_warnings = features.pop('_warnings', [])
+                all_warnings.extend(game_warnings)
 
                 # Build feature vector in correct order
                 feature_vector = []
@@ -464,13 +494,20 @@ class CFBDeepEaglePredictor:
                 X = torch.FloatTensor(feature_vector).to(self.device)
 
                 # MC Dropout: run multiple passes with dropout enabled
-                self.model.train()  # Enable dropout
+                # Keep model in eval mode (for BatchNorm) but enable Dropout layers
+                self.model.eval()
+                for module in self.model.modules():
+                    if isinstance(module, nn.Dropout):
+                        module.train()
+
                 mc_predictions = []
                 with torch.no_grad():
                     for _ in range(mc_passes):
                         pred = self.model(X).cpu().numpy()[0]
                         mc_predictions.append(pred)
-                self.model.eval()  # Disable dropout
+
+                # Reset all to eval mode
+                self.model.eval()
 
                 mc_predictions = np.array(mc_predictions)
                 home_scores = np.maximum(0, mc_predictions[:, 0])
@@ -528,6 +565,16 @@ class CFBDeepEaglePredictor:
             except Exception as e:
                 print(f"Error predicting game {game['game_id']}: {e}")
                 continue
+
+        # Display warnings if any
+        if all_warnings:
+            print(f"\n{'='*60}")
+            print(f"DATA WARNINGS ({len(all_warnings)} issues)")
+            print('='*60)
+            for warning in all_warnings:
+                print(f"  * {warning}")
+            print("Note: Predictions using default values may be less accurate")
+            print('='*60)
 
         return pd.DataFrame(predictions)
 
