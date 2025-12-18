@@ -1175,21 +1175,24 @@ def show_nba_predictions_live():
     else:
         predictions_df['confidence'] = predictions_df['confidence'].fillna(0.85)
 
-    # Summary stats
+    # Summary stats (only for games with predictions)
+    games_with_preds = predictions_df[predictions_df['predicted_spread'].notna()]
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        st.metric("Avg Total Points", f"{predictions_df['predicted_total'].mean():.1f}")
+        avg_total = games_with_preds['predicted_total'].mean() if len(games_with_preds) > 0 else 0
+        st.metric("Avg Total Points", f"{avg_total:.1f}")
 
     with col2:
-        st.metric("Avg Spread", f"{predictions_df['predicted_spread'].abs().mean():.1f} pts")
+        avg_spread = games_with_preds['predicted_spread'].abs().mean() if len(games_with_preds) > 0 else 0
+        st.metric("Avg Spread", f"{avg_spread:.1f} pts")
 
     with col3:
-        close_games = (predictions_df['predicted_spread'].abs() < 5).sum()
+        close_games = (games_with_preds['predicted_spread'].abs() < 5).sum() if len(games_with_preds) > 0 else 0
         st.metric("Close Games (<5)", close_games)
 
     with col4:
-        avg_conf = predictions_df['confidence'].mean()
+        avg_conf = games_with_preds['confidence'].mean() if len(games_with_preds) > 0 else 0.85
         st.metric("Avg Confidence", f"{avg_conf:.0%}")
 
     st.markdown("---")
@@ -1413,21 +1416,24 @@ def show_cbb_predictions_live():
     # Use filtered_df for the rest of the function
     predictions_df = filtered_df
 
-    # Summary stats
+    # Summary stats (only for games with predictions)
+    games_with_preds = predictions_df[predictions_df['pred_spread'].notna()]
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        st.metric("Avg Total Points", f"{predictions_df['pred_total'].mean():.1f}")
+        avg_total = games_with_preds['pred_total'].mean() if len(games_with_preds) > 0 else 0
+        st.metric("Avg Total Points", f"{avg_total:.1f}")
 
     with col2:
-        st.metric("Avg Spread", f"{predictions_df['pred_spread'].abs().mean():.1f} pts")
+        avg_spread = games_with_preds['pred_spread'].abs().mean() if len(games_with_preds) > 0 else 0
+        st.metric("Avg Spread", f"{avg_spread:.1f} pts")
 
     with col3:
-        close_games = (predictions_df['pred_spread'].abs() < 5).sum()
+        close_games = (games_with_preds['pred_spread'].abs() < 5).sum() if len(games_with_preds) > 0 else 0
         st.metric("Close Games (<5)", close_games)
 
     with col4:
-        avg_conf = predictions_df['confidence'].mean()
+        avg_conf = games_with_preds['confidence'].mean() if len(games_with_preds) > 0 else 0.85
         st.metric("Avg Confidence", f"{avg_conf:.0%}")
 
     st.markdown("---")
@@ -1570,21 +1576,24 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
     else:
         predictions_df['confidence'] = predictions_df['confidence'].fillna(0.85)
 
-    # Summary stats
+    # Summary stats (only for games with predictions)
+    games_with_preds = predictions_df[predictions_df['predicted_spread'].notna()]
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        st.metric("Avg Total Points", f"{predictions_df['predicted_total'].mean():.1f}")
+        avg_total = games_with_preds['predicted_total'].mean() if len(games_with_preds) > 0 else 0
+        st.metric("Avg Total Points", f"{avg_total:.1f}")
 
     with col2:
-        st.metric("Avg Spread", f"{predictions_df['predicted_spread'].abs().mean():.1f} pts")
+        avg_spread = games_with_preds['predicted_spread'].abs().mean() if len(games_with_preds) > 0 else 0
+        st.metric("Avg Spread", f"{avg_spread:.1f} pts")
 
     with col3:
-        close_games = (predictions_df['predicted_spread'].abs() < 7).sum()
+        close_games = (games_with_preds['predicted_spread'].abs() < 7).sum() if len(games_with_preds) > 0 else 0
         st.metric("Close Games (<7)", close_games)
 
     with col4:
-        avg_conf = predictions_df['confidence'].mean() if 'confidence' in predictions_df.columns else 0.85
+        avg_conf = games_with_preds['confidence'].mean() if 'confidence' in games_with_preds.columns and len(games_with_preds) > 0 else 0.85
         st.metric("Avg Confidence", f"{avg_conf:.0%}")
 
     st.markdown("---")
