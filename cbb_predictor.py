@@ -264,38 +264,51 @@ class CBBPredictor:
         stats['home_away_ppg_diff'] = stats['home_ppg'] - stats['away_ppg'] if stats['home_games'] > 0 and stats['away_games'] > 0 else 0
 
         if box_row:
-            stats['fg_pct'] = box_row[0] or 0
-            stats['three_pct'] = box_row[1] or 0
-            stats['ft_pct'] = box_row[2] or 0
-            stats['rpg'] = box_row[3] or 0
-            stats['oreb_pg'] = box_row[4] or 0
-            stats['dreb_pg'] = box_row[5] or 0
-            stats['apg'] = box_row[6] or 0
-            stats['to_pg'] = box_row[7] or 0
-            stats['spg'] = box_row[8] or 0
-            stats['bpg'] = box_row[9] or 0
+            stats['fg_pct'] = box_row[0] or 45.0  # CBB average
+            stats['three_pct'] = box_row[1] or 34.0
+            stats['ft_pct'] = box_row[2] or 70.0
+            stats['rpg'] = box_row[3] or 35.0
+            stats['oreb_pg'] = box_row[4] or 10.0
+            stats['dreb_pg'] = box_row[5] or 25.0
+            stats['apg'] = box_row[6] or 13.0
+            stats['to_pg'] = box_row[7] or 12.0
+            stats['spg'] = box_row[8] or 6.0
+            stats['bpg'] = box_row[9] or 3.0
             stats['ast_to_ratio'] = stats['apg'] / stats['to_pg'] if stats['to_pg'] > 0 else stats['apg']
-            stats['true_shooting'] = 0  # Would need more data to calculate
+            # Use training mean for true_shooting (~0.55)
+            stats['true_shooting'] = 0.55
         else:
-            for key in ['fg_pct', 'three_pct', 'ft_pct', 'rpg', 'oreb_pg', 'dreb_pg', 'apg', 'to_pg', 'spg', 'bpg', 'ast_to_ratio', 'true_shooting']:
-                stats[key] = 0
+            # Use CBB averages when no data available
+            stats['fg_pct'] = 45.0
+            stats['three_pct'] = 34.0
+            stats['ft_pct'] = 70.0
+            stats['rpg'] = 35.0
+            stats['oreb_pg'] = 10.0
+            stats['dreb_pg'] = 25.0
+            stats['apg'] = 13.0
+            stats['to_pg'] = 12.0
+            stats['spg'] = 6.0
+            stats['bpg'] = 3.0
+            stats['ast_to_ratio'] = 1.1
+            stats['true_shooting'] = 0.55
 
-        stats['opponent_ppg'] = 0  # SOS placeholder
+        # Use training mean for opponent_ppg/SOS (~78)
+        stats['opponent_ppg'] = 78.0
 
         return stats
 
     def _empty_stats(self):
-        """Return empty stats dict"""
+        """Return empty stats dict with CBB averages as defaults"""
         return {
-            'games_played': 0, 'ppg': 0, 'papg': 0, 'win_pct': 0,
-            'fg_pct': 0, 'three_pct': 0, 'ft_pct': 0, 'true_shooting': 0,
-            'rpg': 0, 'oreb_pg': 0, 'dreb_pg': 0,
-            'apg': 0, 'to_pg': 0, 'ast_to_ratio': 0,
-            'spg': 0, 'bpg': 0,
-            'home_games': 0, 'home_ppg': 0, 'home_papg': 0, 'home_win_pct': 0,
-            'away_games': 0, 'away_ppg': 0, 'away_papg': 0, 'away_win_pct': 0,
-            'home_away_ppg_diff': 0,
-            'opponent_ppg': 0
+            'games_played': 0, 'ppg': 70.0, 'papg': 70.0, 'win_pct': 0.5,
+            'fg_pct': 45.0, 'three_pct': 34.0, 'ft_pct': 70.0, 'true_shooting': 0.55,
+            'rpg': 35.0, 'oreb_pg': 10.0, 'dreb_pg': 25.0,
+            'apg': 13.0, 'to_pg': 12.0, 'ast_to_ratio': 1.1,
+            'spg': 6.0, 'bpg': 3.0,
+            'home_games': 0, 'home_ppg': 72.0, 'home_papg': 68.0, 'home_win_pct': 0.6,
+            'away_games': 0, 'away_ppg': 68.0, 'away_papg': 72.0, 'away_win_pct': 0.4,
+            'home_away_ppg_diff': 4.0,
+            'opponent_ppg': 78.0
         }
 
     def _get_odds(self, conn, game_id):
@@ -310,10 +323,14 @@ class CBBPredictor:
         ''', (game_id,))
 
         row = cursor.fetchone()
+
+        # Use training data mean for CBB total (~143) when missing
+        default_total = 143.0
+
         if not row:
             return {
                 'opening_spread': 0, 'closing_spread': 0,
-                'opening_total': 0, 'closing_total': 0,
+                'opening_total': default_total, 'closing_total': default_total,
                 'opening_ml_home': 0, 'closing_ml_home': 0,
                 'opening_ml_away': 0, 'closing_ml_away': 0,
                 '_missing_odds': True
@@ -325,8 +342,8 @@ class CBBPredictor:
         return {
             'opening_spread': row[0] or 0,
             'closing_spread': row[1] or row[0] or 0,
-            'opening_total': row[2] or 0,
-            'closing_total': row[3] or row[2] or 0,
+            'opening_total': row[2] or default_total,
+            'closing_total': row[3] or row[2] or default_total,
             'opening_ml_home': row[4] or 0,
             'closing_ml_home': row[5] or row[4] or 0,
             'opening_ml_away': row[6] or 0,
