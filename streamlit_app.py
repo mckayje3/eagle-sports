@@ -1001,9 +1001,9 @@ def show_nba_predictions():
 
 def show_nba_predictions_live():
     """Show live NBA predictions for 2025-26 season"""
-    st.markdown("### 🏀 NBA 2024-25 Predictions")
+    st.markdown("### 🏀 NBA 2025-26 Predictions")
 
-    # NBA uses season=2025 for 2024-25 season
+    # NBA uses season=2025 for 2025-26 season (Oct 2025 - Apr 2026)
     season = 2025
 
     from datetime import timedelta
@@ -1215,7 +1215,7 @@ def show_cbb_predictions_live():
     """Show live College Basketball predictions from cbb_games.db"""
     st.markdown("### 🏀 Men's College Basketball Predictions")
 
-    # CBB uses season=2025 for 2024-25 season
+    # CBB uses season=2025 for 2025-26 season (Nov 2025 - Mar 2026)
     season = 2025
 
     from datetime import timedelta
