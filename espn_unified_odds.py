@@ -333,10 +333,10 @@ class ESPNOddsScraper:
 
     def scrape_recent(self, days: int = 7, update_cache: bool = True) -> tuple:
         """
-        Scrape odds for games in the past N days
+        Scrape odds for games in the past N days and upcoming games
 
         Args:
-            days: Number of days to look back
+            days: Number of days to look back (also looks 3 days ahead)
             update_cache: Whether to update prediction_cache
 
         Returns:
@@ -345,10 +345,12 @@ class ESPNOddsScraper:
         conn = sqlite3.connect(self.config['db_path'])
         cursor = conn.cursor()
 
+        # Use game_date_eastern for accurate date filtering
+        # Look back N days and forward 3 days to catch upcoming games
         cursor.execute('''
             SELECT game_id FROM games
-            WHERE date >= date('now', ?)
-            AND date <= date('now', '+1 day')
+            WHERE game_date_eastern >= date('now', ?)
+            AND game_date_eastern <= date('now', '+3 days')
             ORDER BY date
         ''', (f'-{days} days',))
 
