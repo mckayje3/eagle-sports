@@ -1119,7 +1119,7 @@ def show_nba_predictions_live():
             JOIN teams ht ON g.home_team_id = ht.team_id
             JOIN teams at ON g.away_team_id = at.team_id
             LEFT JOIN odds_and_predictions o ON g.game_id = o.game_id
-            WHERE g.season = ? AND date(g.date) = date(?)
+            WHERE g.season = ? AND g.game_date_eastern = ?
             ORDER BY g.date
         """
         predictions_df = pd.read_sql_query(query, conn, params=(season, date_str))
@@ -1135,10 +1135,10 @@ def show_nba_predictions_live():
         try:
             conn = sqlite3.connect('nba_games.db')
             other_games_query = """
-                SELECT date(date) as game_day, COUNT(*) as count
+                SELECT game_date_eastern as game_day, COUNT(*) as count
                 FROM games
-                WHERE season = ?
-                GROUP BY date(date)
+                WHERE season = ? AND game_date_eastern IS NOT NULL
+                GROUP BY game_date_eastern
                 ORDER BY game_day DESC
                 LIMIT 14
             """
@@ -1317,6 +1317,7 @@ def show_cbb_predictions_live():
             SELECT
                 g.game_id,
                 g.date,
+                g.game_date_eastern,
                 g.season,
                 ht.name as home_team,
                 at.name as away_team,
@@ -1348,8 +1349,8 @@ def show_cbb_predictions_live():
         st.warning("No games found in database.")
         return
 
-    # Filter by selected date - handle mixed date formats (YYYY-MM-DD and ISO with time)
-    predictions_df['game_date'] = pd.to_datetime(predictions_df['date'], format='mixed', utc=True).dt.date
+    # Filter by selected date using pre-computed Eastern date
+    predictions_df['game_date'] = pd.to_datetime(predictions_df['game_date_eastern']).dt.date
     filtered_df = predictions_df[predictions_df['game_date'] == selected_date]
 
     if filtered_df.empty:

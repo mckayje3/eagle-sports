@@ -3,6 +3,7 @@ Men's College Basketball (CBB) Database Setup and Management
 Follows the same structure as NBA/NFL/CFB databases
 """
 import sqlite3
+from timezone_utils import utc_to_eastern_date
 import os
 
 
@@ -168,15 +169,16 @@ class CBBDatabase:
         cursor = self.conn.cursor()
         cursor.execute('''
             INSERT OR REPLACE INTO games
-            (game_id, season, season_type, date, completed, home_team_id, away_team_id,
+            (game_id, season, season_type, date, game_date_eastern, completed, home_team_id, away_team_id,
              home_score, away_score, winner_team_id, venue_name, venue_city, venue_state,
              neutral_site, conference_game, attendance)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             game_data['game_id'],
             game_data['season'],
             game_data.get('season_type', 2),
             game_data['date'],
+            utc_to_eastern_date(game_data['date']),
             game_data.get('completed', 0),
             game_data['home_team_id'],
             game_data['away_team_id'],
