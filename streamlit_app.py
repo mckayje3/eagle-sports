@@ -1416,13 +1416,15 @@ def show_cbb_predictions_live():
 def show_sport_predictions(sport: str, max_week: int, default_week: int):
     """Show predictions for a specific sport with confidence intervals"""
     sport_emoji = "🏈" if sport == "CFB" else "🏟️"
-    st.markdown(f"### {sport_emoji} {sport} Week {default_week} Predictions")
 
     # Week selector and action buttons - all sports get 3 columns now
     col1, col2, col3 = st.columns([3, 1, 1])
 
     with col1:
         week = st.number_input(f"Select {sport} Week", min_value=1, max_value=max_week, value=default_week, key=f"{sport}_week")
+
+    # Display header with selected week (after selector so it reflects user's choice)
+    st.markdown(f"### {sport_emoji} {sport} Week {week} Predictions")
 
     with col2:
         if st.button("🔄 Refresh", use_container_width=True, key=f"{sport}_refresh"):
