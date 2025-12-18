@@ -223,19 +223,43 @@ def load_database_stats():
 
 @st.cache_data(ttl=60)
 def get_predictions_from_db(week: int, sport: str = 'CFB', season: int = 2025):
-    """Get predictions from users.db"""
+    """Get ALL games for a week with predictions if available (LEFT JOIN)"""
     try:
-        conn = sqlite3.connect('users.db')
+        db_path = 'nfl_games.db' if sport.upper() == 'NFL' else 'cfb_games.db'
+        conn = sqlite3.connect(db_path)
+
+        # Get all games with predictions and odds (LEFT JOIN so games without predictions are included)
         query = """
-            SELECT * FROM prediction_cache
-            WHERE week = ? AND sport = ? AND season = ?
-            ORDER BY game_date
+            SELECT
+                g.game_id,
+                g.date,
+                g.week,
+                g.season,
+                ht.display_name as home_team,
+                at.display_name as away_team,
+                g.completed as game_completed,
+                g.home_score as actual_home_score,
+                g.away_score as actual_away_score,
+                o.predicted_home_score,
+                o.predicted_away_score,
+                (o.predicted_home_score - o.predicted_away_score) as predicted_spread,
+                (o.predicted_home_score + o.predicted_away_score) as predicted_total,
+                o.confidence,
+                COALESCE(o.latest_spread, o.opening_spread) as vegas_spread,
+                COALESCE(o.latest_total, o.opening_total) as vegas_total,
+                g.postseason_type
+            FROM games g
+            JOIN teams ht ON g.home_team_id = ht.team_id
+            JOIN teams at ON g.away_team_id = at.team_id
+            LEFT JOIN odds_and_predictions o ON g.game_id = o.game_id
+            WHERE g.week = ? AND g.season = ?
+            ORDER BY g.date
         """
-        df = pd.read_sql_query(query, conn, params=(week, sport.upper(), season))
+        df = pd.read_sql_query(query, conn, params=(week, season))
         conn.close()
         return df
     except Exception as e:
-        st.error(f"Error loading predictions: {e}")
+        st.error(f"Error loading games: {e}")
         return pd.DataFrame()
 
 @st.cache_data(ttl=300)
@@ -694,15 +718,19 @@ def display_game_card(row, sport_emoji="🏈"):
 
         with col2:
             st.markdown("**Model**")
-            if model_home_score is not None:
+            has_prediction = model_home_score is not None and not pd.isna(model_home_score)
+            if has_prediction:
                 st.write(f"{model_away_score:.0f}")
                 st.write(f"{model_home_score:.0f}")
+                st.write(format_spread(model_spread))
+                st.write(f"{model_total:.1f}" if model_total else "-")
+                st.write(f"{model_winner} ({conf_pct:.0f}%)")
             else:
-                st.write("-")
-                st.write("-")
-            st.write(format_spread(model_spread))
-            st.write(f"{model_total:.1f}" if model_total else "-")
-            st.write(f"{model_winner} ({conf_pct:.0f}%)")
+                st.write("NP")
+                st.write("NP")
+                st.write("NP")
+                st.write("NP")
+                st.write("NP")
 
         with col3:
             st.markdown("**Vegas**")
@@ -1036,19 +1064,37 @@ def show_nba_predictions_live():
     # Format selected date for SQL query (YYYY-MM-DD)
     date_str = selected_date.strftime('%Y-%m-%d')
 
-    # Fetch NBA predictions for the selected date
+    # Fetch ALL NBA games for the selected date (with predictions if available)
     try:
-        conn = sqlite3.connect('users.db')
+        conn = sqlite3.connect('nba_games.db')
         query = """
-            SELECT * FROM prediction_cache
-            WHERE sport = 'NBA' AND season = ?
-            AND date(game_date) = date(?)
-            ORDER BY game_date
+            SELECT
+                g.game_id,
+                g.date as game_date,
+                g.season,
+                ht.display_name as home_team,
+                at.display_name as away_team,
+                g.completed as game_completed,
+                g.home_score as actual_home_score,
+                g.away_score as actual_away_score,
+                o.predicted_home_score,
+                o.predicted_away_score,
+                (o.predicted_home_score - o.predicted_away_score) as predicted_spread,
+                (o.predicted_home_score + o.predicted_away_score) as predicted_total,
+                o.confidence,
+                COALESCE(o.latest_spread, o.opening_spread) as vegas_spread,
+                COALESCE(o.latest_total, o.opening_total) as vegas_total
+            FROM games g
+            JOIN teams ht ON g.home_team_id = ht.team_id
+            JOIN teams at ON g.away_team_id = at.team_id
+            LEFT JOIN odds_and_predictions o ON g.game_id = o.game_id
+            WHERE g.season = ? AND date(g.date) = date(?)
+            ORDER BY g.date
         """
         predictions_df = pd.read_sql_query(query, conn, params=(season, date_str))
         conn.close()
     except Exception as e:
-        st.error(f"Error loading predictions: {e}")
+        st.error(f"Error loading games: {e}")
         predictions_df = pd.DataFrame()
 
     if predictions_df.empty:
@@ -1056,12 +1102,12 @@ def show_nba_predictions_live():
 
         # Show games on other days
         try:
-            conn = sqlite3.connect('users.db')
+            conn = sqlite3.connect('nba_games.db')
             other_games_query = """
-                SELECT date(game_date) as game_day, COUNT(*) as count
-                FROM prediction_cache
-                WHERE sport = 'NBA' AND season = ?
-                GROUP BY date(game_date)
+                SELECT date(date) as game_day, COUNT(*) as count
+                FROM games
+                WHERE season = ?
+                GROUP BY date(date)
                 ORDER BY game_day DESC
                 LIMIT 14
             """
@@ -1228,46 +1274,45 @@ def show_cbb_predictions_live():
                 else:
                     st.error(msg)
 
-    # Load predictions from CSV file
-    try:
-        predictions_df = pd.read_csv('cbb_predictions.csv')
-    except FileNotFoundError:
-        st.warning("No predictions file found. Click 'Update Predictions' to create predictions.")
-        return
-    except Exception as e:
-        st.error(f"Error loading predictions: {e}")
-        return
-
-    if predictions_df.empty:
-        st.warning("No predictions available.")
-        return
-
-    # Enrich predictions with Vegas odds and results from database
+    # Load ALL games from database (with predictions if available)
     try:
         conn = sqlite3.connect('cbb_games.db')
 
-        # Get game results and odds
-        enrichment_query = """
+        # Get all games with predictions and odds (LEFT JOIN so games without predictions are included)
+        games_query = """
             SELECT
                 g.game_id,
+                g.date,
+                g.season,
+                ht.name as home_team,
+                at.name as away_team,
                 g.completed,
                 g.home_score as actual_home_score,
                 g.away_score as actual_away_score,
+                o.predicted_home_score as pred_home_score,
+                o.predicted_away_score as pred_away_score,
+                (o.predicted_home_score - o.predicted_away_score) as pred_spread,
+                (o.predicted_home_score + o.predicted_away_score) as pred_total,
+                o.confidence,
                 COALESCE(o.latest_spread, o.opening_spread) as vegas_spread,
                 COALESCE(o.latest_total, o.opening_total) as vegas_total
             FROM games g
+            JOIN teams ht ON g.home_team_id = ht.team_id
+            JOIN teams at ON g.away_team_id = at.team_id
             LEFT JOIN odds_and_predictions o ON g.game_id = o.game_id
+            WHERE g.season = ?
+            ORDER BY g.date
         """
-        enrichment_df = pd.read_sql_query(enrichment_query, conn)
+        predictions_df = pd.read_sql_query(games_query, conn, params=(season,))
         conn.close()
 
-        # Merge with predictions
-        predictions_df['game_id'] = predictions_df['game_id'].astype(str)
-        enrichment_df['game_id'] = enrichment_df['game_id'].astype(str)
-        predictions_df = predictions_df.merge(enrichment_df, on='game_id', how='left')
-
     except Exception as e:
-        st.warning(f"Could not load odds/results from database: {e}")
+        st.error(f"Error loading games from database: {e}")
+        return
+
+    if predictions_df.empty:
+        st.warning("No games found in database.")
+        return
 
     # Filter by selected date - handle mixed date formats (YYYY-MM-DD and ISO with time)
     predictions_df['game_date'] = pd.to_datetime(predictions_df['date'], format='mixed', utc=True).dt.date
