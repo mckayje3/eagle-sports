@@ -183,39 +183,168 @@ class NBAPredictor:
         return games
 
     def extract_features(self, game_row):
-        """Extract features for a single game for prediction"""
+        """Extract features for a single game for prediction - matches training feature set"""
         conn = sqlite3.connect(self.db_path)
 
         features = {}
 
+        # Convert numpy types to native Python types for SQLite compatibility
+        # numpy.int64 doesn't work properly as SQLite parameters
+        season = int(game_row.get('season', 2025))
+        home_team_id = int(game_row['home_team_id'])
+        away_team_id = int(game_row['away_team_id'])
+        game_id = int(game_row['game_id'])
+        game_date = game_row['date']
+
+        # Season progress features
+        games_into_season = self._get_games_into_season(conn, home_team_id, season, game_date)
+        features['games_into_season'] = games_into_season
+        features['season_progress'] = min(1.0, games_into_season / 82)
+        features['attendance'] = 0  # Not available for predictions
+
         # Get historical stats for both teams
-        season = game_row.get('season', 2025)
-        home_stats = self._get_team_stats(conn, game_row['home_team_id'], season)
-        away_stats = self._get_team_stats(conn, game_row['away_team_id'], season)
+        home_stats = self._get_team_stats(conn, home_team_id, season)
+        away_stats = self._get_team_stats(conn, away_team_id, season)
 
         for key, value in home_stats.items():
             features[f'home_hist_{key}'] = value
         for key, value in away_stats.items():
             features[f'away_hist_{key}'] = value
 
+        # Get recent form (last 10 games)
+        home_recent = self._get_recent_form(conn, home_team_id, season, game_date)
+        away_recent = self._get_recent_form(conn, away_team_id, season, game_date)
+
+        for key, value in home_recent.items():
+            features[f'home_recent_{key}'] = value
+        for key, value in away_recent.items():
+            features[f'away_recent_{key}'] = value
+
+        # Rest days and back-to-back
+        features['home_rest_days'] = self._get_rest_days(conn, home_team_id, game_date)
+        features['away_rest_days'] = self._get_rest_days(conn, away_team_id, game_date)
+        features['rest_advantage'] = features['home_rest_days'] - features['away_rest_days']
+        features['home_b2b'] = 1 if features['home_rest_days'] == 0 else 0
+        features['away_b2b'] = 1 if features['away_rest_days'] == 0 else 0
+
         # Get odds
-        odds = self._get_odds(conn, game_row['game_id'])
+        odds = self._get_odds(conn, game_id)
         for key, value in odds.items():
             features[f'odds_{key}'] = value
 
-        # Calculate differentials
+        # Calculate differentials - use correct column names
         features['ppg_differential'] = home_stats.get('ppg', 0) - away_stats.get('ppg', 0)
         features['papg_differential'] = home_stats.get('papg', 0) - away_stats.get('papg', 0)
         features['win_pct_differential'] = home_stats.get('win_pct', 0) - away_stats.get('win_pct', 0)
         features['fg_pct_differential'] = home_stats.get('fg_pct', 0) - away_stats.get('fg_pct', 0)
         features['three_pct_differential'] = home_stats.get('three_pct', 0) - away_stats.get('three_pct', 0)
-        features['ft_pct_differential'] = home_stats.get('ft_pct', 0) - away_stats.get('ft_pct', 0)
-        features['reb_differential'] = home_stats.get('rpg', 0) - away_stats.get('rpg', 0)
-        features['ast_differential'] = home_stats.get('apg', 0) - away_stats.get('apg', 0)
-        features['to_differential'] = home_stats.get('to_pg', 0) - away_stats.get('to_pg', 0)
+        features['rebound_differential'] = home_stats.get('rebounds_pg', 0) - away_stats.get('rebounds_pg', 0)
+        features['assist_differential'] = home_stats.get('assists_pg', 0) - away_stats.get('assists_pg', 0)
+        features['turnover_differential'] = home_stats.get('turnovers_pg', 0) - away_stats.get('turnovers_pg', 0)
+
+        # Recent form differentials
+        features['recent_ppg_diff'] = home_recent.get('ppg', 0) - away_recent.get('ppg', 0)
+        features['recent_win_pct_diff'] = home_recent.get('win_pct', 0) - away_recent.get('win_pct', 0)
+
+        # Venue-adjusted differentials (key for home court advantage)
+        features['venue_ppg_differential'] = home_stats.get('home_ppg', 0) - away_stats.get('away_ppg', 0)
+        features['venue_win_pct_differential'] = home_stats.get('home_win_pct', 0) - away_stats.get('away_win_pct', 0)
+
+        # Combined home court advantage
+        features['combined_home_advantage'] = (
+            home_stats.get('home_away_ppg_diff', 0) + away_stats.get('home_away_ppg_diff', 0)
+        ) / 2
+
+        # Stats reliability based on season progress
+        games_played = home_stats.get('games_played', 0)
+        features['stats_reliability'] = games_played / (games_played + 10)
+        features['vegas_reliability'] = 10 / (games_played + 10)
+        features['prev_season_weight'] = max(0, 1 - games_played / 15)
+
+        # Previous season features (simplified for prediction)
+        features['prev_season_ppg_diff'] = 0
+        features['prev_season_win_pct_diff'] = 0
+
+        # Weighted features
+        features['weighted_ppg_diff'] = features['ppg_differential'] * features['stats_reliability']
+        features['weighted_vegas_spread'] = features.get('odds_latest_spread', 0) * features['vegas_reliability']
+        features['blended_ppg_diff'] = features['weighted_ppg_diff']
 
         conn.close()
         return features
+
+    def _get_games_into_season(self, conn, team_id, season, current_date):
+        """Get number of games team has played so far this season"""
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT COUNT(*) as games
+            FROM games
+            WHERE season = ? AND completed = 1
+            AND (home_team_id = ? OR away_team_id = ?)
+            AND date < ?
+        ''', (season, team_id, team_id, current_date))
+        result = cursor.fetchone()
+        return result[0] if result else 0
+
+    def _get_recent_form(self, conn, team_id, season, current_date, n_games=10):
+        """Get team's recent form (last N games)"""
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            SELECT
+                AVG(CASE WHEN home_team_id = ? THEN home_score ELSE away_score END) as ppg,
+                AVG(CASE WHEN home_team_id = ? THEN away_score ELSE home_score END) as papg,
+                SUM(CASE WHEN winner_team_id = ? THEN 1 ELSE 0 END) * 1.0 / NULLIF(COUNT(*), 0) as win_pct,
+                COUNT(*) as games
+            FROM (
+                SELECT * FROM games
+                WHERE season = ? AND completed = 1
+                    AND (home_team_id = ? OR away_team_id = ?)
+                    AND date < ?
+                ORDER BY date DESC
+                LIMIT ?
+            )
+        ''', (team_id, team_id, team_id, season, team_id, team_id, current_date, n_games))
+
+        row = cursor.fetchone()
+        if not row or row[3] == 0:
+            return {'games': 0, 'ppg': 0, 'papg': 0, 'win_pct': 0}
+
+        return {
+            'games': row[3],
+            'ppg': row[0] or 0,
+            'papg': row[1] or 0,
+            'win_pct': row[2] or 0
+        }
+
+    def _get_rest_days(self, conn, team_id, current_date):
+        """Get rest days since team's last game"""
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            SELECT date FROM games
+            WHERE completed = 1
+                AND (home_team_id = ? OR away_team_id = ?)
+                AND date < ?
+            ORDER BY date DESC
+            LIMIT 1
+        ''', (team_id, team_id, current_date))
+
+        row = cursor.fetchone()
+        if not row:
+            return 3  # Default rest days if no previous game
+
+        try:
+            # Parse dates - handle both ISO and date formats
+            last_date = row[0][:10] if 'T' in row[0] else row[0]
+            curr_date = current_date[:10] if 'T' in str(current_date) else str(current_date)
+
+            last = datetime.strptime(last_date, '%Y-%m-%d')
+            curr = datetime.strptime(curr_date, '%Y-%m-%d')
+            rest = (curr - last).days - 1  # Subtract 1 because game day doesn't count
+            return max(0, rest)
+        except Exception:
+            return 1
 
     def _get_team_stats(self, conn, team_id, season):
         """Get team's season statistics"""
@@ -268,19 +397,22 @@ class NBAPredictor:
         ''', (team_id, season, team_id))
         away_row = cursor.fetchone()
 
-        # Get box score stats
+        # Get box score stats - use column names matching training data
         cursor.execute('''
             SELECT
                 AVG(ts.field_goal_pct) as fg_pct,
                 AVG(ts.three_point_pct) as three_pct,
                 AVG(ts.free_throw_pct) as ft_pct,
-                AVG(ts.total_rebounds) as rpg,
-                AVG(ts.offensive_rebounds) as oreb_pg,
-                AVG(ts.defensive_rebounds) as dreb_pg,
-                AVG(ts.assists) as apg,
-                AVG(ts.turnovers) as to_pg,
-                AVG(ts.steals) as spg,
-                AVG(ts.blocks) as bpg
+                AVG(ts.total_rebounds) as rebounds_pg,
+                AVG(ts.offensive_rebounds) as off_rebounds_pg,
+                AVG(ts.defensive_rebounds) as def_rebounds_pg,
+                AVG(ts.assists) as assists_pg,
+                AVG(ts.turnovers) as turnovers_pg,
+                AVG(ts.steals) as steals_pg,
+                AVG(ts.blocks) as blocks_pg,
+                AVG(ts.points_in_paint) as paint_pg,
+                AVG(ts.fast_break_points) as fastbreak_pg,
+                AVG(ts.bench_points) as bench_pg
             FROM team_game_stats ts
             JOIN games g ON ts.game_id = g.game_id
             WHERE ts.team_id = ? AND g.season = ? AND g.completed = 1
@@ -300,67 +432,87 @@ class NBAPredictor:
         stats['home_away_ppg_diff'] = stats['home_ppg'] - stats['away_ppg'] if stats['home_games'] > 0 and stats['away_games'] > 0 else 0
 
         if box_row:
-            stats['fg_pct'] = box_row[0] or 0
-            stats['three_pct'] = box_row[1] or 0
-            stats['ft_pct'] = box_row[2] or 0
-            stats['rpg'] = box_row[3] or 0
-            stats['oreb_pg'] = box_row[4] or 0
-            stats['dreb_pg'] = box_row[5] or 0
-            stats['apg'] = box_row[6] or 0
-            stats['to_pg'] = box_row[7] or 0
-            stats['spg'] = box_row[8] or 0
-            stats['bpg'] = box_row[9] or 0
-            stats['ast_to_ratio'] = stats['apg'] / stats['to_pg'] if stats['to_pg'] > 0 else stats['apg']
+            stats['fg_pct'] = box_row[0] or 47.0  # Default NBA average
+            stats['three_pct'] = box_row[1] or 36.0
+            stats['ft_pct'] = box_row[2] or 77.0
+            stats['rebounds_pg'] = box_row[3] or 44.0
+            stats['off_rebounds_pg'] = box_row[4] or 10.0
+            stats['def_rebounds_pg'] = box_row[5] or 34.0
+            stats['assists_pg'] = box_row[6] or 25.0
+            stats['turnovers_pg'] = box_row[7] or 14.0
+            stats['steals_pg'] = box_row[8] or 7.5
+            stats['blocks_pg'] = box_row[9] or 5.0
+            # Use training data means for columns that may be NULL
+            stats['paint_pg'] = box_row[10] or 48.0  # Training mean ~48
+            stats['fastbreak_pg'] = box_row[11] or 13.0  # Training mean ~13
+            stats['bench_pg'] = box_row[12] or 35.0  # Training mean ~35
         else:
-            for key in ['fg_pct', 'three_pct', 'ft_pct', 'rpg', 'oreb_pg', 'dreb_pg',
-                        'apg', 'to_pg', 'spg', 'bpg', 'ast_to_ratio']:
-                stats[key] = 0
+            # Use NBA averages when no data available
+            stats['fg_pct'] = 47.0
+            stats['three_pct'] = 36.0
+            stats['ft_pct'] = 77.0
+            stats['rebounds_pg'] = 44.0
+            stats['off_rebounds_pg'] = 10.0
+            stats['def_rebounds_pg'] = 34.0
+            stats['assists_pg'] = 25.0
+            stats['turnovers_pg'] = 14.0
+            stats['steals_pg'] = 7.5
+            stats['blocks_pg'] = 5.0
+            stats['paint_pg'] = 48.0
+            stats['fastbreak_pg'] = 13.0
+            stats['bench_pg'] = 35.0
 
         return stats
 
     def _empty_stats(self):
-        """Return empty stats dict"""
+        """Return empty stats dict - column names match training data"""
         return {
             'games_played': 0, 'ppg': 0, 'papg': 0, 'win_pct': 0,
             'fg_pct': 0, 'three_pct': 0, 'ft_pct': 0,
-            'rpg': 0, 'oreb_pg': 0, 'dreb_pg': 0,
-            'apg': 0, 'to_pg': 0, 'ast_to_ratio': 0,
-            'spg': 0, 'bpg': 0,
+            'rebounds_pg': 0, 'off_rebounds_pg': 0, 'def_rebounds_pg': 0,
+            'assists_pg': 0, 'turnovers_pg': 0,
+            'steals_pg': 0, 'blocks_pg': 0,
+            'paint_pg': 0, 'fastbreak_pg': 0, 'bench_pg': 0,
             'home_games': 0, 'home_ppg': 0, 'home_papg': 0, 'home_win_pct': 0,
             'away_games': 0, 'away_ppg': 0, 'away_papg': 0, 'away_win_pct': 0,
             'home_away_ppg_diff': 0
         }
 
     def _get_odds(self, conn, game_id):
-        """Get odds for a game from odds_and_predictions table"""
+        """Get odds for a game from odds_and_predictions table - names match training data"""
         cursor = conn.cursor()
 
         cursor.execute('''
             SELECT
-                COALESCE(latest_spread, opening_spread) as spread,
-                COALESCE(latest_total, opening_total) as total,
-                COALESCE(latest_moneyline_home, opening_moneyline_home) as ml_home,
-                COALESCE(latest_moneyline_away, opening_moneyline_away) as ml_away
+                opening_spread, latest_spread,
+                opening_total, latest_total
             FROM odds_and_predictions WHERE game_id = ?
         ''', (game_id,))
 
         row = cursor.fetchone()
+
+        # Use training data means when odds are missing
+        # Training data: spread mean ~0, total mean ~223
+        default_total = 223.0
+
         if not row:
             return {
-                'spread': 0, 'total': 0,
-                'ml_home': 0, 'ml_away': 0,
-                '_missing_odds': True
+                'opening_spread': 0, 'latest_spread': 0, 'line_movement': 0,
+                'opening_total': default_total, 'latest_total': default_total
             }
 
-        has_spread = row[0] is not None
-        has_total = row[1] is not None
+        opening_spread = row[0] or 0
+        latest_spread = row[1] or row[0] or 0
+        # Use default total when odds are missing
+        opening_total = row[2] or default_total
+        latest_total = row[3] or row[2] or default_total
 
         return {
-            'spread': row[0] or 0,
-            'total': row[1] or 0,
-            'ml_home': row[2] or 0,
-            'ml_away': row[3] or 0,
-            '_missing_odds': not (has_spread and has_total)
+            'opening_spread': opening_spread,
+            'latest_spread': latest_spread,
+            'line_movement': latest_spread - opening_spread if opening_spread else 0,
+            'opening_total': opening_total,
+            'latest_total': latest_total
         }
 
     def predict(self, games_df):
@@ -400,7 +552,7 @@ class NBAPredictor:
 
                 # Get vegas odds for comparison
                 conn = sqlite3.connect(self.db_path)
-                odds = self._get_odds(conn, game['game_id'])
+                odds = self._get_odds(conn, int(game['game_id']))
                 conn.close()
 
                 predictions.append({
@@ -412,8 +564,8 @@ class NBAPredictor:
                     'pred_away_score': round(away_score, 1),
                     'pred_spread': round(spread, 1),
                     'pred_total': round(total, 1),
-                    'vegas_spread': odds['spread'],
-                    'vegas_total': odds['total'],
+                    'vegas_spread': odds['latest_spread'],
+                    'vegas_total': odds['latest_total'],
                     'confidence': round(confidence, 3),
                     'predicted_winner': game['home_team'] if spread > 0 else game['away_team']
                 })

@@ -129,14 +129,20 @@ class CBBPredictor:
 
         features = {}
 
+        # Convert numpy types to native Python types for SQLite compatibility
+        # numpy.int64 doesn't work properly as SQLite parameters
+        home_team_id = int(game_row['home_team_id'])
+        away_team_id = int(game_row['away_team_id'])
+        game_id = int(game_row['game_id'])
+
         # Game context
         features['week_normalized'] = 0.5  # Mid-season estimate
         features['neutral_site'] = game_row.get('neutral_site', 0) or 0
         features['conference_game'] = game_row.get('conference_game', 0) or 0
 
         # Get historical stats for both teams
-        home_stats = self._get_team_stats(conn, game_row['home_team_id'])
-        away_stats = self._get_team_stats(conn, game_row['away_team_id'])
+        home_stats = self._get_team_stats(conn, home_team_id)
+        away_stats = self._get_team_stats(conn, away_team_id)
 
         for key, value in home_stats.items():
             features[f'home_hist_{key}'] = value
@@ -144,7 +150,7 @@ class CBBPredictor:
             features[f'away_hist_{key}'] = value
 
         # Get odds
-        odds = self._get_odds(conn, game_row['game_id'])
+        odds = self._get_odds(conn, game_id)
         for key, value in odds.items():
             features[f'odds_{key}'] = value
 
