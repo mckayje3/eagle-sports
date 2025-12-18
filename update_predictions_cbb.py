@@ -29,8 +29,8 @@ def fetch_latest_odds():
 
     try:
         from espn_unified_odds import ESPNOddsScraper
-        scraper = ESPNOddsScraper()
-        scraper.fetch_odds('cbb', days=7)
+        scraper = ESPNOddsScraper('cbb')
+        scraper.scrape_recent(days=7)
         logger.info("Odds fetched successfully")
         return True
     except ImportError:
@@ -143,7 +143,7 @@ def sync_to_cache():
         cbb_conn = sqlite3.connect('cbb_games.db')
         users_conn = sqlite3.connect('users.db')
 
-        # Get predictions with game info from odds_and_predictions table
+        # Get predictions with game info and odds from odds_and_predictions table
         query = '''
             SELECT
                 op.game_id, g.date, g.season,
@@ -153,7 +153,9 @@ def sync_to_cache():
                 (op.predicted_home_score - op.predicted_away_score) as pred_spread,
                 (op.predicted_home_score + op.predicted_away_score) as pred_total,
                 op.confidence,
-                op.prediction_created as prediction_date
+                op.prediction_created as prediction_date,
+                COALESCE(op.latest_spread, op.opening_spread) as vegas_spread,
+                COALESCE(op.latest_total, op.opening_total) as vegas_total
             FROM odds_and_predictions op
             JOIN games g ON op.game_id = g.game_id
             JOIN teams ht ON g.home_team_id = ht.team_id
@@ -181,14 +183,16 @@ def sync_to_cache():
                     INSERT OR REPLACE INTO prediction_cache
                     (game_id, sport, season, week, game_date, home_team, away_team,
                      predicted_home_score, predicted_away_score,
-                     predicted_spread, predicted_total, confidence, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     predicted_spread, predicted_total, confidence, created_at,
+                     vegas_spread, vegas_total)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     int(row['game_id']), 'CBB', int(row['season']), 0,
                     game_date_eastern, row['home_team'], row['away_team'],
                     row['pred_home_score'], row['pred_away_score'],
                     row['pred_spread'], row['pred_total'], confidence,
-                    created_at
+                    created_at,
+                    row.get('vegas_spread'), row.get('vegas_total')
                 ))
 
             users_conn.commit()
