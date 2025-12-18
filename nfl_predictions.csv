@@ -1,0 +1,49 @@
+game_id,date,week,home_team,away_team,pred_home_score,pred_away_score,pred_spread,pred_total,pred_home_MOE,pred_away_MOE,pred_spread_MOE,pred_total_MOE,vegas_spread,vegas_total,confidence,pred_home_win_prob,predicted_winner
+401772949,2025-12-18,16,Seattle Seahawks,Los Angeles Rams,25.4,26.4,-0.9,51.8,4.68,4.92,3.06,9.11,2.0,44.5,0.812,0.36,Los Angeles Rams
+401772612,2025-12-20,16,Washington Commanders,Philadelphia Eagles,23.3,26.1,-2.8,49.4,4.61,5.32,3.23,9.41,1.2,48.2,0.805,0.2,Philadelphia Eagles
+401772613,2025-12-20,16,Chicago Bears,Green Bay Packers,24.1,28.6,-4.5,52.7,3.67,4.75,2.87,7.99,1.8,45.2,0.821,0.06,Green Bay Packers
+401772801,2025-12-21,16,New Orleans Saints,New York Jets,22.7,22.0,0.7,44.8,4.59,5.05,2.95,9.18,-1.2,41.5,0.817,0.55,New Orleans Saints
+401772802,2025-12-21,16,Cleveland Browns,Buffalo Bills,23.4,26.8,-3.4,50.2,4.74,5.45,2.81,9.82,8.5,43.5,0.823,0.1,Buffalo Bills
+401772803,2025-12-21,16,Tennessee Titans,Kansas City Chiefs,24.9,27.9,-3.0,52.7,4.99,5.98,3.06,10.59,7.0,44.5,0.812,0.19,Kansas City Chiefs
+401772804,2025-12-21,16,Baltimore Ravens,New England Patriots,25.5,19.3,6.2,44.8,5.21,3.86,3.4,8.53,-8.8,46.5,0.797,0.98,Baltimore Ravens
+401772805,2025-12-21,16,Houston Texans,Las Vegas Raiders,20.2,20.2,0.0,40.5,3.76,4.44,3.56,7.42,-4.5,43.5,0.79,0.52,Houston Texans
+401772806,2025-12-21,16,Detroit Lions,Pittsburgh Steelers,21.6,22.3,-0.6,43.9,4.09,5.48,3.31,9.08,-6.2,45.5,0.801,0.5,Pittsburgh Steelers
+401772910,2025-12-21,16,Dallas Cowboys,Los Angeles Chargers,23.8,28.1,-4.4,51.9,4.96,6.87,3.43,11.48,1.8,46.5,0.795,0.1,Los Angeles Chargers
+401772911,2025-12-21,16,New York Giants,Minnesota Vikings,21.8,25.0,-3.2,46.8,4.12,5.56,3.26,9.23,2.8,42.5,0.803,0.17,Minnesota Vikings
+401772912,2025-12-21,16,Carolina Panthers,Tampa Bay Buccaneers,24.5,28.2,-3.7,52.6,4.77,6.24,2.73,10.77,3.5,47.5,0.827,0.08,Tampa Bay Buccaneers
+401772913,2025-12-21,16,Denver Broncos,Jacksonville Jaguars,22.3,23.8,-1.5,46.2,4.07,4.69,2.9,8.29,-5.8,45.0,0.819,0.29,Jacksonville Jaguars
+401772914,2025-12-21,16,Arizona Cardinals,Atlanta Falcons,24.1,22.8,1.4,46.9,4.56,4.22,3.52,8.05,-3.2,46.5,0.791,0.64,Arizona Cardinals
+401772934,2025-12-21,16,Miami Dolphins,Cincinnati Bengals,23.0,23.4,-0.4,46.4,4.41,4.79,3.56,8.5,2.0,48.5,0.79,0.47,Cincinnati Bengals
+401772824,2025-12-22,16,Indianapolis Colts,San Francisco 49ers,23.7,28.8,-5.2,52.5,4.06,5.48,2.84,9.22,3.0,46.0,0.822,0.03,San Francisco 49ers
+401772622,2025-12-25,17,Kansas City Chiefs,Denver Broncos,21.7,23.6,-1.9,45.4,3.64,4.15,2.91,7.24,0.0,45.0,0.819,0.24,Denver Broncos
+401772710,2025-12-25,17,Washington Commanders,Dallas Cowboys,22.8,24.1,-1.3,46.9,3.95,4.67,2.7,8.21,0.0,45.0,0.828,0.32,Dallas Cowboys
+401772711,2025-12-25,17,Minnesota Vikings,Detroit Lions,25.3,26.2,-0.9,51.5,4.65,5.43,3.43,9.51,0.0,45.0,0.796,0.41,Detroit Lions
+401772951,2025-12-27,17,Los Angeles Chargers,Houston Texans,24.2,28.0,-3.7,52.2,4.08,4.96,2.96,8.58,0.0,45.0,0.817,0.1,Houston Texans
+401772953,2025-12-27,17,Green Bay Packers,Baltimore Ravens,23.8,23.6,0.1,47.4,4.78,4.99,3.01,9.29,0.0,45.0,0.815,0.52,Green Bay Packers
+401772807,2025-12-28,17,Cleveland Browns,Pittsburgh Steelers,22.7,24.3,-1.6,47.0,4.08,4.88,2.9,8.52,0.0,45.0,0.82,0.27,Pittsburgh Steelers
+401772808,2025-12-28,17,New York Jets,New England Patriots,21.8,20.7,1.1,42.6,4.58,5.09,3.13,9.17,0.0,45.0,0.809,0.64,New York Jets
+401772809,2025-12-28,17,Tennessee Titans,New Orleans Saints,25.0,24.3,0.6,49.3,4.86,5.23,3.04,9.63,0.0,45.0,0.813,0.6,Tennessee Titans
+401772915,2025-12-28,17,Indianapolis Colts,Jacksonville Jaguars,22.3,26.5,-4.2,48.8,4.5,5.5,3.26,9.5,0.0,45.0,0.803,0.08,Jacksonville Jaguars
+401772916,2025-12-28,17,Miami Dolphins,Tampa Bay Buccaneers,23.2,24.4,-1.2,47.6,4.25,5.39,3.15,9.18,0.0,45.0,0.808,0.33,Tampa Bay Buccaneers
+401772917,2025-12-28,17,Buffalo Bills,Philadelphia Eagles,23.5,28.5,-5.0,52.0,4.06,5.58,3.16,9.23,0.0,45.0,0.808,0.06,Philadelphia Eagles
+401772935,2025-12-28,17,San Francisco 49ers,Chicago Bears,26.0,25.3,0.7,51.3,4.66,4.75,3.24,8.84,0.0,45.0,0.804,0.59,San Francisco 49ers
+401772950,2025-12-28,17,Las Vegas Raiders,New York Giants,26.7,29.0,-2.4,55.7,3.93,5.32,3.55,8.65,0.0,45.0,0.79,0.28,New York Giants
+401772952,2025-12-28,17,Carolina Panthers,Seattle Seahawks,23.7,26.9,-3.2,50.5,4.13,4.77,2.65,8.52,0.0,45.0,0.831,0.11,Seattle Seahawks
+401772954,2025-12-28,17,Cincinnati Bengals,Arizona Cardinals,23.5,25.5,-1.9,49.0,4.68,5.59,3.22,9.8,0.0,45.0,0.805,0.3,Arizona Cardinals
+401772825,2025-12-29,17,Atlanta Falcons,Los Angeles Rams,23.2,24.9,-1.7,48.1,4.53,5.31,2.94,9.42,0.0,45.0,0.818,0.28,Los Angeles Rams
+401772955,2026-01-04,18,Los Angeles Rams,Arizona Cardinals,25.9,22.4,3.5,48.3,5.66,4.47,3.73,9.5,-4.0,45.5,0.782,0.83,Los Angeles Rams
+401772956,2026-01-04,18,Denver Broncos,Los Angeles Chargers,22.5,26.0,-3.5,48.5,4.09,5.01,3.38,8.49,-2.5,42.5,0.798,0.16,Los Angeles Chargers
+401772957,2026-01-04,18,Las Vegas Raiders,Kansas City Chiefs,25.9,31.1,-5.2,57.0,4.68,6.71,3.38,11.06,6.0,45.0,0.798,0.04,Kansas City Chiefs
+401772958,2026-01-04,18,New England Patriots,Miami Dolphins,24.6,23.1,1.5,47.8,5.03,4.63,3.61,8.97,-2.5,45.0,0.787,0.61,New England Patriots
+401772959,2026-01-04,18,Philadelphia Eagles,Washington Commanders,25.3,24.8,0.5,50.1,4.83,5.54,3.71,9.71,-4.5,45.0,0.783,0.56,Philadelphia Eagles
+401772960,2026-01-04,18,Pittsburgh Steelers,Baltimore Ravens,25.0,26.2,-1.2,51.2,4.43,4.88,2.9,8.86,4.5,45.0,0.819,0.33,Baltimore Ravens
+401772961,2026-01-04,18,San Francisco 49ers,Seattle Seahawks,24.9,23.4,1.4,48.3,4.82,4.81,3.37,9.02,-4.5,44.5,0.798,0.67,San Francisco 49ers
+401772962,2026-01-04,18,Houston Texans,Indianapolis Colts,23.8,24.3,-0.5,48.2,5.1,4.98,2.88,9.65,-4.5,45.0,0.82,0.5,Indianapolis Colts
+401772963,2026-01-04,18,New York Giants,Dallas Cowboys,22.0,23.5,-1.5,45.5,3.77,4.4,2.67,7.74,1.5,45.0,0.83,0.29,Dallas Cowboys
+401772964,2026-01-04,18,Cincinnati Bengals,Cleveland Browns,24.2,24.6,-0.3,48.8,4.57,5.36,3.42,9.36,-8.8,43.5,0.796,0.48,Cleveland Browns
+401772965,2026-01-04,18,Chicago Bears,Detroit Lions,24.8,27.8,-3.0,52.6,4.72,5.49,3.45,9.64,1.5,45.0,0.795,0.17,Detroit Lions
+401772966,2026-01-04,18,Atlanta Falcons,New Orleans Saints,23.4,22.8,0.6,46.2,4.68,4.6,3.24,8.69,-4.5,45.0,0.804,0.57,Atlanta Falcons
+401772967,2026-01-04,18,Buffalo Bills,New York Jets,20.5,21.4,-0.9,41.9,4.05,4.94,3.07,8.49,-9.5,45.0,0.812,0.37,New York Jets
+401772968,2026-01-04,18,Minnesota Vikings,Green Bay Packers,25.5,28.8,-3.3,54.3,4.91,6.25,3.24,10.77,1.2,44.5,0.804,0.18,Green Bay Packers
+401772969,2026-01-04,18,Tampa Bay Buccaneers,Carolina Panthers,25.1,24.2,0.9,49.3,4.25,5.24,3.29,8.96,-7.0,46.5,0.802,0.6,Tampa Bay Buccaneers
+401772970,2026-01-04,18,Jacksonville Jaguars,Tennessee Titans,23.9,21.0,2.9,44.9,4.69,4.1,3.49,8.1,-4.5,43.5,0.793,0.74,Jacksonville Jaguars
