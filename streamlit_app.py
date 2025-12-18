@@ -228,33 +228,64 @@ def get_predictions_from_db(week: int, sport: str = 'CFB', season: int = 2025):
         db_path = 'nfl_games.db' if sport.upper() == 'NFL' else 'cfb_games.db'
         conn = sqlite3.connect(db_path)
 
-        # Get all games with predictions and odds (LEFT JOIN so games without predictions are included)
-        query = """
-            SELECT
-                g.game_id,
-                g.date,
-                g.week,
-                g.season,
-                ht.display_name as home_team,
-                at.display_name as away_team,
-                g.completed as game_completed,
-                g.home_score as actual_home_score,
-                g.away_score as actual_away_score,
-                o.predicted_home_score,
-                o.predicted_away_score,
-                (o.predicted_home_score - o.predicted_away_score) as predicted_spread,
-                (o.predicted_home_score + o.predicted_away_score) as predicted_total,
-                o.confidence,
-                COALESCE(o.latest_spread, o.opening_spread) as vegas_spread,
-                COALESCE(o.latest_total, o.opening_total) as vegas_total,
-                g.postseason_type
-            FROM games g
-            JOIN teams ht ON g.home_team_id = ht.team_id
-            JOIN teams at ON g.away_team_id = at.team_id
-            LEFT JOIN odds_and_predictions o ON g.game_id = o.game_id
-            WHERE g.week = ? AND g.season = ?
-            ORDER BY g.date
-        """
+        # NFL and CFB have slightly different schemas
+        if sport.upper() == 'NFL':
+            # NFL doesn't have confidence column
+            query = """
+                SELECT
+                    g.game_id,
+                    g.date,
+                    g.week,
+                    g.season,
+                    ht.display_name as home_team,
+                    at.display_name as away_team,
+                    g.completed as game_completed,
+                    g.home_score as actual_home_score,
+                    g.away_score as actual_away_score,
+                    o.predicted_home_score,
+                    o.predicted_away_score,
+                    (o.predicted_home_score - o.predicted_away_score) as predicted_spread,
+                    (o.predicted_home_score + o.predicted_away_score) as predicted_total,
+                    NULL as confidence,
+                    COALESCE(o.latest_spread, o.opening_spread) as vegas_spread,
+                    COALESCE(o.latest_total, o.opening_total) as vegas_total,
+                    NULL as postseason_type
+                FROM games g
+                JOIN teams ht ON g.home_team_id = ht.team_id
+                JOIN teams at ON g.away_team_id = at.team_id
+                LEFT JOIN odds_and_predictions o ON g.game_id = o.game_id
+                WHERE g.week = ? AND g.season = ?
+                ORDER BY g.date
+            """
+        else:
+            # CFB has confidence and postseason_type
+            query = """
+                SELECT
+                    g.game_id,
+                    g.date,
+                    g.week,
+                    g.season,
+                    ht.display_name as home_team,
+                    at.display_name as away_team,
+                    g.completed as game_completed,
+                    g.home_score as actual_home_score,
+                    g.away_score as actual_away_score,
+                    o.predicted_home_score,
+                    o.predicted_away_score,
+                    (o.predicted_home_score - o.predicted_away_score) as predicted_spread,
+                    (o.predicted_home_score + o.predicted_away_score) as predicted_total,
+                    o.confidence,
+                    COALESCE(o.latest_spread, o.opening_spread) as vegas_spread,
+                    COALESCE(o.latest_total, o.opening_total) as vegas_total,
+                    g.postseason_type
+                FROM games g
+                JOIN teams ht ON g.home_team_id = ht.team_id
+                JOIN teams at ON g.away_team_id = at.team_id
+                LEFT JOIN odds_and_predictions o ON g.game_id = o.game_id
+                WHERE g.week = ? AND g.season = ?
+                ORDER BY g.date
+            """
+
         df = pd.read_sql_query(query, conn, params=(week, season))
         conn.close()
         return df
