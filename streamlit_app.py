@@ -671,12 +671,18 @@ def display_game_card(row, sport_emoji="🏈"):
     home_team = row['home_team']
     away_team = row['away_team']
 
-    # Model predictions
+    # Model predictions (handle None values from database)
     model_home_score = row.get('predicted_home_score')
     model_away_score = row.get('predicted_away_score')
-    model_spread = row.get('predicted_spread', 0)  # home - away, positive = home favorite
-    model_total = row.get('predicted_total', 0)
-    model_winner = home_team if model_spread > 0 else away_team
+    model_spread = row.get('predicted_spread')
+    model_total = row.get('predicted_total')
+
+    # Handle None spread for games without predictions
+    if model_spread is None or pd.isna(model_spread):
+        model_spread = 0
+        model_winner = None  # No prediction
+    else:
+        model_winner = home_team if model_spread > 0 else away_team
     home_win_prob = row.get('home_win_probability', 0.5)
     confidence = row.get('confidence', 0.5)
 
@@ -797,13 +803,13 @@ def display_game_card(row, sport_emoji="🏈"):
                 st.write("--")
                 st.write("Pending")
 
-        # Comparison tags (only for completed games)
-        if has_result:
+        # Comparison tags (only for completed games with predictions)
+        if has_result and has_prediction:
             st.markdown("---")
             tags = []
 
-            # Winner comparison
-            model_winner_correct = (model_winner == actual_winner)
+            # Winner comparison (only if we have a model prediction)
+            model_winner_correct = (model_winner == actual_winner) if model_winner else False
 
             if has_vegas:
                 vegas_winner_correct = (vegas_winner == actual_winner)
