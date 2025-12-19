@@ -345,14 +345,27 @@ class ESPNOddsScraper:
         conn = sqlite3.connect(self.config['db_path'])
         cursor = conn.cursor()
 
-        # Use game_date_eastern for accurate date filtering
+        # Check if game_date_eastern column exists (NBA/CBB have it, NFL/CFB don't)
+        cursor.execute("PRAGMA table_info(games)")
+        columns = [col[1] for col in cursor.fetchall()]
+        has_eastern_date = 'game_date_eastern' in columns
+
         # Look back N days and forward 3 days to catch upcoming games
-        cursor.execute('''
-            SELECT game_id FROM games
-            WHERE game_date_eastern >= date('now', ?)
-            AND game_date_eastern <= date('now', '+3 days')
-            ORDER BY date
-        ''', (f'-{days} days',))
+        if has_eastern_date:
+            cursor.execute('''
+                SELECT game_id FROM games
+                WHERE game_date_eastern >= date('now', ?)
+                AND game_date_eastern <= date('now', '+3 days')
+                ORDER BY date
+            ''', (f'-{days} days',))
+        else:
+            # NFL/CFB use date column directly
+            cursor.execute('''
+                SELECT game_id FROM games
+                WHERE date(date) >= date('now', ?)
+                AND date(date) <= date('now', '+3 days')
+                ORDER BY date
+            ''', (f'-{days} days',))
 
         games = cursor.fetchall()
         conn.close()
