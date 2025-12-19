@@ -60,6 +60,64 @@ def fetch_latest_odds():
         return True
 
 
+def check_missing_vegas_lines(season, week):
+    """
+    Check for games in the specified week missing Vegas lines.
+
+    Returns:
+        Tuple of (games_missing_lines, total_games)
+    """
+    conn = sqlite3.connect('nfl_games.db')
+    cursor = conn.cursor()
+
+    # Find games in this week without Vegas lines
+    cursor.execute('''
+        SELECT g.game_id, g.date,
+               ht.display_name as home_team, at.display_name as away_team,
+               o.latest_spread, o.latest_total
+        FROM games g
+        JOIN teams ht ON g.home_team_id = ht.team_id
+        JOIN teams at ON g.away_team_id = at.team_id
+        LEFT JOIN odds_and_predictions o ON g.game_id = o.game_id
+        WHERE g.season = ? AND g.week = ? AND g.completed = 0
+        ORDER BY g.date
+    ''', (season, week))
+
+    games = cursor.fetchall()
+    conn.close()
+
+    missing_lines = []
+    for game_id, game_date, home, away, spread, total in games:
+        if spread is None or total is None:
+            missing_lines.append({
+                'game_id': game_id,
+                'date': game_date[:10] if game_date else 'Unknown',
+                'matchup': f'{away} @ {home}',
+                'spread': spread,
+                'total': total
+            })
+
+    if missing_lines:
+        logger.warning("=" * 60)
+        logger.warning(f"WARNING: {len(missing_lines)} games missing Vegas lines!")
+        logger.warning("=" * 60)
+        for game in missing_lines:
+            missing = []
+            if game['spread'] is None:
+                missing.append('spread')
+            if game['total'] is None:
+                missing.append('total')
+            logger.warning(f"  {game['date']} - {game['matchup']} - missing: {', '.join(missing)}")
+        logger.warning("")
+        logger.warning("Predictions for these games will use fallback values.")
+        logger.warning("Consider fetching odds before generating predictions.")
+        logger.warning("=" * 60)
+    else:
+        logger.info(f"All {len(games)} Week {week} games have Vegas lines")
+
+    return len(missing_lines), len(games)
+
+
 def generate_predictions(season, week):
     """Generate predictions for current week"""
     logger.info(f"Generating Week {week} predictions...")
@@ -228,6 +286,12 @@ def update_predictions(force_week=None):
     logger.info(f"Season: {season}, Week: {current_week}")
 
     fetch_latest_odds()
+
+    # Check for missing Vegas lines (warn but continue)
+    missing, total = check_missing_vegas_lines(season, current_week)
+    if missing > 0:
+        logger.warning(f"Proceeding with {missing}/{total} games missing lines...")
+
     predictions_df = generate_predictions(season, current_week)
 
     if predictions_df is not None:
