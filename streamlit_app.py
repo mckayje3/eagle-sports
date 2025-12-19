@@ -20,6 +20,51 @@ try:
     FEEDPARSER_AVAILABLE = True
 except ImportError:
     FEEDPARSER_AVAILABLE = False
+# Helper functions for calculating current sports weeks
+def get_current_nfl_week():
+    """Calculate current NFL week based on date"""
+    today = datetime.now()
+    
+    if today.year == 2025:
+        season_start = datetime(2025, 9, 4)
+    else:
+        season_start = datetime(2024, 9, 5)
+    
+    if today < season_start:
+        return 1
+    
+    days_since_start = (today - season_start).days
+    week = (days_since_start // 7) + 1
+    return min(week, 18)
+
+
+def get_current_cfb_week():
+    """Calculate current CFB week based on date"""
+    from datetime import timedelta
+    today = datetime.now()
+    year = today.year
+    
+    def get_season_start(yr):
+        """Find last Saturday of August for a given year"""
+        aug_31 = datetime(yr, 8, 31)
+        days_to_subtract = (aug_31.weekday() - 5) % 7  # Saturday = 5
+        return aug_31 - timedelta(days=days_to_subtract)
+    
+    season_start = get_season_start(year)
+    
+    # Check if we're in previous year's bowl season
+    if today < season_start:
+        if today.month <= 1:
+            season_start = get_season_start(year - 1)
+        else:
+            return 1
+    
+    days_since_start = (today - season_start).days
+    week = (days_since_start // 7) + 1
+    return min(week, 20)  # Cap at week 20 (National Championship)
+
+
+
 
 # Try to import deep-eagle module (with fallback)
 DEEP_EAGLE_AVAILABLE = False
@@ -468,9 +513,9 @@ def show_predictions():
 
     # Show predictions for selected sport
     if selected_sport == "College Football":
-        show_sport_predictions('CFB', max_week=20, default_week=16)
+        show_sport_predictions('CFB', max_week=20, default_week=get_current_cfb_week())
     elif selected_sport == "NFL":
-        show_sport_predictions('NFL', max_week=18, default_week=14)
+        show_sport_predictions('NFL', max_week=18, default_week=get_current_nfl_week())
     elif selected_sport == "NBA":
         show_nba_predictions_live()
     else:
