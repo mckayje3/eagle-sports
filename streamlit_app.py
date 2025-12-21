@@ -632,33 +632,34 @@ def run_cbb_predictions_update(days: int = 7):
 def sync_nfl_predictions_to_cache():
     """Sync NFL predictions from nfl_games.db to users.db prediction_cache"""
     try:
-        # Read from nfl_games.db predictions table
+        # Read from nfl_games.db odds_and_predictions table (authoritative source)
         nfl_conn = sqlite3.connect('nfl_games.db')
         predictions_query = '''
             SELECT
-                p.game_id,
+                o.game_id,
                 g.season,
                 g.week,
                 g.date as game_date,
                 ht.display_name as home_team,
                 at.display_name as away_team,
-                p.pred_spread as predicted_spread,
-                p.pred_total as predicted_total,
-                p.pred_home_score as predicted_home_score,
-                p.pred_away_score as predicted_away_score,
-                p.pred_home_win_prob as home_win_probability,
-                p.pred_home_win_prob as confidence,
-                p.vegas_spread,
-                p.vegas_total,
-                p.spread_edge,
+                (o.predicted_away_score - o.predicted_home_score) as predicted_spread,
+                (o.predicted_home_score + o.predicted_away_score) as predicted_total,
+                o.predicted_home_score,
+                o.predicted_away_score,
+                0.5 as home_win_probability,
+                0.5 as confidence,
+                COALESCE(o.latest_spread, o.opening_spread) as vegas_spread,
+                COALESCE(o.latest_total, o.opening_total) as vegas_total,
+                NULL as spread_edge,
                 g.completed as game_completed,
                 g.home_score as actual_home_score,
                 g.away_score as actual_away_score
-            FROM predictions p
-            JOIN games g ON p.game_id = g.game_id
+            FROM odds_and_predictions o
+            JOIN games g ON o.game_id = g.game_id
             JOIN teams ht ON g.home_team_id = ht.team_id
             JOIN teams at ON g.away_team_id = at.team_id
             WHERE g.date >= date('now', '-7 days')
+            AND o.predicted_home_score IS NOT NULL
             ORDER BY g.week, g.date
         '''
         predictions_df = pd.read_sql_query(predictions_query, nfl_conn)
