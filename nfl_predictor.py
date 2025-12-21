@@ -229,6 +229,11 @@ class NFLPredictor:
         features['odds_latest_ml_home'] = odds.get('latest_ml_home', 0)
         features['odds_opening_ml_away'] = odds.get('opening_ml_away', 0)
         features['odds_latest_ml_away'] = odds.get('latest_ml_away', 0)
+        # Line movement features
+        features['odds_spread_movement'] = odds.get('spread_movement', 0)
+        features['odds_total_movement'] = odds.get('total_movement', 0)
+        features['odds_spread_movement_abs'] = odds.get('spread_movement_abs', 0)
+        features['odds_total_movement_abs'] = odds.get('total_movement_abs', 0)
 
         # Store warnings in features for later retrieval
         features['_warnings'] = warnings
@@ -368,7 +373,9 @@ class NFLPredictor:
                 opening_moneyline_home,
                 latest_moneyline_home,
                 opening_moneyline_away,
-                latest_moneyline_away
+                latest_moneyline_away,
+                spread_movement,
+                total_movement
             FROM odds_and_predictions WHERE game_id = ?
             ORDER BY updated_at DESC LIMIT 1
         ''', (game_id,))
@@ -380,6 +387,8 @@ class NFLPredictor:
                 'opening_total': 45, 'latest_total': 45,
                 'opening_ml_home': -110, 'latest_ml_home': -110,
                 'opening_ml_away': -110, 'latest_ml_away': -110,
+                'spread_movement': 0, 'total_movement': 0,
+                'spread_movement_abs': 0, 'total_movement_abs': 0,
                 '_missing_odds': True
             }
 
@@ -387,15 +396,28 @@ class NFLPredictor:
         has_spread = row[0] is not None or row[1] is not None
         has_total = row[2] is not None or row[3] is not None
 
+        # Calculate movement from opening to latest
+        opening_spread = row[0] or 0
+        latest_spread = row[1] or row[0] or 0
+        opening_total = row[2] or 45
+        latest_total = row[3] or row[2] or 45
+
+        spread_movement = row[8] if row[8] is not None else (latest_spread - opening_spread)
+        total_movement = row[9] if row[9] is not None else (latest_total - opening_total)
+
         return {
-            'opening_spread': row[0] or 0,
-            'latest_spread': row[1] or row[0] or 0,
-            'opening_total': row[2] or 45,
-            'latest_total': row[3] or row[2] or 45,
+            'opening_spread': opening_spread,
+            'latest_spread': latest_spread,
+            'opening_total': opening_total,
+            'latest_total': latest_total,
             'opening_ml_home': row[4] or -110,
             'latest_ml_home': row[5] or row[4] or -110,
             'opening_ml_away': row[6] or -110,
             'latest_ml_away': row[7] or row[6] or -110,
+            'spread_movement': spread_movement,
+            'total_movement': total_movement,
+            'spread_movement_abs': abs(spread_movement),
+            'total_movement_abs': abs(total_movement),
             '_missing_odds': not (has_spread and has_total)
         }
 

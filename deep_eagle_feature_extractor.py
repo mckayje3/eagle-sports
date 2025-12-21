@@ -3,9 +3,37 @@ Deep Eagle Feature Extractor
 Comprehensive feature extraction from all database tables:
 - games
 - team_game_stats
-- game_odds
+- odds_and_predictions
 - spread_movement, total_movement, moneyline_movement columns in game_odds
-- drives (NEW)
+- drives
+
+IMPORTANT - DATA LEAKAGE PREVENTION:
+=====================================
+This extractor outputs TWO types of columns:
+
+1. TARGET COLUMNS (actual game results - DO NOT use as training features):
+   - home_score, away_score: The actual final scores (prediction targets)
+   - point_spread: Calculated from actual scores (away_score - home_score)
+   - total_points: Calculated from actual scores (home_score + away_score)
+   - home_win: Binary indicator of actual winner
+
+2. FEATURE COLUMNS (safe to use for training):
+   - Historical stats (home_hist_*, away_hist_*): From PREVIOUS games only (week < current)
+   - Drive stats (home_drive_*, away_drive_*): From PREVIOUS games only (week < current)
+   - Vegas odds (odds_*): Pre-game betting lines for THIS game
+   - Game context: neutral_site, conference_game, temperature, etc.
+   - Differentials: Calculated from historical stats
+
+The target columns are included in the output CSV for convenience (so you can
+evaluate model performance), but train_deep_eagle_<sport>.py EXCLUDES them from features.
+
+When adding new features, ask: "Would I know this BEFORE the game starts?"
+- YES → Safe to use as a feature
+- NO  → This is a target/leakage column, must be excluded from training
+
+Usage:
+    py deep_eagle_feature_extractor.py <sport> <db_path> <season> [output_path]
+    py deep_eagle_feature_extractor.py cfb cfb_games.db 2025 cfb_2025_features.csv
 """
 import sqlite3
 import pandas as pd
@@ -91,12 +119,15 @@ class DeepEagleFeatureExtractor:
             'away_team_id': game['away_team_id'],
         }
 
-        # Target variables
+        # TARGET VARIABLES - actual game results
+        # WARNING: These are included for evaluation purposes only!
+        # They must be EXCLUDED from training features in train_deep_eagle_<sport>.py
+        # Using these as features would be DATA LEAKAGE (model sees the answer)
         features['home_score'] = game['home_score']
         features['away_score'] = game['away_score']
-        features['point_spread'] = game['home_score'] - game['away_score']
-        features['total_points'] = game['home_score'] + game['away_score']
-        features['home_win'] = 1 if game['home_score'] > game['away_score'] else 0
+        features['point_spread'] = game['away_score'] - game['home_score']  # LEAKAGE if used as feature!
+        features['total_points'] = game['home_score'] + game['away_score']  # LEAKAGE if used as feature!
+        features['home_win'] = 1 if game['home_score'] > game['away_score'] else 0  # LEAKAGE if used as feature!
 
         # Game context
         features['neutral_site'] = game['neutral_site']
@@ -134,17 +165,17 @@ class DeepEagleFeatureExtractor:
             features[f'away_drive_{key}'] = value
 
         # Calculate matchup differentials
-        features['ppg_differential'] = home_hist.get('ppg', 0) - away_hist.get('ppg', 0)
-        features['papg_differential'] = home_hist.get('papg', 0) - away_hist.get('papg', 0)
-        features['win_pct_differential'] = home_hist.get('win_pct', 0) - away_hist.get('win_pct', 0)
-        features['ppd_differential'] = home_drive_stats.get('ppd', 0) - away_drive_stats.get('ppd', 0)
-        features['scoring_pct_differential'] = home_drive_stats.get('scoring_pct', 0) - away_drive_stats.get('scoring_pct', 0)
+        features['ppg_differential'] = away_hist.get('ppg', 0) - home_hist.get('ppg', 0)
+        features['papg_differential'] = away_hist.get('papg', 0) - home_hist.get('papg', 0)
+        features['win_pct_differential'] = away_hist.get('win_pct', 0) - home_hist.get('win_pct', 0)
+        features['ppd_differential'] = away_drive_stats.get('ppd', 0) - home_drive_stats.get('ppd', 0)
+        features['scoring_pct_differential'] = away_drive_stats.get('scoring_pct', 0) - home_drive_stats.get('scoring_pct', 0)
 
         # NEW: Home/away venue-adjusted differentials
         # For home team: use their home_ppg vs away team's away_ppg (how they perform in this venue)
         # This is the KEY feature that captures home field advantage
-        features['venue_ppg_differential'] = home_hist.get('home_ppg', 0) - away_hist.get('away_ppg', 0)
-        features['venue_win_pct_differential'] = home_hist.get('home_win_pct', 0) - away_hist.get('away_win_pct', 0)
+        features['venue_ppg_differential'] = away_hist.get('away_ppg', 0) - home_hist.get('home_ppg', 0)
+        features['venue_win_pct_differential'] = away_hist.get('away_win_pct', 0) - home_hist.get('home_win_pct', 0)
 
         # Combined home field advantage signal
         # Positive = home team has venue advantage
@@ -275,8 +306,8 @@ class DeepEagleFeatureExtractor:
         away_papg = away_result.iloc[0]['away_papg'] if not away_result.empty and pd.notna(away_result.iloc[0]['away_papg']) else 0
         away_win_pct = away_result.iloc[0]['away_win_pct'] if not away_result.empty and pd.notna(away_result.iloc[0]['away_win_pct']) else 0
 
-        # Calculate home/away differential (positive = team scores more at home)
-        home_away_ppg_diff = home_ppg - away_ppg if home_games > 0 and away_games > 0 else 0
+        # Calculate home/away differential (negative = team scores more at home)
+        home_away_ppg_diff = away_ppg - home_ppg if home_games > 0 and away_games > 0 else 0
 
         result = {
             'games_played': ppg_result.iloc[0]['games_played'],
@@ -303,7 +334,6 @@ class DeepEagleFeatureExtractor:
         """Get betting odds for the game
 
         Uses 'latest' odds concept to avoid train/test skew:
-        - For completed games: uses current or opening odds (NOT closing - that's leakage)
         - For upcoming games: uses current odds (freshly scraped before prediction)
 
         This ensures training and prediction see similar data distributions.
@@ -313,9 +343,9 @@ class DeepEagleFeatureExtractor:
             SELECT
                 opening_spread, latest_spread,
                 opening_total, latest_total,
-                opening_moneyline, latest_moneyline,
+                opening_moneyline_home, latest_moneyline_home,
                 spread_movement, total_movement, moneyline_movement
-            FROM game_odds
+            FROM odds_and_predictions
             WHERE game_id = ?
             ORDER BY updated_at DESC
             LIMIT 1
@@ -337,19 +367,32 @@ class DeepEagleFeatureExtractor:
         # Use latest values, fall back to opening
         latest_spread = row['latest_spread'] if pd.notna(row['latest_spread']) else (row['opening_spread'] if pd.notna(row['opening_spread']) else 0)
         latest_total = row['latest_total'] if pd.notna(row['latest_total']) else (row['opening_total'] if pd.notna(row['opening_total']) else 0)
-        latest_ml = row['latest_moneyline'] if pd.notna(row['latest_moneyline']) else (row['opening_moneyline'] if pd.notna(row['opening_moneyline']) else 0)
+        latest_ml = row['latest_moneyline_home'] if pd.notna(row['latest_moneyline_home']) else (row['opening_moneyline_home'] if pd.notna(row['opening_moneyline_home']) else 0)
+
+        # Calculate movement from opening to latest (NEW: line movement features)
+        spread_movement = row['spread_movement'] if pd.notna(row['spread_movement']) else 0
+        total_movement = row['total_movement'] if pd.notna(row['total_movement']) else 0
+
+        # If movement columns are 0 but we have both opening and latest, calculate manually
+        if spread_movement == 0 and pd.notna(row['opening_spread']) and pd.notna(row['latest_spread']):
+            spread_movement = row['latest_spread'] - row['opening_spread']
+        if total_movement == 0 and pd.notna(row['opening_total']) and pd.notna(row['latest_total']):
+            total_movement = row['latest_total'] - row['opening_total']
 
         return {
             'opening_spread': row['opening_spread'] if pd.notna(row['opening_spread']) else 0,
             'latest_spread': latest_spread,
             'opening_total': row['opening_total'] if pd.notna(row['opening_total']) else 0,
             'latest_total': latest_total,
-            'opening_ml_home': row['opening_moneyline'] if pd.notna(row['opening_moneyline']) else 0,
+            'opening_ml_home': row['opening_moneyline_home'] if pd.notna(row['opening_moneyline_home']) else 0,
             'latest_ml_home': latest_ml,
             'opening_ml_away': 0,  # Simplified schema doesn't track away ML separately
             'latest_ml_away': 0,
-            'spread_movement': row['spread_movement'] if pd.notna(row['spread_movement']) else 0,
-            'total_movement': row['total_movement'] if pd.notna(row['total_movement']) else 0,
+            'spread_movement': spread_movement,
+            'total_movement': total_movement,
+            # NEW: Magnitude and direction of movement (for model to learn from)
+            'spread_movement_abs': abs(spread_movement),
+            'total_movement_abs': abs(total_movement),
         }
 
     def _get_drive_stats(self, team_id, season, current_week):
@@ -458,7 +501,7 @@ if __name__ == '__main__':
 
     if len(sys.argv) < 4:
         print("Usage: py deep_eagle_feature_extractor.py <sport> <db_path> <season> [output_path]")
-        print("Example: py deep_eagle_feature_extractor.py cfb cfb_games.db 2024 cfb_2024_features.csv")
+        print("Example: py deep_eagle_feature_extractor.py cfb cfb_games.db 2025 cfb_2025_features.csv")
         sys.exit(1)
 
     sport = sys.argv[1]
