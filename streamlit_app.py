@@ -13,6 +13,7 @@ import subprocess
 import os
 import requests
 from timezone_utils import now_eastern, today_eastern
+from betting_tracker import BettingTracker
 
 # Try to import feedparser for RSS feeds
 try:
@@ -488,6 +489,52 @@ def show_overview(user, db_stats):
 
     st.dataframe(display_df, use_container_width=True, hide_index=True)
 
+    # Today's Top Betting Picks
+    st.markdown("---")
+    st.markdown("### Today's Top Picks")
+
+    try:
+        tracker = BettingTracker()
+        recs = tracker.get_recommendations(status='pending')
+
+        if recs.empty:
+            st.info("No betting recommendations available. Generate predictions first.")
+        else:
+            # Filter to high-value picks (2+ units)
+            top_picks = recs[recs['recommended_units'] >= 2].head(6)
+
+            if top_picks.empty:
+                st.caption("No high-confidence picks today. Check Betting Tracker for all recommendations.")
+            else:
+                # Display in 2 columns
+                cols = st.columns(2)
+                for idx, (_, pick) in enumerate(top_picks.iterrows()):
+                    with cols[idx % 2]:
+                        # Deviation badge color
+                        dev = abs(pick['spread_deviation'])
+                        if dev >= 7:
+                            badge = "🟢"
+                        elif dev >= 5:
+                            badge = "🟡"
+                        else:
+                            badge = "🟠"
+
+                        direction = pick['deviation_direction'].replace('_BIAS', '')
+                        units = int(pick['recommended_units'])
+                        wr = pick['expected_win_rate'] * 100
+
+                        st.markdown(f"""
+                        **{pick['sport']}** {badge} {units}u | {wr:.0f}% WR
+                        {pick['away_team']} @ {pick['home_team']}
+                        Take **{direction}** ({dev:.1f} pt edge)
+                        """)
+
+                st.caption(f"Showing top {len(top_picks)} picks. [View all →](#) in Betting Tracker")
+
+    except Exception as e:
+        st.caption(f"Betting tracker not available: {e}")
+
+
 def show_predictions():
     """Show predictions page with CFB, NFL, and NBA tabs"""
     st.markdown('<p class="main-header">View Predictions</p>', unsafe_allow_html=True)
@@ -778,13 +825,30 @@ def display_game_card(row, sport_emoji="🏈"):
             return "NL"
         return f"{spread_val:+.1f}"
 
-    # Build the expander title with postseason type if applicable
+    # Build the expander title with postseason type and recommendation badge
     conf_pct = (confidence if confidence else 0.5) * 100
     postseason_type = row.get('postseason_type', '')
+
+    # Add recommendation badge if significant deviation from Vegas
+    rec_badge = ""
+    if has_vegas and model_spread is not None and not pd.isna(model_spread):
+        # Model spread is home - away, Vegas spread is in Vegas convention
+        # Convert model to Vegas convention (negate) then compare
+        model_spread_vegas = -model_spread
+        deviation = model_spread_vegas - vegas_spread
+        abs_dev = abs(deviation)
+
+        if abs_dev >= 7:
+            rec_badge = " 🟢"  # Strong edge
+        elif abs_dev >= 5:
+            rec_badge = " 🟡"  # Moderate edge
+        elif abs_dev >= 3:
+            rec_badge = " 🟠"  # Mild edge
+
     if postseason_type and pd.notna(postseason_type):
-        title = f"{sport_emoji} [{postseason_type}] {away_team} @ {home_team}"
+        title = f"{sport_emoji} [{postseason_type}] {away_team} @ {home_team}{rec_badge}"
     else:
-        title = f"{sport_emoji} {away_team} @ {home_team}"
+        title = f"{sport_emoji} {away_team} @ {home_team}{rec_badge}"
 
     with st.expander(title, expanded=False):
         # Create 4 columns: Metric | Model | Vegas | Result
@@ -847,6 +911,38 @@ def display_game_card(row, sport_emoji="🏈"):
                 st.write("--")
                 st.write("--")
                 st.write("Pending")
+
+        # Confidence Intervals (if available)
+        spread_moe = row.get('predicted_spread_MOE') or row.get('spread_moe')
+        if spread_moe is not None and not pd.isna(spread_moe) and has_prediction:
+            st.markdown("---")
+            st.caption("**Confidence Intervals (Model Spread)**")
+            # Model spread in Vegas convention (negated)
+            model_spread_vegas = -model_spread if model_spread else 0
+            ci_68_low = model_spread_vegas - spread_moe
+            ci_68_high = model_spread_vegas + spread_moe
+            ci_95_low = model_spread_vegas - 2 * spread_moe
+            ci_95_high = model_spread_vegas + 2 * spread_moe
+
+            col1, col2 = st.columns(2)
+            with col1:
+                st.write(f"68% CI: {ci_68_low:+.1f} to {ci_68_high:+.1f}")
+            with col2:
+                st.write(f"95% CI: {ci_95_low:+.1f} to {ci_95_high:+.1f}")
+
+            # Vegas deviation indicator
+            if has_vegas:
+                deviation = model_spread_vegas - vegas_spread
+                if abs(deviation) >= 7:
+                    dev_icon = "🟢"
+                elif abs(deviation) >= 5:
+                    dev_icon = "🟡"
+                elif abs(deviation) >= 3:
+                    dev_icon = "🟠"
+                else:
+                    dev_icon = "⚪"
+                direction = "HOME" if deviation < 0 else "AWAY"
+                st.write(f"{dev_icon} Vegas Deviation: {abs(deviation):.1f} pts ({direction} bias)")
 
         # Comparison tags (only for completed games with predictions)
         if has_result and has_prediction:
@@ -2666,6 +2762,337 @@ def show_model_insights():
 
 
 # ============================================================================
+# Betting Tracker Page
+# ============================================================================
+
+def show_betting_tracker():
+    """Display betting tracker page with recommendations, bets, and performance"""
+    st.markdown('<p class="main-header">Betting Tracker</p>', unsafe_allow_html=True)
+
+    tracker = BettingTracker()
+
+    # Create tabs
+    tab1, tab2, tab3, tab4 = st.tabs(["Recommendations", "My Bets", "Performance", "Settings"])
+
+    # Tab 1: Recommendations
+    with tab1:
+        show_betting_recommendations(tracker)
+
+    # Tab 2: My Bets
+    with tab2:
+        show_placed_bets_tab(tracker)
+
+    # Tab 3: Performance
+    with tab3:
+        show_betting_performance(tracker)
+
+    # Tab 4: Settings
+    with tab4:
+        show_betting_settings(tracker)
+
+
+def show_betting_recommendations(tracker):
+    """Show current betting recommendations"""
+    st.subheader("Current Recommendations")
+
+    # Filters
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        sport_filter = st.selectbox("Sport", ["All", "NFL", "CFB", "NBA", "CBB"], key="rec_sport")
+    with col2:
+        min_units = st.selectbox("Min Units", [1, 2, 3], key="rec_units")
+    with col3:
+        if st.button("Refresh Recommendations"):
+            results = tracker.generate_and_save_all()
+            total = sum(r.get('saved', 0) for r in results.values() if 'saved' in r)
+            st.success(f"Generated {total} new recommendations")
+
+    # Get recommendations
+    recs = tracker.get_recommendations(
+        sport=sport_filter if sport_filter != "All" else None,
+        status='pending'
+    )
+
+    if recs.empty:
+        st.info("No pending recommendations. Click 'Refresh Recommendations' to generate new ones.")
+        return
+
+    # Filter by min units
+    recs = recs[recs['recommended_units'] >= min_units]
+
+    if recs.empty:
+        st.info(f"No recommendations with {min_units}+ units.")
+        return
+
+    st.caption(f"Showing {len(recs)} recommendations")
+
+    # Display each recommendation as a card
+    for _, rec in recs.iterrows():
+        with st.container():
+            # Header row
+            col1, col2, col3 = st.columns([2, 1, 1])
+
+            with col1:
+                st.markdown(f"**{rec['away_team']} @ {rec['home_team']}**")
+                st.caption(f"{rec['sport']} | {rec['game_date'][:10] if rec['game_date'] else 'TBD'}")
+
+            with col2:
+                # Deviation badge
+                deviation = rec['spread_deviation']
+                direction = rec['deviation_direction'].replace('_BIAS', '')
+                if abs(deviation) >= 7:
+                    badge_color = "🟢"  # Strong
+                elif abs(deviation) >= 5:
+                    badge_color = "🟡"  # Moderate
+                else:
+                    badge_color = "🟠"  # Weak
+
+                st.markdown(f"{badge_color} **{direction}** {abs(deviation):.1f} pts")
+
+            with col3:
+                # Units and expected WR
+                units = int(rec['recommended_units'])
+                wr = rec['expected_win_rate'] * 100
+                st.markdown(f"**{units} unit{'s' if units > 1 else ''}** ({wr:.0f}% WR)")
+
+            # Spread comparison
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Model Spread", f"{rec['model_spread']:+.1f}")
+            with col2:
+                st.metric("Vegas Spread", f"{rec['vegas_spread']:+.1f}")
+            with col3:
+                # Confidence intervals
+                if pd.notna(rec.get('spread_moe')):
+                    moe = rec['spread_moe']
+                    st.caption(f"68% CI: {rec['model_spread']-moe:+.1f} to {rec['model_spread']+moe:+.1f}")
+                else:
+                    st.caption("No CI available")
+
+            # Log bet button
+            col1, col2 = st.columns([3, 1])
+            with col2:
+                if st.button(f"Log Bet", key=f"log_{rec['id']}"):
+                    bet_id = tracker.log_bet(
+                        recommendation_id=rec['id'],
+                        bet_side=rec['recommended_side']
+                    )
+                    st.success(f"Bet logged! ID: {bet_id}")
+                    st.rerun()
+
+            st.markdown("---")
+
+
+def show_placed_bets_tab(tracker):
+    """Show placed bets and allow manual bet entry"""
+    st.subheader("My Bets")
+
+    # Filters
+    col1, col2 = st.columns(2)
+    with col1:
+        sport_filter = st.selectbox("Sport", ["All", "NFL", "CFB", "NBA", "CBB"], key="bets_sport")
+    with col2:
+        outcome_filter = st.selectbox("Outcome", ["All", "PENDING", "WIN", "LOSS", "PUSH"], key="bets_outcome")
+
+    # Update results button
+    if st.button("Update Results"):
+        results = tracker.update_results()
+        st.success(f"Updated: {results['wins']} W, {results['losses']} L, {results['pushes']} P")
+
+    # Get bets
+    bets = tracker.get_placed_bets(
+        sport=sport_filter if sport_filter != "All" else None,
+        outcome=outcome_filter if outcome_filter != "All" else None
+    )
+
+    if bets.empty:
+        st.info("No bets logged yet.")
+    else:
+        st.caption(f"Showing {len(bets)} bets")
+
+        # Summary stats for completed bets
+        completed = bets[bets['outcome'] != 'PENDING']
+        if not completed.empty:
+            wins = len(completed[completed['outcome'] == 'WIN'])
+            losses = len(completed[completed['outcome'] == 'LOSS'])
+            pushes = len(completed[completed['outcome'] == 'PUSH'])
+            profit = completed['profit_units'].sum()
+
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Record", f"{wins}-{losses}-{pushes}")
+            with col2:
+                wr = wins / (wins + losses) * 100 if (wins + losses) > 0 else 0
+                st.metric("Win Rate", f"{wr:.1f}%")
+            with col3:
+                st.metric("Profit", f"{profit:+.2f} units")
+            with col4:
+                roi = tracker.calculate_roi(wins, losses, pushes)
+                st.metric("ROI", f"{roi:+.1f}%")
+
+        # Display bets as table
+        display_cols = ['sport', 'bet_side', 'line_at_bet', 'units', 'outcome', 'profit_units', 'placed_at']
+        available_cols = [c for c in display_cols if c in bets.columns]
+        st.dataframe(bets[available_cols], use_container_width=True)
+
+    # Manual bet entry
+    st.markdown("---")
+    st.subheader("Add Manual Bet")
+
+    with st.form("manual_bet_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            sport = st.selectbox("Sport", ["NFL", "CFB", "NBA", "CBB"], key="manual_sport")
+            bet_side = st.selectbox("Side", ["HOME", "AWAY"], key="manual_side")
+            line = st.number_input("Line", value=0.0, step=0.5, key="manual_line")
+        with col2:
+            game_id = st.number_input("Game ID (optional)", value=0, step=1, key="manual_gameid")
+            units = st.number_input("Units", value=1.0, min_value=0.5, max_value=10.0, step=0.5, key="manual_units")
+            odds = st.number_input("Odds", value=-110, step=5, key="manual_odds")
+
+        if st.form_submit_button("Add Bet"):
+            if game_id > 0:
+                bet_id = tracker.log_bet(
+                    game_id=game_id,
+                    sport=sport,
+                    bet_side=bet_side,
+                    line=line,
+                    units=units,
+                    odds=odds
+                )
+                st.success(f"Bet added! ID: {bet_id}")
+                st.rerun()
+            else:
+                st.error("Please enter a valid Game ID")
+
+
+def show_betting_performance(tracker):
+    """Show betting performance metrics"""
+    st.subheader("Performance Analysis")
+
+    # Overall performance
+    perf = tracker.get_performance()
+
+    if perf['total_bets'] == 0:
+        st.info("No completed bets yet. Place some bets and update results to see performance.")
+        return
+
+    # Overall metrics
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Total Bets", perf['total_bets'])
+    with col2:
+        st.metric("Record", f"{perf['wins']}-{perf['losses']}-{perf['pushes']}")
+    with col3:
+        st.metric("Win Rate", f"{perf['win_rate']:.1%}")
+    with col4:
+        st.metric("ROI", f"{perf['roi']:+.1f}%", delta=f"{perf['total_profit']:+.2f} units")
+
+    st.markdown("---")
+
+    # Performance by sport
+    st.subheader("By Sport")
+    by_sport = tracker.get_performance_by_sport()
+
+    if not by_sport.empty:
+        # Create chart
+        import plotly.graph_objects as go
+
+        fig = go.Figure()
+        fig.add_trace(go.Bar(
+            x=by_sport['sport'],
+            y=by_sport['roi'],
+            text=[f"{r:.1f}%" for r in by_sport['roi']],
+            textposition='auto',
+            marker_color=['green' if r > 0 else 'red' for r in by_sport['roi']]
+        ))
+        fig.update_layout(
+            title="ROI by Sport",
+            yaxis_title="ROI %",
+            showlegend=False,
+            height=300
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Table
+        st.dataframe(by_sport[['sport', 'wins', 'losses', 'pushes', 'win_rate', 'roi', 'total_profit']], use_container_width=True)
+
+    st.markdown("---")
+
+    # Performance by deviation bucket
+    st.subheader("By Deviation Threshold")
+    by_dev = tracker.get_performance_by_deviation()
+
+    if not by_dev.empty:
+        st.dataframe(by_dev, use_container_width=True)
+    else:
+        st.caption("Not enough data for deviation analysis yet.")
+
+
+def show_betting_settings(tracker):
+    """Show and update betting settings"""
+    st.subheader("Settings")
+
+    settings = tracker.get_settings()
+
+    with st.form("settings_form"):
+        unit_size = st.number_input(
+            "Unit Size ($)",
+            value=float(settings['unit_size']),
+            min_value=1.0,
+            step=10.0
+        )
+
+        default_odds = st.number_input(
+            "Default Odds",
+            value=int(settings['default_odds']),
+            step=5
+        )
+
+        min_confidence = st.slider(
+            "Minimum Confidence",
+            min_value=0.0,
+            max_value=1.0,
+            value=float(settings['min_confidence']),
+            step=0.05
+        )
+
+        if st.form_submit_button("Save Settings"):
+            tracker.update_settings(
+                unit_size=unit_size,
+                default_odds=default_odds,
+                min_confidence=min_confidence
+            )
+            st.success("Settings saved!")
+
+    st.markdown("---")
+
+    # Deviation strategy info
+    st.subheader("Deviation Strategies")
+    st.markdown("""
+    **How recommendations are generated:**
+
+    Based on historical analysis of model vs Vegas deviation:
+
+    | Sport | Direction | Min Deviation | Historical Win Rate |
+    |-------|-----------|---------------|---------------------|
+    | CFB   | HOME      | 7+ pts        | 78.8%               |
+    | CFB   | HOME      | 5+ pts        | 73.3%               |
+    | CFB   | HOME      | 3+ pts        | 70.0%               |
+    | NBA   | HOME      | 7+ pts        | 65.5%               |
+    | NBA   | AWAY      | 5+ pts        | 62.5%               |
+    | CBB   | HOME      | 10+ pts       | 75.0%               |
+    | CBB   | HOME      | 7+ pts        | 61.6%               |
+    | NFL   | AWAY      | 5+ pts        | 57.1%               |
+
+    **Unit sizing** is based on confidence and expected win rate:
+    - 3 units: High confidence (>75%) + High win rate (>70%)
+    - 2 units: Medium confidence (60-75%) + Medium win rate (60-70%)
+    - 1 unit: Lower confidence or win rate
+    """)
+
+
+# ============================================================================
 # Main App Logic
 # ============================================================================
 
@@ -2690,7 +3117,7 @@ def main_page():
         if 'current_page' not in st.session_state:
             st.session_state.current_page = "Overview"
 
-        page = st.radio("Navigate", ["Overview", "View Predictions", "News", "Model Insights", "Database Explorer"])
+        page = st.radio("Navigate", ["Overview", "View Predictions", "Betting Tracker", "News", "Model Insights", "Database Explorer"])
         st.session_state.current_page = page
 
         st.markdown("---")
@@ -2712,6 +3139,8 @@ def main_page():
         show_overview(user, db_stats)
     elif st.session_state.current_page == "View Predictions":
         show_predictions()
+    elif st.session_state.current_page == "Betting Tracker":
+        show_betting_tracker()
     elif st.session_state.current_page == "News":
         show_news()
     elif st.session_state.current_page == "Model Insights":

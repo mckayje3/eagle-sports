@@ -288,8 +288,18 @@ def update_predictions(days=7):
     predictions_df = generate_predictions(days)
 
     if predictions_df is not None:
-        # Step 3: Sync to dashboard cache
+        # Step 4: Sync to dashboard cache
         sync_to_cache()
+
+        # Step 5: Generate betting recommendations
+        try:
+            from betting_tracker import BettingTracker
+            tracker = BettingTracker()
+            recs = tracker.generate_recommendations('CBB')
+            saved = tracker.save_recommendations(recs)
+            logger.info(f"Generated {len(recs)} betting recommendations, saved {saved}")
+        except Exception as e:
+            logger.warning(f"Could not generate betting recommendations: {e}")
 
         logger.info("\n" + "="*60)
         logger.info("UPDATE COMPLETE")

@@ -296,6 +296,16 @@ def update_predictions(force_week=None):
         # Sync to dashboard cache
         sync_to_cache()
 
+        # Generate betting recommendations
+        try:
+            from betting_tracker import BettingTracker
+            tracker = BettingTracker()
+            recs = tracker.generate_recommendations('NFL', week=current_week)
+            saved = tracker.save_recommendations(recs)
+            logger.info(f"Generated {len(recs)} betting recommendations, saved {saved}")
+        except Exception as e:
+            logger.warning(f"Could not generate betting recommendations: {e}")
+
         logger.info("=" * 60)
         logger.info("UPDATE COMPLETE")
         logger.info("=" * 60)
