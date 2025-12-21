@@ -1,7 +1,113 @@
-SESSION STATE - December 20, 2025 (Updated - Line Movement Analysis)
+SESSION STATE - December 21, 2025 (Updated - Critical Bug Fixes)
 ==============================================================================
 
-CURRENT SESSION ACCOMPLISHMENTS:
+LATEST SESSION (Dec 21) - CRITICAL BUG FIXES
+==============================================================================
+
+ISSUE 4: NUMPY.INT64 SQLITE INCOMPATIBILITY (MAJOR)
+----------------------------------------------------
+ROOT CAUSE: SQLite doesn't properly handle numpy.int64 types from pandas
+DataFrames. When passing numpy.int64 values to SQL queries, SQLite returns
+no matches even when data exists.
+
+SYMPTOM: Predictions were way off because:
+- NFL: 34.7 avg total vs Vegas 44.8 (should be ~45)
+- CFB: 78+ avg total vs Vegas 51.5 (should be ~50)
+
+All team stats, odds, and drive stats were returning 0/defaults because
+the SQL queries weren't matching any rows.
+
+FIX: Added int() conversion in all predictor SQL methods:
+- nfl_predictor.py: _get_team_stats(), _get_odds()
+- cfb_deep_eagle_predictor.py: _get_team_stats(), _get_drive_stats(), _get_odds()
+
+Example fix:
+    def _get_team_stats(self, conn, team_id, season):
+        # Convert numpy types to native Python (SQLite doesn't handle numpy.int64)
+        team_id = int(team_id)
+        season = int(season)
+        ...
+
+ISSUE 5: CFB SEASON DATA CORRUPTION
+------------------------------------
+649 CFB games from the 2025-26 season were incorrectly labeled as season=2021.
+This caused the predictor to find no games when querying for season=2025.
+
+FIX: Updated cfb_games.db:
+    UPDATE games SET season = 2025 WHERE season = 2021 AND date LIKE '2025%'
+
+ISSUE 6: ODDS MOVEMENT CALCULATION BUG
+--------------------------------------
+When opening_spread or opening_total was NULL, movement was calculated as:
+    movement = latest - 0 = latest (e.g., -7.0 or 44.5)
+
+This caused huge fake "movement" values that threw off predictions.
+
+FIX: Updated both predictors to return movement=0 when opening is missing:
+    if row[0] is not None and row[1] is not None:
+        spread_movement = latest_spread - opening_spread
+    else:
+        spread_movement = 0  # No movement if we don't have opening
+
+ISSUE 7: DATABASE NOT SYNCED WITH CSV PREDICTIONS
+-------------------------------------------------
+The CSV files had correct predictions but the database tables
+(odds_and_predictions, prediction_cache) had stale values.
+Dashboard reads from database, not CSV.
+
+FIX: Manually synced predictions to:
+- nfl_games.db odds_and_predictions table
+- users.db prediction_cache table
+
+==============================================================================
+RESULTS AFTER FIXES
+==============================================================================
+
+NFL Predictions:
+- Before: 34.7 avg total vs Vegas 44.8 (-10.1 diff)
+- After:  45.0 avg total vs Vegas 44.8 (+0.2 diff)
+
+CFB Predictions:
+- Before: 78+ avg total vs Vegas 51.5 (+27 diff)
+- After:  49.1 avg total vs Vegas 51.5 (-2.4 diff)
+
+==============================================================================
+FILES MODIFIED (Dec 21 - Latest Session)
+==============================================================================
+
+nfl_predictor.py:
+- Added int() conversion for team_id, season, game_id
+- Fixed odds movement calculation for missing opening values
+
+cfb_deep_eagle_predictor.py:
+- Added int() conversion for team_id, season, game_id
+- Fixed odds movement calculation for missing opening values
+- Fixed feature names: total_yards_pg -> ypg, turnovers_pg -> turnover_pg
+- Added adjusted_week feature calculation
+- Reduced dropout from 0.3 to 0.1
+
+train_deep_eagle_cfb.py:
+- Reduced dropout from 0.3 to 0.1
+
+cfb_games.db:
+- Fixed 649 games with wrong season (2021 -> 2025)
+
+nfl_games.db:
+- Synced predictions to odds_and_predictions table
+
+users.db:
+- Synced predictions to prediction_cache table
+
+==============================================================================
+GIT COMMITS (Dec 21)
+==============================================================================
+
+1. Fix CFB predictor train/inference mismatch (bfa5f0a)
+2. Fix NFL predictor numpy.int64 SQLite compatibility (1c8f3a0)
+3. Sync NFL predictions to database tables (5cbc613)
+
+==============================================================================
+EARLIER SESSION CONTENT (Dec 20-21)
 ==============================================================================
 
 1. RETRAINED ALL 4 MODELS WITH LINE MOVEMENT FEATURES
@@ -21,15 +127,7 @@ CURRENT SESSION ACCOMPLISHMENTS:
    - CBB: 2.5 pts
    - CFB: 4.0 pts
 
-2. FIXED CFB FEATURE EXTRACTION BUG
-   - deep_eagle_feature_extractor.py line 350: removed ORDER BY updated_at
-   - CFB uses odds_updated_at, NFL uses updated_at - was causing SQL errors
-
-3. BACKFILLED PREDICTIONS FOR NBA AND CBB (2025-26 SEASON)
-   - NBA: 425 completed games now have predictions in odds_and_predictions
-   - CBB: 5,317 completed games now have predictions in odds_and_predictions
-
-4. DEVIATION FROM VEGAS ANALYSIS - CRITICAL FINDINGS
+2. DEVIATION FROM VEGAS ANALYSIS - CRITICAL FINDINGS
 
    Question answered: "When our predictions deviate from Vegas, does the
    actual result move in our direction?"
@@ -63,52 +161,14 @@ CURRENT SESSION ACCOMPLISHMENTS:
    NFL (NO EDGE - TRUST VEGAS):
    - Home bias: 46.7% (worse than random)
    - Away bias: 43.8% (worse than random)
-   - Only exception: Away bias >= 5 pts shows 57.1% (28 games) - small sample
 
-5. NFL vs CFB MODEL COMPARISON
-
-   Why CFB works but NFL doesn't (same 86 features):
-
-   Factor              NFL             CFB
-   --------------------------------------------------------
-   Training games      224             1,143 (5x more)
-   Movement coverage   65%             95%
-   Actual HFA          +2.4 pts        +10.6 pts
-   Vegas implied HFA   +1.8 pts        +14.0 pts (overestimates!)
-   Score variance      std=10 pts      std=15 pts
-
-   KEY INSIGHT: Vegas has NFL perfectly calibrated. In CFB, Vegas
-   OVERESTIMATES home field advantage, and our model identifies when
-   the home team will outperform that expectation.
+3. DATA LEAKAGE FIXES (Dec 21 morning)
+   - Fixed combined_home_advantage formula mismatch in nfl_predictor.py
+   - Added NFL-specific features (day_of_week, rest_days, recent_form)
+   - Reduced dropout from 0.3 to 0.1 to fix eval/train mode prediction gap
 
 ==============================================================================
-FILES MODIFIED/CREATED THIS SESSION:
-==============================================================================
-
-MODIFIED:
-- deep_eagle_feature_extractor.py (fixed SQL ORDER BY bug)
-- train_deep_eagle_cfb.py (fixed undefined 'sport' variable)
-
-CREATED/UPDATED MODELS:
-- models/deep_eagle_nfl_2025.pt (retrained with movement features)
-- models/deep_eagle_cfb_2025.pt (retrained with movement features)
-- models/deep_eagle_nba_2025.pt (retrained with movement features)
-- models/deep_eagle_cbb_2025.pt (retrained with movement features)
-- models/*_scaler.pkl files (updated scalers for each)
-
-FEATURE FILES CREATED:
-- cfb_combined_features.csv (2024+2025 combined, 1,143 games)
-- nba_2024_deep_eagle_features.csv (1,397 games)
-- nba_2025_deep_eagle_features.csv (425 games)
-- cbb_2024_deep_eagle_features.csv (5,261 games)
-- cbb_2025_deep_eagle_features.csv (5,317 games)
-
-DATABASES UPDATED:
-- nba_games.db: 425 predictions backfilled to odds_and_predictions
-- cbb_games.db: 5,317 predictions backfilled to odds_and_predictions
-
-==============================================================================
-KEY INSIGHT TO REMEMBER:
+KEY INSIGHT TO REMEMBER
 ==============================================================================
 
 When our model favors the HOME team more than Vegas by 5+ points:
@@ -118,101 +178,34 @@ When our model favors the HOME team more than Vegas by 5+ points:
 - NFL: Don't bet - no edge, trust Vegas
 
 The model adds value by identifying when Vegas OVERESTIMATES or
-UNDERESTIMATES home field advantage, particularly in college sports
-where home field advantage is more variable and significant.
+UNDERESTIMATES home field advantage, particularly in college sports.
 
 ==============================================================================
-NEXT STEPS / TODO:
+CRITICAL LESSONS LEARNED
 ==============================================================================
 
-1. Consider improving NFL model:
-   - More training data (backfill older seasons)
-   - Different feature engineering
-   - Or just trust Vegas for NFL
+1. ALWAYS convert pandas DataFrame values to native Python types before
+   passing to SQLite queries. numpy.int64 causes silent failures.
 
-2. Track betting performance using deviation strategies above
+2. When predictions look wrong, check BOTH the CSV and the database tables.
+   Dashboard reads from database, not CSV files.
 
-3. CBB may benefit from re-extracting features with movement columns
-   (current model trained without them, has 79 features vs 86 for others)
+3. When opening odds are missing, don't calculate movement as (latest - 0).
+   Return 0 for movement instead.
+
+4. Dropout of 0.3 causes significant eval/train mode prediction gaps.
+   Use 0.1 for more consistent predictions.
+
+==============================================================================
+NEXT STEPS / TODO
+==============================================================================
+
+1. Apply same numpy.int64 fixes to NBA and CBB predictors if needed
+
+2. Consider automating prediction sync to database after generating CSVs
+
+3. Track betting performance using deviation strategies
 
 4. Add confidence intervals to betting recommendations
-
-5. Consider a "betting tracker" to log recommended bets and outcomes
-
-==============================================================================
-DATA LEAKAGE/MISMATCH ISSUES DISCOVERED (Dec 21):
-==============================================================================
-
-ISSUE 1: combined_home_advantage FORMULA MISMATCH (NFL only)
-----------------------------------------------------------
-Training (deep_eagle_feature_extractor.py):
-  combined_home_advantage = (home_hist['home_away_ppg_diff'] +
-                              away_hist['home_away_ppg_diff']) / 2
-
-Prediction (nfl_predictor.py - WAS WRONG):
-  combined_home_advantage = venue_ppg_diff * 0.3 + venue_win_pct_diff * 10 + 3.0
-
-FIX: Updated nfl_predictor.py to use same formula as training.
-     NBA predictor already had correct formula.
-
-ISSUE 2: NFL-SPECIFIC FEATURES MISSING FROM PREDICTOR
-------------------------------------------------------
-The deep_eagle_feature_extractor.py was updated to include NFL-specific
-features (day_of_week, is_primetime, rest_days, recent_form) but:
-- The features CSV was generated BEFORE these features were added
-- The NFL predictor didn't generate these features at prediction time
-
-FIX:
-- Added NFL-specific feature extraction to nfl_predictor.py
-- Regenerated NFL features: now 112 columns (was 96)
-
-ISSUE 3: TRAIN/TEST DISTRIBUTION SHIFT (Minor)
------------------------------------------------
-Training: team stats use `date < current_game_date` (temporal filtering)
-Prediction: team stats use ALL completed games (no date filter)
-
-This gives predictor MORE data than training, which is actually OK for
-making predictions but could cause slight distribution shift.
-
-NOT FIXED: This is acceptable behavior - predictor should use all
-available data for best predictions.
-
-==============================================================================
-FILES MODIFIED (Dec 21):
-==============================================================================
-
-- nfl_predictor.py:
-  - Fixed combined_home_advantage formula (line 273-277)
-  - Added _get_day_of_week() method
-  - Added _get_rest_days() method (returns dict with rest_days, coming_off_bye)
-  - Added _get_recent_form() method (returns win_pct, ppg, papg, margin)
-  - Added NFL-specific features to extract_features() method
-
-- nfl_2025_deep_eagle_features.csv regenerated:
-  - Now 112 columns (was 96)
-  - Includes: day_of_week, is_primetime, home/away_rest_days,
-    home/away_coming_off_bye, rest_advantage, home/away_recent_*
-
-==============================================================================
-NEXT STEPS:
-==============================================================================
-
-1. RETRAIN NFL MODEL with new 112-feature dataset
-   py retrain_all_with_movement.py
-   OR: py train_deep_eagle.py nfl nfl_games.db 2025
-
-2. Regenerate NFL predictions after retraining
-
-3. Re-run deviation analysis to see if new features improve results
-
-==============================================================================
-EARLIER SESSION (Same Day) - Bowl Analysis:
-==============================================================================
-
-- Backfilled 2,906 historical CFB odds from TheOddsAPI
-- Fixed data leakage in cfb_deep_eagle_predictor.py
-- Analyzed Vegas regular season vs bowl performance
-- Created bowl-specific model
-- Key finding: Playoffs (82% Vegas) vs Regular bowls (59% Vegas)
 
 ==============================================================================
