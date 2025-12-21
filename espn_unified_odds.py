@@ -90,11 +90,31 @@ class ESPNOddsScraper:
             result = {
                 'game_id': int(game_id),
                 'source': odds.get('provider', {}).get('name', 'ESPN'),
-                'spread': odds.get('spread'),  # Home team spread
-                'over_under': odds.get('overUnder'),
+                'spread': odds.get('spread'),  # Home team spread (current)
+                'over_under': odds.get('overUnder'),  # Current total
                 'over_odds': odds.get('overOdds'),
                 'under_odds': odds.get('underOdds'),
             }
+
+            # Parse opening total from top-level 'open' object
+            top_open = odds.get('open', {})
+            if top_open:
+                open_total = top_open.get('total', {})
+                if open_total.get('american'):
+                    try:
+                        result['opening_total'] = float(open_total['american'])
+                    except (ValueError, TypeError):
+                        pass
+
+            # Parse closing total from top-level 'close' object
+            top_close = odds.get('close', {})
+            if top_close:
+                close_total = top_close.get('total', {})
+                if close_total.get('american'):
+                    try:
+                        result['closing_total'] = float(close_total['american'])
+                    except (ValueError, TypeError):
+                        pass
 
             # Helper to parse moneyline (handles "EVEN" = +100)
             def parse_ml(val):
@@ -184,8 +204,9 @@ class ESPNOddsScraper:
             # Get current values
             opening_spread = odds_data.get('opening_spread')
             latest_spread = odds_data.get('spread')
-            opening_total = odds_data.get('over_under')
-            latest_total = odds_data.get('over_under')
+            # Use parsed opening_total, fall back to closing_total or current over_under
+            opening_total = odds_data.get('opening_total') or odds_data.get('over_under')
+            latest_total = odds_data.get('closing_total') or odds_data.get('over_under')
             opening_ml_home = odds_data.get('opening_ml_home')
             latest_ml_home = odds_data.get('closing_ml_home') or odds_data.get('home_moneyline')
             opening_ml_away = odds_data.get('opening_ml_away')
@@ -197,6 +218,7 @@ class ESPNOddsScraper:
             ml_movement = (latest_ml_home - opening_ml_home) if (opening_ml_home and latest_ml_home) else None
 
             # Upsert odds into odds_and_predictions table
+            # On conflict: always update latest values, and update opening values if currently NULL
             cursor.execute('''
                 INSERT INTO odds_and_predictions (
                     game_id, source,
@@ -209,9 +231,13 @@ class ESPNOddsScraper:
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(game_id) DO UPDATE SET
                     source = excluded.source,
+                    opening_spread = COALESCE(odds_and_predictions.opening_spread, excluded.opening_spread),
                     latest_spread = excluded.latest_spread,
+                    opening_total = COALESCE(odds_and_predictions.opening_total, excluded.opening_total),
                     latest_total = excluded.latest_total,
+                    opening_moneyline_home = COALESCE(odds_and_predictions.opening_moneyline_home, excluded.opening_moneyline_home),
                     latest_moneyline_home = excluded.latest_moneyline_home,
+                    opening_moneyline_away = COALESCE(odds_and_predictions.opening_moneyline_away, excluded.opening_moneyline_away),
                     latest_moneyline_away = excluded.latest_moneyline_away,
                     spread_movement = excluded.spread_movement,
                     total_movement = excluded.total_movement,
