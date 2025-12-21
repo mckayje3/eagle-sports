@@ -920,6 +920,7 @@ def display_prediction_freshness(predictions_df, game_dates=None, is_past_games=
         sport: Optional sport identifier for session state timestamp lookup
     """
     from datetime import datetime, timedelta
+    from timezone_utils import EASTERN, UTC
 
     latest_created = None
 
@@ -955,17 +956,21 @@ def display_prediction_freshness(predictions_df, game_dates=None, is_past_games=
             return
 
     now = now_eastern()
-    # Convert to naive datetime for comparison (both are effectively Eastern Time)
+
+    # Convert timestamp to Eastern time for proper comparison and display
     latest_dt = latest_created.to_pydatetime()
     if latest_dt.tzinfo is None:
-        # Naive datetime - compare with naive now
-        age = now.replace(tzinfo=None) - latest_dt
-    else:
-        age = now - latest_dt
+        # Naive datetime - assume it's UTC (Streamlit Cloud runs in UTC)
+        latest_dt = latest_dt.replace(tzinfo=UTC)
+    # Convert to Eastern
+    latest_eastern = latest_dt.astimezone(EASTERN)
+
+    # Calculate age
+    age = now - latest_eastern
     hours_old = age.total_seconds() / 3600
 
-    # Format the timestamp
-    created_str = latest_created.strftime('%a %b %d, %I:%M %p')
+    # Format the timestamp in Eastern time
+    created_str = latest_eastern.strftime('%a %b %d, %I:%M %p ET')
 
     # For past games, just show info without stale warnings
     if is_past_games:
@@ -1431,25 +1436,28 @@ def show_cbb_predictions_live():
     # Show prediction freshness (CBB - check session state first, then CSV file)
     try:
         import os
-        now = datetime.now()  # Use naive datetime for comparison
+        from timezone_utils import EASTERN, UTC
+        now = now_eastern()
         mod_time = None
 
         # Check session state for recent update timestamp (persists across reruns)
         if 'cbb_last_update' in st.session_state:
             mod_time = datetime.fromisoformat(st.session_state['cbb_last_update'])
-            # Remove timezone info if present for comparison
-            if mod_time.tzinfo is not None:
-                mod_time = mod_time.replace(tzinfo=None)
+            # Treat naive datetime as UTC, then convert to Eastern
+            if mod_time.tzinfo is None:
+                mod_time = mod_time.replace(tzinfo=UTC)
+            mod_time = mod_time.astimezone(EASTERN)
         else:
-            # Fall back to CSV file modification time
+            # Fall back to CSV file modification time (local time, treat as Eastern)
             csv_path = 'cbb_predictions.csv'
             if os.path.exists(csv_path):
                 mod_time = datetime.fromtimestamp(os.path.getmtime(csv_path))
+                mod_time = mod_time.replace(tzinfo=EASTERN)
 
         if mod_time:
             age = now - mod_time
             hours_old = age.total_seconds() / 3600
-            mod_str = mod_time.strftime('%a %b %d, %I:%M %p')
+            mod_str = mod_time.strftime('%a %b %d, %I:%M %p ET')
 
             # For past games, just show info without stale warnings
             if is_past_games:
