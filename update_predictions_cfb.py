@@ -70,8 +70,8 @@ def fetch_latest_odds():
 
     try:
         from espn_unified_odds import ESPNOddsScraper
-        scraper = ESPNOddsScraper()
-        scraper.fetch_odds('cfb', days=7)
+        scraper = ESPNOddsScraper('cfb')
+        scraper.scrape_recent(days=7)
         logger.info("Odds fetched successfully")
         return True
     except ImportError:

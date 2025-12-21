@@ -9,7 +9,6 @@ Usage:
 """
 
 import sys
-import json
 import sqlite3
 import pandas as pd
 import logging
@@ -42,19 +41,18 @@ def get_current_nfl_week():
 
 
 def fetch_latest_odds():
-    """Fetch latest odds from The Odds API"""
-    logger.info("Fetching latest odds...")
+    """Fetch latest odds from ESPN API"""
+    logger.info("Fetching latest NFL odds from ESPN...")
 
     try:
-        with open('odds_api_config.json', 'r') as f:
-            config = json.load(f)
-            api_key = config['api_key']
-
-        from fetch_latest_odds import OddsAPIFetcher
-        fetcher = OddsAPIFetcher(api_key)
-        fetcher.update_odds('nfl', 'nfl_games.db', is_opening=False)
+        from espn_unified_odds import ESPNOddsScraper
+        scraper = ESPNOddsScraper('nfl')
+        scraper.scrape_recent(days=7)
+        logger.info("Odds fetched successfully")
         return True
-
+    except ImportError:
+        logger.warning("espn_unified_odds not available, continuing with cached odds")
+        return True
     except Exception as e:
         logger.warning(f"Odds fetch failed: {e}, continuing with cached odds")
         return True
