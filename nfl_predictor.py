@@ -311,6 +311,10 @@ class NFLPredictor:
         """Get team's season statistics - feature names match training data"""
         cursor = conn.cursor()
 
+        # Convert numpy types to native Python (SQLite doesn't handle numpy.int64)
+        team_id = int(team_id)
+        season = int(season)
+
         # Get PPG and basic stats
         cursor.execute('''
             SELECT
@@ -402,6 +406,9 @@ class NFLPredictor:
         """Get odds for a game - returns keys matching training features"""
         cursor = conn.cursor()
 
+        # Convert numpy types to native Python (SQLite doesn't handle numpy.int64)
+        game_id = int(game_id)
+
         cursor.execute('''
             SELECT
                 opening_spread,
@@ -434,14 +441,32 @@ class NFLPredictor:
         has_spread = row[0] is not None or row[1] is not None
         has_total = row[2] is not None or row[3] is not None
 
-        # Calculate movement from opening to latest
-        opening_spread = row[0] or 0
-        latest_spread = row[1] or row[0] or 0
-        opening_total = row[2] or 45
-        latest_total = row[3] or row[2] or 45
+        # Get spread values - if opening is missing, use latest as opening (no movement)
+        opening_spread = row[0] if row[0] is not None else row[1]
+        latest_spread = row[1] if row[1] is not None else row[0]
+        opening_spread = opening_spread or 0
+        latest_spread = latest_spread or 0
 
-        spread_movement = row[8] if row[8] is not None else (latest_spread - opening_spread)
-        total_movement = row[9] if row[9] is not None else (latest_total - opening_total)
+        # Get total values - if opening is missing, use latest as opening (no movement)
+        opening_total = row[2] if row[2] is not None else row[3]
+        latest_total = row[3] if row[3] is not None else row[2]
+        opening_total = opening_total or 45
+        latest_total = latest_total or 45
+
+        # Calculate movement - only if we have both opening and latest values
+        if row[8] is not None:
+            spread_movement = row[8]
+        elif row[0] is not None and row[1] is not None:
+            spread_movement = latest_spread - opening_spread
+        else:
+            spread_movement = 0  # No movement if we don't have opening
+
+        if row[9] is not None:
+            total_movement = row[9]
+        elif row[2] is not None and row[3] is not None:
+            total_movement = latest_total - opening_total
+        else:
+            total_movement = 0  # No movement if we don't have opening
 
         return {
             'opening_spread': opening_spread,
