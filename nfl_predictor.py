@@ -259,6 +259,34 @@ class NFLPredictor:
         for key, value in away_drive.items():
             features[f'away_drive_{key}'] = value
 
+        # NFL-specific features: day of week, primetime, rest, recent form
+        # These must match deep_eagle_feature_extractor.py lines 187-214
+        game_date = game_row.get('date', '')
+        features['day_of_week'] = self._get_day_of_week(game_date)
+        features['is_primetime'] = 1 if features['day_of_week'] in [0, 3] else 0  # Thursday/Monday
+
+        # Rest days for each team
+        home_rest = self._get_rest_days(conn, game_row['home_team_id'], season, game_row.get('week', 10), game_date)
+        away_rest = self._get_rest_days(conn, game_row['away_team_id'], season, game_row.get('week', 10), game_date)
+        features['home_rest_days'] = home_rest['rest_days']
+        features['away_rest_days'] = away_rest['rest_days']
+        features['home_coming_off_bye'] = home_rest['coming_off_bye']
+        features['away_coming_off_bye'] = away_rest['coming_off_bye']
+        features['rest_advantage'] = home_rest['rest_days'] - away_rest['rest_days']
+
+        # Recent form (last 4 games)
+        home_form = self._get_recent_form(conn, game_row['home_team_id'], season, game_row.get('week', 10))
+        away_form = self._get_recent_form(conn, game_row['away_team_id'], season, game_row.get('week', 10))
+        features['home_recent_win_pct'] = home_form['win_pct']
+        features['home_recent_ppg'] = home_form['ppg']
+        features['home_recent_papg'] = home_form['papg']
+        features['home_recent_margin'] = home_form['margin']
+        features['away_recent_win_pct'] = away_form['win_pct']
+        features['away_recent_ppg'] = away_form['ppg']
+        features['away_recent_papg'] = away_form['papg']
+        features['away_recent_margin'] = away_form['margin']
+        features['recent_form_differential'] = home_form['margin'] - away_form['margin']
+
         # Calculate differentials matching training feature names
         features['ppg_differential'] = home_stats.get('ppg', 0) - away_stats.get('ppg', 0)
         features['papg_differential'] = home_stats.get('papg', 0) - away_stats.get('papg', 0)
@@ -270,12 +298,11 @@ class NFLPredictor:
         features['venue_ppg_differential'] = home_stats.get('home_ppg', 0) - away_stats.get('away_ppg', 0)
         features['venue_win_pct_differential'] = home_stats.get('home_win_pct', 0) - away_stats.get('away_win_pct', 0)
 
-        # Combined home advantage
+        # Combined home advantage - MUST match training formula in deep_eagle_feature_extractor.py
+        # Formula: average of both teams' home/away PPG differentials
         features['combined_home_advantage'] = (
-            features['venue_ppg_differential'] * 0.3 +
-            features['venue_win_pct_differential'] * 10 +
-            (3.0 if not features['neutral_site'] else 0)  # ~3 point home field advantage
-        )
+            home_stats.get('home_away_ppg_diff', 0) + away_stats.get('home_away_ppg_diff', 0)
+        ) / 2
 
         conn.close()
         return features
@@ -475,6 +502,127 @@ class NFLPredictor:
             'def_ypd': 28,  # Default defensive YPD
             'def_scoring_pct': 0.35,
             'def_three_and_out_forced': 0.22,
+        }
+
+    def _get_day_of_week(self, date_str):
+        """
+        Convert game date to day-of-week code for NFL
+        Must match deep_eagle_feature_extractor.py
+
+        Returns:
+            int: 0=Thursday, 1=Saturday, 2=Sunday, 3=Monday, 4=Other
+        """
+        try:
+            if 'T' in str(date_str):
+                dt = datetime.fromisoformat(str(date_str).replace('Z', '+00:00'))
+            else:
+                dt = datetime.strptime(str(date_str)[:10], '%Y-%m-%d')
+
+            weekday = dt.weekday()  # 0=Monday, 6=Sunday
+            day_map = {
+                3: 0,  # Thursday
+                5: 1,  # Saturday
+                6: 2,  # Sunday
+                0: 3,  # Monday
+            }
+            return day_map.get(weekday, 4)  # 4 for other days
+        except:
+            return 2  # Default to Sunday
+
+    def _get_rest_days(self, conn, team_id, season, current_week, current_date):
+        """
+        Get rest days since last game for a team
+        Must match deep_eagle_feature_extractor.py
+
+        Returns:
+            dict with 'rest_days' and 'coming_off_bye'
+        """
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            SELECT date, week
+            FROM games
+            WHERE season = ? AND week < ?
+                AND (home_team_id = ? OR away_team_id = ?)
+                AND completed = 1
+            ORDER BY week DESC, date DESC
+            LIMIT 1
+        ''', (season, current_week, team_id, team_id))
+
+        row = cursor.fetchone()
+
+        if not row:
+            # First game of season or no prior games
+            return {'rest_days': 10, 'coming_off_bye': 0}
+
+        last_date = row[0]
+        last_week = row[1]
+
+        try:
+            if 'T' in str(current_date):
+                curr_dt = datetime.fromisoformat(str(current_date).replace('Z', '+00:00'))
+            else:
+                curr_dt = datetime.strptime(str(current_date)[:10], '%Y-%m-%d')
+
+            if 'T' in str(last_date):
+                last_dt = datetime.fromisoformat(str(last_date).replace('Z', '+00:00'))
+            else:
+                last_dt = datetime.strptime(str(last_date)[:10], '%Y-%m-%d')
+
+            rest_days = (curr_dt - last_dt).days
+        except:
+            rest_days = 7  # Default to 1 week
+
+        # Coming off bye: skipped a week (gap > 1 week between games)
+        coming_off_bye = 1 if (current_week - last_week) > 1 else 0
+
+        return {
+            'rest_days': min(rest_days, 14),  # Cap at 14 days
+            'coming_off_bye': coming_off_bye
+        }
+
+    def _get_recent_form(self, conn, team_id, season, current_week, num_games=4):
+        """
+        Get team's recent form (last N games)
+        Must match deep_eagle_feature_extractor.py
+
+        Returns:
+            dict with win_pct, ppg, papg, margin for recent games
+        """
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            SELECT
+                CASE WHEN home_team_id = ? THEN home_score ELSE away_score END as points_for,
+                CASE WHEN home_team_id = ? THEN away_score ELSE home_score END as points_against,
+                CASE WHEN winner_team_id = ? THEN 1 ELSE 0 END as won
+            FROM games
+            WHERE season = ? AND week < ?
+                AND (home_team_id = ? OR away_team_id = ?)
+                AND completed = 1
+            ORDER BY week DESC
+            LIMIT ?
+        ''', (team_id, team_id, team_id, season, current_week, team_id, team_id, num_games))
+
+        rows = cursor.fetchall()
+
+        if not rows:
+            return {'win_pct': 0.5, 'ppg': 21, 'papg': 21, 'margin': 0}
+
+        wins = sum(1 for r in rows if r[2] == 1)
+        total_scored = sum(r[0] or 0 for r in rows)
+        total_allowed = sum(r[1] or 0 for r in rows)
+        games = len(rows)
+
+        ppg = total_scored / games if games > 0 else 21
+        papg = total_allowed / games if games > 0 else 21
+        win_pct = wins / games if games > 0 else 0.5
+
+        return {
+            'win_pct': win_pct,
+            'ppg': ppg,
+            'papg': papg,
+            'margin': ppg - papg
         }
 
     def predict(self, games_df, mc_passes=100):

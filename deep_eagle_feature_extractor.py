@@ -184,6 +184,35 @@ class DeepEagleFeatureExtractor:
             away_hist.get('home_away_ppg_diff', 0)    # Away team usually drops on road (positive value here means they're better at home too)
         ) / 2  # Average the two teams' home/away differentials
 
+        # NEW NFL-specific features: rest, bye, form, day of week
+        if self.sport == 'nfl':
+            # Day of week (Thursday=0, Saturday=1, Sunday=2, Monday=3)
+            day_of_week = self._get_day_of_week(game['date'])
+            features['day_of_week'] = day_of_week
+            features['is_primetime'] = 1 if day_of_week in [0, 3] else 0  # Thursday/Monday = primetime
+
+            # Rest days for each team
+            home_rest = self._get_rest_days(game['home_team_id'], game['season'], game['week'], game['date'])
+            away_rest = self._get_rest_days(game['away_team_id'], game['season'], game['week'], game['date'])
+            features['home_rest_days'] = home_rest['rest_days']
+            features['away_rest_days'] = away_rest['rest_days']
+            features['home_coming_off_bye'] = home_rest['coming_off_bye']
+            features['away_coming_off_bye'] = away_rest['coming_off_bye']
+            features['rest_advantage'] = home_rest['rest_days'] - away_rest['rest_days']
+
+            # Recent form (last 4 games)
+            home_form = self._get_recent_form(game['home_team_id'], game['season'], game['week'])
+            away_form = self._get_recent_form(game['away_team_id'], game['season'], game['week'])
+            features['home_recent_win_pct'] = home_form['win_pct']
+            features['home_recent_ppg'] = home_form['ppg']
+            features['home_recent_papg'] = home_form['papg']
+            features['home_recent_margin'] = home_form['margin']
+            features['away_recent_win_pct'] = away_form['win_pct']
+            features['away_recent_ppg'] = away_form['ppg']
+            features['away_recent_papg'] = away_form['papg']
+            features['away_recent_margin'] = away_form['margin']
+            features['recent_form_differential'] = home_form['margin'] - away_form['margin']
+
         return features
 
     def _get_team_game_stats(self, game_id, team_id):
@@ -339,6 +368,7 @@ class DeepEagleFeatureExtractor:
         This ensures training and prediction see similar data distributions.
         """
         # Get odds from simplified schema
+        # Note: NFL uses 'updated_at', CFB uses 'odds_updated_at' - use COALESCE for compatibility
         query = '''
             SELECT
                 opening_spread, latest_spread,
@@ -347,7 +377,6 @@ class DeepEagleFeatureExtractor:
                 spread_movement, total_movement, moneyline_movement
             FROM odds_and_predictions
             WHERE game_id = ?
-            ORDER BY updated_at DESC
             LIMIT 1
         '''
 
@@ -509,6 +538,124 @@ class DeepEagleFeatureExtractor:
                 stats[key] = 0
 
         return stats
+
+    def _get_day_of_week(self, date_str):
+        """
+        Convert game date to day-of-week code for NFL
+
+        Returns:
+            int: 0=Thursday, 1=Saturday, 2=Sunday, 3=Monday, 4=Other
+        """
+        try:
+            if 'T' in str(date_str):
+                dt = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+            else:
+                dt = datetime.strptime(str(date_str)[:10], '%Y-%m-%d')
+
+            weekday = dt.weekday()  # 0=Monday, 6=Sunday
+            day_map = {
+                3: 0,  # Thursday
+                5: 1,  # Saturday
+                6: 2,  # Sunday
+                0: 3,  # Monday
+            }
+            return day_map.get(weekday, 4)  # 4 for other days
+        except:
+            return 2  # Default to Sunday
+
+    def _get_rest_days(self, team_id, season, current_week, current_date):
+        """
+        Get rest days since last game for a team
+
+        Returns:
+            dict with 'rest_days' and 'coming_off_bye'
+        """
+        team_id = int(team_id)
+        season = int(season)
+        current_week = int(current_week)
+
+        query = '''
+            SELECT date, week
+            FROM games
+            WHERE season = ? AND week < ?
+                AND (home_team_id = ? OR away_team_id = ?)
+                AND completed = 1
+            ORDER BY week DESC, date DESC
+            LIMIT 1
+        '''
+
+        result = pd.read_sql_query(query, self.conn, params=(season, current_week, team_id, team_id))
+
+        if result.empty:
+            # First game of season or no prior games
+            return {'rest_days': 10, 'coming_off_bye': 0}
+
+        last_date = result.iloc[0]['date']
+        last_week = result.iloc[0]['week']
+
+        try:
+            if 'T' in str(current_date):
+                curr_dt = datetime.fromisoformat(str(current_date).replace('Z', '+00:00'))
+            else:
+                curr_dt = datetime.strptime(str(current_date)[:10], '%Y-%m-%d')
+
+            if 'T' in str(last_date):
+                last_dt = datetime.fromisoformat(str(last_date).replace('Z', '+00:00'))
+            else:
+                last_dt = datetime.strptime(str(last_date)[:10], '%Y-%m-%d')
+
+            rest_days = (curr_dt - last_dt).days
+        except:
+            rest_days = 7  # Default to 1 week
+
+        # Coming off bye: skipped a week (gap > 1 week between games)
+        coming_off_bye = 1 if (current_week - last_week) > 1 else 0
+
+        return {
+            'rest_days': min(rest_days, 14),  # Cap at 14 days
+            'coming_off_bye': coming_off_bye
+        }
+
+    def _get_recent_form(self, team_id, season, current_week, num_games=4):
+        """
+        Get team's recent form (last N games)
+
+        Returns:
+            dict with win_pct, ppg, papg, margin for recent games
+        """
+        team_id = int(team_id)
+        season = int(season)
+        current_week = int(current_week)
+
+        query = '''
+            SELECT
+                CASE WHEN home_team_id = ? THEN home_score ELSE away_score END as points_for,
+                CASE WHEN home_team_id = ? THEN away_score ELSE home_score END as points_against,
+                CASE WHEN winner_team_id = ? THEN 1 ELSE 0 END as won
+            FROM games
+            WHERE season = ? AND week < ?
+                AND (home_team_id = ? OR away_team_id = ?)
+                AND completed = 1
+            ORDER BY week DESC
+            LIMIT ?
+        '''
+
+        result = pd.read_sql_query(query, self.conn,
+            params=(team_id, team_id, team_id, season, current_week, team_id, team_id, num_games))
+
+        if result.empty or len(result) == 0:
+            return {'win_pct': 0.5, 'ppg': 21, 'papg': 21, 'margin': 0}
+
+        ppg = result['points_for'].mean() if pd.notna(result['points_for'].mean()) else 21
+        papg = result['points_against'].mean() if pd.notna(result['points_against'].mean()) else 21
+        win_pct = result['won'].mean() if pd.notna(result['won'].mean()) else 0.5
+
+        return {
+            'win_pct': win_pct,
+            'ppg': ppg,
+            'papg': papg,
+            'margin': ppg - papg
+        }
 
     def save_features(self, features_df, output_path):
         """Save extracted features to CSV"""

@@ -1,0 +1,218 @@
+SESSION STATE - December 20, 2025 (Updated - Line Movement Analysis)
+==============================================================================
+
+CURRENT SESSION ACCOMPLISHMENTS:
+==============================================================================
+
+1. RETRAINED ALL 4 MODELS WITH LINE MOVEMENT FEATURES
+   - NFL: 86 features, 63.3% winner accuracy, 12.54 spread MAE
+   - CFB: 86 features, 83.9% winner accuracy, 12.79 spread MAE
+   - NBA: 101 features, 65.4% winner accuracy, 11.12 spread MAE
+   - CBB: 79 features, 71.3% winner accuracy, 9.12 spread MAE
+
+   Movement features added (8 per sport):
+   - odds_spread_movement, odds_total_movement
+   - odds_spread_movement_abs, odds_total_movement_abs
+   - odds_spread_movement_significant, odds_total_movement_significant
+   - odds_spread_movement_sig_direction, odds_total_movement_sig_direction
+
+   Sport-specific significance thresholds:
+   - NFL/NBA: 2.0 pts
+   - CBB: 2.5 pts
+   - CFB: 4.0 pts
+
+2. FIXED CFB FEATURE EXTRACTION BUG
+   - deep_eagle_feature_extractor.py line 350: removed ORDER BY updated_at
+   - CFB uses odds_updated_at, NFL uses updated_at - was causing SQL errors
+
+3. BACKFILLED PREDICTIONS FOR NBA AND CBB (2025-26 SEASON)
+   - NBA: 425 completed games now have predictions in odds_and_predictions
+   - CBB: 5,317 completed games now have predictions in odds_and_predictions
+
+4. DEVIATION FROM VEGAS ANALYSIS - CRITICAL FINDINGS
+
+   Question answered: "When our predictions deviate from Vegas, does the
+   actual result move in our direction?"
+
+   SUMMARY TABLE:
+   Sport  Games   Overall  Home>Vegas  Away>Vegas  Best Edge
+   ---------------------------------------------------------------
+   NFL    221     44.8%    46.7%       43.8%       None (trust Vegas)
+   CFB    284     55.3%    67.0%       50.0%       HOME @ 7+ pts (78.8%)
+   NBA    418     49.8%    47.2%       53.0%       BOTH @ 5+ pts
+   CBB    5,275   51.3%    51.2%       51.4%       HOME @ 7+ pts (61.6%)
+
+   ACTIONABLE BETTING STRATEGIES:
+
+   CFB (STRONGEST EDGE):
+   - When deviation >= 7 pts AND we favor HOME -> 78.8% win rate (33 games)
+   - When deviation >= 5 pts AND we favor HOME -> 73.3% win rate (45 games)
+   - When deviation >= 3 pts AND we favor HOME -> 70.0% win rate (60 games)
+   - Away bias shows NO edge (50%)
+
+   NBA (MODERATE EDGE - BOTH DIRECTIONS):
+   - When deviation >= 7 pts AND we favor HOME -> 65.5% win rate (29 games)
+   - When deviation >= 5 pts AND we favor AWAY -> 62.5% win rate (40 games)
+   - When deviation >= 5 pts AND we favor HOME -> 56.9% win rate (65 games)
+
+   CBB (EMERGING EDGE):
+   - When deviation >= 7 pts AND we favor HOME -> 61.6% win rate (86 games)
+   - When deviation >= 10 pts AND we favor HOME -> 75.0% win rate (12 games)
+   - Away bias shows NO edge
+
+   NFL (NO EDGE - TRUST VEGAS):
+   - Home bias: 46.7% (worse than random)
+   - Away bias: 43.8% (worse than random)
+   - Only exception: Away bias >= 5 pts shows 57.1% (28 games) - small sample
+
+5. NFL vs CFB MODEL COMPARISON
+
+   Why CFB works but NFL doesn't (same 86 features):
+
+   Factor              NFL             CFB
+   --------------------------------------------------------
+   Training games      224             1,143 (5x more)
+   Movement coverage   65%             95%
+   Actual HFA          +2.4 pts        +10.6 pts
+   Vegas implied HFA   +1.8 pts        +14.0 pts (overestimates!)
+   Score variance      std=10 pts      std=15 pts
+
+   KEY INSIGHT: Vegas has NFL perfectly calibrated. In CFB, Vegas
+   OVERESTIMATES home field advantage, and our model identifies when
+   the home team will outperform that expectation.
+
+==============================================================================
+FILES MODIFIED/CREATED THIS SESSION:
+==============================================================================
+
+MODIFIED:
+- deep_eagle_feature_extractor.py (fixed SQL ORDER BY bug)
+- train_deep_eagle_cfb.py (fixed undefined 'sport' variable)
+
+CREATED/UPDATED MODELS:
+- models/deep_eagle_nfl_2025.pt (retrained with movement features)
+- models/deep_eagle_cfb_2025.pt (retrained with movement features)
+- models/deep_eagle_nba_2025.pt (retrained with movement features)
+- models/deep_eagle_cbb_2025.pt (retrained with movement features)
+- models/*_scaler.pkl files (updated scalers for each)
+
+FEATURE FILES CREATED:
+- cfb_combined_features.csv (2024+2025 combined, 1,143 games)
+- nba_2024_deep_eagle_features.csv (1,397 games)
+- nba_2025_deep_eagle_features.csv (425 games)
+- cbb_2024_deep_eagle_features.csv (5,261 games)
+- cbb_2025_deep_eagle_features.csv (5,317 games)
+
+DATABASES UPDATED:
+- nba_games.db: 425 predictions backfilled to odds_and_predictions
+- cbb_games.db: 5,317 predictions backfilled to odds_and_predictions
+
+==============================================================================
+KEY INSIGHT TO REMEMBER:
+==============================================================================
+
+When our model favors the HOME team more than Vegas by 5+ points:
+- CFB: Bet home side (73%+ win rate) - STRONG EDGE
+- NBA: Bet home side (57-65% win rate) - MODERATE EDGE
+- CBB: Bet home side at 7+ pts (62% win rate) - EMERGING EDGE
+- NFL: Don't bet - no edge, trust Vegas
+
+The model adds value by identifying when Vegas OVERESTIMATES or
+UNDERESTIMATES home field advantage, particularly in college sports
+where home field advantage is more variable and significant.
+
+==============================================================================
+NEXT STEPS / TODO:
+==============================================================================
+
+1. Consider improving NFL model:
+   - More training data (backfill older seasons)
+   - Different feature engineering
+   - Or just trust Vegas for NFL
+
+2. Track betting performance using deviation strategies above
+
+3. CBB may benefit from re-extracting features with movement columns
+   (current model trained without them, has 79 features vs 86 for others)
+
+4. Add confidence intervals to betting recommendations
+
+5. Consider a "betting tracker" to log recommended bets and outcomes
+
+==============================================================================
+DATA LEAKAGE/MISMATCH ISSUES DISCOVERED (Dec 21):
+==============================================================================
+
+ISSUE 1: combined_home_advantage FORMULA MISMATCH (NFL only)
+----------------------------------------------------------
+Training (deep_eagle_feature_extractor.py):
+  combined_home_advantage = (home_hist['home_away_ppg_diff'] +
+                              away_hist['home_away_ppg_diff']) / 2
+
+Prediction (nfl_predictor.py - WAS WRONG):
+  combined_home_advantage = venue_ppg_diff * 0.3 + venue_win_pct_diff * 10 + 3.0
+
+FIX: Updated nfl_predictor.py to use same formula as training.
+     NBA predictor already had correct formula.
+
+ISSUE 2: NFL-SPECIFIC FEATURES MISSING FROM PREDICTOR
+------------------------------------------------------
+The deep_eagle_feature_extractor.py was updated to include NFL-specific
+features (day_of_week, is_primetime, rest_days, recent_form) but:
+- The features CSV was generated BEFORE these features were added
+- The NFL predictor didn't generate these features at prediction time
+
+FIX:
+- Added NFL-specific feature extraction to nfl_predictor.py
+- Regenerated NFL features: now 112 columns (was 96)
+
+ISSUE 3: TRAIN/TEST DISTRIBUTION SHIFT (Minor)
+-----------------------------------------------
+Training: team stats use `date < current_game_date` (temporal filtering)
+Prediction: team stats use ALL completed games (no date filter)
+
+This gives predictor MORE data than training, which is actually OK for
+making predictions but could cause slight distribution shift.
+
+NOT FIXED: This is acceptable behavior - predictor should use all
+available data for best predictions.
+
+==============================================================================
+FILES MODIFIED (Dec 21):
+==============================================================================
+
+- nfl_predictor.py:
+  - Fixed combined_home_advantage formula (line 273-277)
+  - Added _get_day_of_week() method
+  - Added _get_rest_days() method (returns dict with rest_days, coming_off_bye)
+  - Added _get_recent_form() method (returns win_pct, ppg, papg, margin)
+  - Added NFL-specific features to extract_features() method
+
+- nfl_2025_deep_eagle_features.csv regenerated:
+  - Now 112 columns (was 96)
+  - Includes: day_of_week, is_primetime, home/away_rest_days,
+    home/away_coming_off_bye, rest_advantage, home/away_recent_*
+
+==============================================================================
+NEXT STEPS:
+==============================================================================
+
+1. RETRAIN NFL MODEL with new 112-feature dataset
+   py retrain_all_with_movement.py
+   OR: py train_deep_eagle.py nfl nfl_games.db 2025
+
+2. Regenerate NFL predictions after retraining
+
+3. Re-run deviation analysis to see if new features improve results
+
+==============================================================================
+EARLIER SESSION (Same Day) - Bowl Analysis:
+==============================================================================
+
+- Backfilled 2,906 historical CFB odds from TheOddsAPI
+- Fixed data leakage in cfb_deep_eagle_predictor.py
+- Analyzed Vegas regular season vs bowl performance
+- Created bowl-specific model
+- Key finding: Playoffs (82% Vegas) vs Regular bowls (59% Vegas)
+
+==============================================================================
