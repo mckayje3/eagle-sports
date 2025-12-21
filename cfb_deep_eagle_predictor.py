@@ -25,7 +25,7 @@ class DeepEagleModel(nn.Module):
             layers.append(nn.Linear(prev_dim, hidden_dim))
             layers.append(nn.BatchNorm1d(hidden_dim))
             layers.append(nn.ReLU())
-            layers.append(nn.Dropout(0.3))
+            layers.append(nn.Dropout(0.1))  # Reduced from 0.3 to fix eval/train mode gap
             prev_dim = hidden_dim
 
         # Use different attribute names based on model version
@@ -276,9 +276,13 @@ class CFBDeepEaglePredictor:
         warnings = []
 
         # Game context
-        features['week_normalized'] = game_row.get('week', 10) / 15.0
+        week = game_row.get('week', 10)
+        season = game_row.get('season', 2025)
+        features['week_normalized'] = week / 15.0
         features['neutral_site'] = game_row.get('neutral_site', 0) or 0
         features['conference_game'] = game_row.get('conference_game', 0) or 0
+        # adjusted_week accounts for season progression (2025 week 15 = adjusted 30)
+        features['adjusted_week'] = week + (season - 2024) * 15
 
         # Get historical stats for both teams (only games BEFORE this game to prevent leakage)
         season = game_row.get('season', 2025)
@@ -310,14 +314,37 @@ class CFBDeepEaglePredictor:
             if not key.startswith('_'):
                 features[f'odds_{key}'] = value
 
-        # Calculate differentials
+        # Calculate differentials - only include those used by the training model
         features['ppg_differential'] = home_stats.get('ppg', 0) - away_stats.get('ppg', 0)
         features['papg_differential'] = home_stats.get('papg', 0) - away_stats.get('papg', 0)
         features['win_pct_differential'] = home_stats.get('win_pct', 0) - away_stats.get('win_pct', 0)
-        features['yard_differential'] = home_stats.get('total_yards_pg', 0) - away_stats.get('total_yards_pg', 0)
-        features['turnover_differential'] = home_stats.get('turnover_margin', 0) - away_stats.get('turnover_margin', 0)
-        features['third_down_differential'] = home_stats.get('third_down_pct', 0) - away_stats.get('third_down_pct', 0)
-        features['redzone_differential'] = home_stats.get('redzone_pct', 0) - away_stats.get('redzone_pct', 0)
+
+        # Venue differentials - MUST match training
+        features['venue_ppg_differential'] = home_stats.get('home_ppg', 0) - away_stats.get('away_ppg', 0)
+        features['venue_win_pct_differential'] = home_stats.get('home_win_pct', 0) - away_stats.get('away_win_pct', 0)
+
+        # Combined home advantage - MUST match training formula in deep_eagle_feature_extractor.py
+        features['combined_home_advantage'] = (
+            home_stats.get('home_away_ppg_diff', 0) + away_stats.get('home_away_ppg_diff', 0)
+        ) / 2
+
+        # Weather features (defaults for CFB - not always available)
+        features['temperature'] = 65  # Default temp
+        features['wind_speed'] = 5    # Default wind
+        features['is_dome'] = 0       # Default outdoor
+
+        # Drive features - estimate from scoring/yards data
+        home_drive = self._get_drive_stats(conn, game_row['home_team_id'], season, before_date=game_date)
+        away_drive = self._get_drive_stats(conn, game_row['away_team_id'], season, before_date=game_date)
+
+        for key, value in home_drive.items():
+            features[f'home_drive_{key}'] = value
+        for key, value in away_drive.items():
+            features[f'away_drive_{key}'] = value
+
+        # Drive differentials
+        features['ppd_differential'] = home_drive.get('ppd', 2.5) - away_drive.get('ppd', 2.5)
+        features['scoring_pct_differential'] = home_drive.get('scoring_pct', 0.35) - away_drive.get('scoring_pct', 0.35)
 
         # Store warnings in features for later retrieval
         features['_warnings'] = warnings
@@ -328,6 +355,10 @@ class CFBDeepEaglePredictor:
     def _get_team_stats(self, conn, team_id, season, before_date=None):
         """Get team's season statistics (only from games before the specified date to prevent leakage)"""
         cursor = conn.cursor()
+
+        # Convert numpy types to native Python (SQLite doesn't handle numpy.int64)
+        team_id = int(team_id)
+        season = int(season)
 
         # Build date filter to prevent data leakage
         date_filter = ""
@@ -357,6 +388,8 @@ class CFBDeepEaglePredictor:
             'ppg': row[1] or 0,
             'papg': row[2] or 0,
             'win_pct': row[3] or 0,
+            'ypg': 0,  # Will be filled from box scores below
+            'turnover_pg': 0,  # Will be filled from box scores below
         }
 
         # Get home stats
@@ -418,39 +451,91 @@ class CFBDeepEaglePredictor:
         stats['away_papg'] = away_row[2] or 0 if away_row else 0
         stats['away_win_pct'] = away_row[3] or 0 if away_row else 0
 
+        # Home/away PPG differential (needed for combined_home_advantage)
+        stats['home_away_ppg_diff'] = stats['home_ppg'] - stats['away_ppg']
+
         if box_row:
-            stats['total_yards_pg'] = box_row[0] or 0
-            stats['pass_yards_pg'] = box_row[1] or 0
-            stats['rush_yards_pg'] = box_row[2] or 0
-            stats['turnovers_pg'] = box_row[3] or 0
-            stats['third_down_pct'] = box_row[4] or 0
-            stats['fourth_down_pct'] = box_row[5] or 0
-            stats['avg_possession'] = box_row[6] or 0
-            stats['turnover_margin'] = 0
-            stats['redzone_pct'] = 0
-        else:
-            for key in ['total_yards_pg', 'pass_yards_pg', 'rush_yards_pg', 'turnovers_pg',
-                        'third_down_pct', 'fourth_down_pct', 'avg_possession',
-                        'turnover_margin', 'redzone_pct']:
-                stats[key] = 0
+            stats['ypg'] = box_row[0] or 0  # Use 'ypg' to match training
+            stats['turnover_pg'] = box_row[3] or 0  # Use 'turnover_pg' to match training
+        # Note: We only keep ypg and turnover_pg - other box score stats aren't used by model
 
         return stats
 
     def _empty_stats(self):
-        """Return empty stats dict"""
+        """Return empty stats dict - must match training feature extractor names"""
         return {
             'games_played': 0, 'ppg': 0, 'papg': 0, 'win_pct': 0,
+            'ypg': 0, 'turnover_pg': 0,  # These must match training names
             'home_games': 0, 'home_ppg': 0, 'home_papg': 0, 'home_win_pct': 0,
             'away_games': 0, 'away_ppg': 0, 'away_papg': 0, 'away_win_pct': 0,
-            'total_yards_pg': 0, 'pass_yards_pg': 0, 'rush_yards_pg': 0,
-            'turnovers_pg': 0, 'third_down_pct': 0, 'fourth_down_pct': 0,
-            'avg_possession': 0, 'turnover_margin': 0, 'redzone_pct': 0,
+            'home_away_ppg_diff': 0,
             '_missing_stats': True
+        }
+
+    def _get_drive_stats(self, conn, team_id, season, before_date=None):
+        """
+        Get team's drive statistics - estimates from scoring/yards data.
+        Must match deep_eagle_feature_extractor.py output.
+        """
+        cursor = conn.cursor()
+
+        # Convert numpy types to native Python (SQLite doesn't handle numpy.int64)
+        team_id = int(team_id)
+        season = int(season)
+
+        # Build date filter
+        date_filter = ""
+        params = [team_id, team_id, season, team_id, team_id]
+        if before_date:
+            date_filter = " AND g.date < ?"
+            params.append(before_date)
+
+        # Get PPG and YPG to estimate drive stats
+        cursor.execute(f'''
+            SELECT
+                COUNT(*) as games,
+                AVG(CASE WHEN g.home_team_id = ? THEN g.home_score ELSE g.away_score END) as ppg,
+                AVG(ts.total_yards) as ypg
+            FROM games g
+            LEFT JOIN team_game_stats ts ON g.game_id = ts.game_id AND ts.team_id = ?
+            WHERE g.season = ? AND g.completed = 1
+                AND (g.home_team_id = ? OR g.away_team_id = ?){date_filter}
+        ''', params)
+
+        row = cursor.fetchone()
+        games = row[0] if row else 0
+        ppg = row[1] or 28 if row else 28  # CFB average ~28 ppg
+        ypg = row[2] or 400 if row else 400  # CFB average ~400 ypg
+
+        # Estimate drive stats from PPG and YPG
+        # CFB avg: ~12-13 drives per game, ~2.5 ppd, ~35 ypd
+        drives_per_game = 12
+        ppd = ppg / drives_per_game
+        ypd = ypg / drives_per_game if ypg else 35
+        scoring_pct = ppd / 7 * 0.5  # Rough estimate
+
+        return {
+            'total_drives': drives_per_game * games if games else 0,
+            'ppd': ppd,
+            'ypd': ypd,
+            'plays_per_drive': 6.5,  # CFB average
+            'seconds_per_drive': 160,  # ~2.5 minutes
+            'scoring_pct': min(0.5, scoring_pct),
+            'redzone_pct': 0.55,  # CFB average
+            'three_and_out_pct': 0.18,  # CFB average
+            'explosive_drive_pct': 0.12,  # CFB average
+            'def_ppd': 2.3,  # Default defensive PPD
+            'def_ypd': 32,  # Default defensive YPD
+            'def_scoring_pct': 0.33,
+            'def_three_and_out_forced': 0.20,
         }
 
     def _get_odds(self, conn, game_id):
         """Get odds for a game"""
         cursor = conn.cursor()
+
+        # Convert numpy types to native Python (SQLite doesn't handle numpy.int64)
+        game_id = int(game_id)
 
         cursor.execute('''
             SELECT
@@ -476,14 +561,33 @@ class CFBDeepEaglePredictor:
                 '_missing_odds': True
             }
 
-        opening_spread = row[0] or 0
-        latest_spread = row[1] or row[0] or 0
-        opening_total = row[2] or 0
-        latest_total = row[3] or row[2] or 0
+        # Get spread values - if opening is missing, use latest as opening (no movement)
+        opening_spread = row[0] if row[0] is not None else row[1]
+        latest_spread = row[1] if row[1] is not None else row[0]
+        opening_spread = opening_spread or 0
+        latest_spread = latest_spread or 0
 
-        # Calculate movement
-        spread_movement = row[6] if row[6] is not None else (latest_spread - opening_spread)
-        total_movement = row[7] if row[7] is not None else (latest_total - opening_total)
+        # Get total values - if opening is missing, use latest as opening (no movement)
+        opening_total = row[2] if row[2] is not None else row[3]
+        latest_total = row[3] if row[3] is not None else row[2]
+        opening_total = opening_total or 0
+        latest_total = latest_total or 0
+
+        # Calculate movement - only if we have both opening and latest values
+        # If opening was missing, movement is 0 (we don't know what it was)
+        if row[6] is not None:
+            spread_movement = row[6]
+        elif row[0] is not None and row[1] is not None:
+            spread_movement = latest_spread - opening_spread
+        else:
+            spread_movement = 0  # No movement if we don't have opening
+
+        if row[7] is not None:
+            total_movement = row[7]
+        elif row[2] is not None and row[3] is not None:
+            total_movement = latest_total - opening_total
+        else:
+            total_movement = 0  # No movement if we don't have opening
 
         # Threshold features: significant movement
         # CFB uses 4.0 pts (~21% of avg spread, since CFB spreads avg 18.8 pts)
@@ -604,8 +708,8 @@ class CFBDeepEaglePredictor:
                     'pred_away_MOE': round(away_moe, 2),
                     'pred_spread_MOE': round(spread_moe, 2),
                     'pred_total_MOE': round(total_moe, 2),
-                    'vegas_spread': odds['spread'],
-                    'vegas_total': odds['total'],
+                    'vegas_spread': odds['latest_spread'],
+                    'vegas_total': odds['latest_total'],
                     'confidence': round(confidence, 3),
                     'pred_home_win_prob': round(home_win_prob, 3),
                     'predicted_winner': game['home_team'] if spread < 0 else game['away_team']

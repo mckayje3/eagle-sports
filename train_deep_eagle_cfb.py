@@ -1,433 +1,452 @@
 """
-Train Deep-Eagle LSTM Model for CFB Spread and Total Prediction
-"""
-import sys
-import io
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+Deep Eagle - Advanced Score Prediction Model
+Trains models to predict actual game scores using comprehensive features including drive data
 
-sys.path.insert(0, r'C:\Users\jbeast\documents\coding\deep')
+Predicts:
+- Home team score
+- Away team score
+- Derived: spread, total points, winner
+
+IMPORTANT - DATA LEAKAGE PREVENTION:
+=====================================
+The model must NEVER see actual game results during training. This includes:
+- home_score, away_score (these are TARGETS, not features)
+- point_spread (calculated from actual scores)
+- total_points (calculated from actual scores)
+- home_win (calculated from actual scores)
+
+These columns exist in the features CSV for convenience but are EXCLUDED via
+the `exclude_cols` list in load_data(). If you modify exclude_cols, you MUST
+keep these columns excluded or the model will "cheat" by seeing the answers.
+
+VALID FEATURES (what the model CAN use):
+- Historical stats from PREVIOUS games (home_hist_*, away_hist_*)
+- Drive stats from PREVIOUS games (home_drive_*, away_drive_*)
+- Vegas odds for THIS game (odds_*)
+- Game context (neutral_site, conference_game, temperature, etc.)
+- Derived differentials calculated from historical stats
+
+Usage:
+    py train_deep_eagle_cfb.py <season> <features_csv>
+    py train_deep_eagle_cfb.py 2025 cfb_2025_deep_eagle_features.csv
+    py train_deep_eagle_cfb.py 2026 cfb_2026_deep_eagle_features.csv
+"""
 
 import pandas as pd
 import numpy as np
 import torch
 import torch.nn as nn
+from torch.optim import Adam
+from torch.utils.data import TensorDataset, DataLoader
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.model_selection import train_test_split
 import pickle
-from pathlib import Path
-
-from core import (
-    TimeSeriesDataset,
-    TimeSeriesDataLoader,
-    LSTMModel,
-    Trainer
-)
-from core.training.callbacks import EarlyStopping, ModelCheckpoint
+import os
+import sys
 
 
-class CFBPredictor:
-    """Deep-Eagle LSTM predictor for CFB spreads and totals"""
+class DeepEagleModel(nn.Module):
+    """
+    Deep Eagle neural network for score prediction
+    Multi-output regression predicting home_score and away_score
+    """
 
-    def __init__(self, sequence_length=10, hidden_dim=128, num_layers=2, dropout=0.2):
-        self.sequence_length = sequence_length
-        self.hidden_dim = hidden_dim
-        self.num_layers = num_layers
-        self.dropout = dropout
+    def __init__(self, input_dim, hidden_dims=[256, 128, 64]):
+        super(DeepEagleModel, self).__init__()
 
-        self.spread_model = None
-        self.total_model = None
-        self.scaler = None
-        self.feature_columns = None
+        # Build layers dynamically
+        layers = []
+        prev_dim = input_dim
 
-    def prepare_features(self, df):
+        for hidden_dim in hidden_dims:
+            layers.append(nn.Linear(prev_dim, hidden_dim))
+            layers.append(nn.BatchNorm1d(hidden_dim))
+            layers.append(nn.ReLU())
+            layers.append(nn.Dropout(0.1))  # Reduced from 0.3 to fix eval/train mode gap
+            prev_dim = hidden_dim
+
+        self.feature_extractor = nn.Sequential(*layers)
+
+        # Separate heads for home and away scores
+        self.home_score_head = nn.Sequential(
+            nn.Linear(prev_dim, 32),
+            nn.ReLU(),
+            nn.Linear(32, 1)
+        )
+
+        self.away_score_head = nn.Sequential(
+            nn.Linear(prev_dim, 32),
+            nn.ReLU(),
+            nn.Linear(32, 1)
+        )
+
+    def forward(self, x):
+        features = self.feature_extractor(x)
+        home_score = self.home_score_head(features)
+        away_score = self.away_score_head(features)
+        return torch.cat([home_score, away_score], dim=1)
+
+
+class DeepEagleTrainer:
+    """Trainer for Deep Eagle models"""
+
+    def __init__(self, sport='cfb', season=2025):
+        self.sport = sport.upper()
+        self.season = season
+        self.model = None
+        self.scaler = StandardScaler()
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        print(f"Using device: {self.device}")
+
+    def load_data(self, features_path, train_weeks=None, test_weeks=None):
         """
-        Select and prepare features for training
+        Load features and split into train/test based on weeks
 
-        Returns:
-            features (np.array), spread_targets (np.array), total_targets (np.array)
+        Args:
+            features_path: Path to CSV with extracted features
+            train_weeks: List of weeks for training (e.g., [1,2,3,4,5,6,7,8,9,10])
+            test_weeks: List of weeks for testing (e.g., [11,12,13])
         """
-        # Select feature columns (exclude identifiers and targets)
+        print(f"\n{'='*80}")
+        print(f"LOADING DATA - {self.sport} {self.season}")
+        print('='*80)
+
+        df = pd.read_csv(features_path)
+        print(f"Loaded {len(df)} games from {features_path}")
+        print(f"Feature columns: {len(df.columns)}")
+
+        # CRITICAL: Exclude IDs and target variables to prevent data leakage
+        # DO NOT REMOVE any columns from this list - they contain actual game results!
+        # See module docstring for detailed explanation of why this matters.
         exclude_cols = [
-            'game_id', 'season', 'week', 'date', 'team_id',
-            'home_team_id', 'away_team_id', 'completed',
-            'home_score', 'away_score', 'points_scored', 'points_allowed',
-            'point_differential', 'win',  # These are targets or derived from targets
-            # Exclude current game Vegas lines (would be data leakage)
-            'vegas_spread_home', 'vegas_spread', 'vegas_total',
-            'covered_spread', 'went_over'  # These are outcomes, not features
+            # IDs - not predictive features
+            'game_id', 'season', 'week', 'home_team_id', 'away_team_id',
+            # LEAKAGE COLUMNS - actual game results (NEVER use as features!)
+            'home_score', 'away_score',  # These are our TARGETS
+            'point_spread',   # Calculated from actual scores (home - away)
+            'total_points',   # Calculated from actual scores (home + away)
+            'home_win'        # Calculated from actual scores (1 if home won)
         ]
 
         feature_cols = [col for col in df.columns if col not in exclude_cols]
-        self.feature_columns = feature_cols
+        print(f"Using {len(feature_cols)} features")
 
-        print(f"\n📊 Feature Selection:")
-        print(f"   Total columns: {len(df.columns)}")
-        print(f"   Feature columns: {len(feature_cols)}")
-        print(f"   Excluded columns: {len(exclude_cols)}")
+        # Verify no leakage columns slipped through
+        leakage_check = ['home_score', 'away_score', 'point_spread', 'total_points', 'home_win']
+        found_leakage = [c for c in leakage_check if c in feature_cols]
+        if found_leakage:
+            raise ValueError(f"DATA LEAKAGE DETECTED! These columns should be excluded: {found_leakage}")
 
-        # Extract features
-        features = df[feature_cols].values
+        # Split by week for time-series validation
+        if train_weeks and test_weeks:
+            train_df = df[df['week'].isin(train_weeks)]
+            test_df = df[df['week'].isin(test_weeks)]
+            print(f"\nTime-based split:")
+            print(f"  Train weeks: {train_weeks} -> {len(train_df)} games")
+            print(f"  Test weeks: {test_weeks} -> {len(test_df)} games")
+        else:
+            # Default: 80/20 split on earlier vs later weeks
+            weeks_sorted = sorted(df['week'].unique())
+            split_idx = int(len(weeks_sorted) * 0.8)
+            train_weeks = weeks_sorted[:split_idx]
+            test_weeks = weeks_sorted[split_idx:]
+            train_df = df[df['week'].isin(train_weeks)]
+            test_df = df[df['week'].isin(test_weeks)]
+            print(f"\nDefault 80/20 time split:")
+            print(f"  Train weeks: {train_weeks} -> {len(train_df)} games")
+            print(f"  Test weeks: {test_weeks} -> {len(test_df)} games")
 
-        # Extract targets
-        spread_targets = df['point_differential'].values  # Home team perspective
-        total_targets = (df['points_scored'] + df['points_allowed']).values
+        # Prepare features and targets
+        X_train = train_df[feature_cols].values
+        X_test = test_df[feature_cols].values
 
-        # Handle any remaining NaN values
-        features = np.nan_to_num(features, nan=0.0)
+        # Target: [home_score, away_score]
+        y_train = train_df[['home_score', 'away_score']].values
+        y_test = test_df[['home_score', 'away_score']].values
 
-        return features, spread_targets, total_targets
+        # Store for later analysis
+        self.train_df = train_df
+        self.test_df = test_df
+        self.feature_cols = feature_cols
 
-    def create_matchup_features(self, home_df, away_df):
+        print(f"\nData shapes:")
+        print(f"  X_train: {X_train.shape}")
+        print(f"  y_train: {y_train.shape}")
+        print(f"  X_test: {X_test.shape}")
+        print(f"  y_test: {y_test.shape}")
+
+        # Handle NaN and inf values
+        X_train = np.nan_to_num(X_train, nan=0.0, posinf=0.0, neginf=0.0)
+        X_test = np.nan_to_num(X_test, nan=0.0, posinf=0.0, neginf=0.0)
+
+        # Scale features
+        X_train = self.scaler.fit_transform(X_train)
+        X_test = self.scaler.transform(X_test)
+
+        return X_train, y_train, X_test, y_test
+
+    def build_model(self, input_dim):
+        """Build Deep Eagle model"""
+        self.model = DeepEagleModel(input_dim).to(self.device)
+        print(f"\nModel architecture:")
+        print(self.model)
+
+        # Count parameters
+        total_params = sum(p.numel() for p in self.model.parameters())
+        trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        print(f"\nTotal parameters: {total_params:,}")
+        print(f"Trainable parameters: {trainable_params:,}")
+
+    def train(self, X_train, y_train, X_val, y_val,
+              epochs=100, batch_size=32, learning_rate=0.001, patience=15, max_grad_norm=1.0):
         """
-        Create matchup features by combining home and away team stats
+        Train the model
 
         Args:
-            home_df: Home team's feature row
-            away_df: Away team's feature row
+            max_grad_norm: Maximum gradient norm for clipping (prevents exploding gradients)
 
         Returns:
-            Combined feature vector
+            history: dict with training metrics
         """
-        # For now, simple concatenation
-        # Could also do differences, ratios, etc.
-        combined = np.concatenate([home_df, away_df])
-        return combined
+        print(f"\n{'='*80}")
+        print(f"TRAINING {self.sport} {self.season} MODEL")
+        print('='*80)
+        print(f"Epochs: {epochs}")
+        print(f"Batch size: {batch_size}")
+        print(f"Learning rate: {learning_rate}")
+        print(f"Early stopping patience: {patience}")
+        print(f"Gradient clipping: {max_grad_norm}")
 
-    def split_data(self, df, train_weeks=None, val_weeks=None):
-        """
-        Split data by week for temporal validation
+        # Convert to tensors
+        X_train_t = torch.FloatTensor(X_train).to(self.device)
+        y_train_t = torch.FloatTensor(y_train).to(self.device)
+        X_val_t = torch.FloatTensor(X_val).to(self.device)
+        y_val_t = torch.FloatTensor(y_val).to(self.device)
 
-        Args:
-            df: Full dataset
-            train_weeks: Weeks for training (default: 3-11)
-            val_weeks: Weeks for validation (default: 12)
+        # Create data loaders (drop_last=True to avoid batch normalization issues with single-sample batches)
+        train_dataset = TensorDataset(X_train_t, y_train_t)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
 
-        Returns:
-            train_df, val_df
-        """
-        if train_weeks is None:
-            train_weeks = list(range(3, 12))  # Weeks 3-11 (better coverage)
-        if val_weeks is None:
-            val_weeks = [12]  # Week 12 (large validation set)
-
-        train_df = df[df['week'].isin(train_weeks)].copy()
-        val_df = df[df['week'].isin(val_weeks)].copy()
-
-        print(f"\n📅 Train/Val Split:")
-        print(f"   Train weeks: {min(train_weeks)}-{max(train_weeks)}")
-        print(f"   Train games: {len(train_df)}")
-        val_week_str = str(val_weeks[0]) if len(val_weeks) == 1 else f"{min(val_weeks)}-{max(val_weeks)}"
-        print(f"   Val weeks: {val_week_str}")
-        print(f"   Val games: {len(val_df)}")
-
-        return train_df, val_df
-
-    def train_model(self, train_features, train_targets, val_features, val_targets,
-                   model_name='spread', epochs=100):
-        """
-        Train a single LSTM model
-
-        Args:
-            train_features: Training features
-            train_targets: Training targets
-            val_features: Validation features
-            val_targets: Validation targets
-            model_name: Name for this model (spread or total)
-            epochs: Number of training epochs
-
-        Returns:
-            Trained model, training history
-        """
-        print(f"\n{'=' * 80}")
-        print(f"TRAINING {model_name.upper()} MODEL")
-        print(f"{'=' * 80}")
-
-        # Create datasets
-        train_dataset = TimeSeriesDataset(
-            data=train_features,
-            targets=train_targets,
-            sequence_length=self.sequence_length,
-            forecast_horizon=1
-        )
-
-        val_dataset = TimeSeriesDataset(
-            data=val_features,
-            targets=val_targets,
-            sequence_length=self.sequence_length,
-            forecast_horizon=1
-        )
-
-        print(f"\n📦 Dataset Creation:")
-        print(f"   Train sequences: {len(train_dataset)}")
-        print(f"   Val sequences: {len(val_dataset)}")
-
-        # Create data loaders
-        batch_size = 32
-        train_loader = TimeSeriesDataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-        val_loader = TimeSeriesDataLoader(val_dataset, batch_size=batch_size, shuffle=False)
-
-        # Create model
-        input_dim = train_features.shape[1]
-        model = LSTMModel(
-            input_dim=input_dim,
-            hidden_dim=self.hidden_dim,
-            output_dim=1,
-            num_layers=self.num_layers,
-            dropout=self.dropout
-        )
-
-        print(f"\n🏗️  Model Architecture:")
-        print(f"   Input dim: {input_dim}")
-        print(f"   Hidden dim: {self.hidden_dim}")
-        print(f"   Num layers: {self.num_layers}")
-        print(f"   Dropout: {self.dropout}")
-        print(f"   Parameters: {sum(p.numel() for p in model.parameters()):,}")
-
-        # Setup training
-        learning_rate = 0.001
-        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+        # Optimizer and loss
+        optimizer = Adam(self.model.parameters(), lr=learning_rate, weight_decay=1e-5)  # Added L2 regularization
         criterion = nn.MSELoss()
 
-        # Callbacks
-        callbacks = [
-            EarlyStopping(patience=15, min_delta=0.0001),
-            ModelCheckpoint(
-                filepath=f'models/cfb_{model_name}_best.pth',
-                monitor='val_loss',
-                save_best_only=True
-            )
-        ]
+        # Training history
+        history = {
+            'train_loss': [],
+            'val_loss': [],
+            'train_mae': [],
+            'val_mae': []
+        }
 
-        # Create trainer
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        trainer = Trainer(
-            model=model,
-            optimizer=optimizer,
-            criterion=criterion,
-            device=device,
-            callbacks=callbacks
-        )
+        best_val_loss = float('inf')
+        patience_counter = 0
 
-        # Train
-        print(f"\n🚀 Training...")
-        history = trainer.fit(
-            train_loader=train_loader,
-            val_loader=val_loader,
-            epochs=epochs
-        )
+        print(f"\n{'Epoch':<8} {'Train Loss':<12} {'Val Loss':<12} {'Train MAE':<12} {'Val MAE':<12}")
+        print('-' * 60)
 
-        print(f"\n✅ Training Complete!")
-        print(f"   Final train loss: {history['train_loss'][-1]:.4f}")
-        print(f"   Final val loss: {history['val_loss'][-1]:.4f}")
-        print(f"   Best val loss: {min(history['val_loss']):.4f}")
+        for epoch in range(epochs):
+            # Training phase
+            self.model.train()
+            train_losses = []
+            train_maes = []
 
-        return model, history
+            for batch_X, batch_y in train_loader:
+                optimizer.zero_grad()
+                predictions = self.model(batch_X)
+                loss = criterion(predictions, batch_y)
+                loss.backward()
 
-    def evaluate_model(self, model, features, targets, target_name='spread'):
-        """
-        Evaluate model performance
+                # Gradient clipping to prevent exploding gradients
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_grad_norm)
 
-        Args:
-            model: Trained model
-            features: Test features
-            targets: True targets
-            target_name: Name of target (for display)
+                optimizer.step()
 
-        Returns:
-            predictions, metrics dict
-        """
-        # Create dataset
-        dataset = TimeSeriesDataset(
-            data=features,
-            targets=targets,
-            sequence_length=self.sequence_length,
-            forecast_horizon=1
-        )
+                train_losses.append(loss.item())
+                mae = torch.mean(torch.abs(predictions - batch_y)).item()
+                train_maes.append(mae)
 
-        loader = TimeSeriesDataLoader(dataset, batch_size=32, shuffle=False)
+            # Validation phase
+            self.model.eval()
+            with torch.no_grad():
+                val_pred = self.model(X_val_t)
+                val_loss = criterion(val_pred, y_val_t).item()
+                val_mae = torch.mean(torch.abs(val_pred - y_val_t)).item()
 
-        # Get predictions
-        model.eval()
-        predictions = []
-        actuals = []
+            # Record history
+            avg_train_loss = np.mean(train_losses)
+            avg_train_mae = np.mean(train_maes)
+            history['train_loss'].append(avg_train_loss)
+            history['val_loss'].append(val_loss)
+            history['train_mae'].append(avg_train_mae)
+            history['val_mae'].append(val_mae)
+
+            # Print progress every 10 epochs
+            if (epoch + 1) % 10 == 0 or epoch == 0:
+                print(f"{epoch+1:<8} {avg_train_loss:<12.4f} {val_loss:<12.4f} "
+                      f"{avg_train_mae:<12.4f} {val_mae:<12.4f}")
+
+            # Early stopping
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                patience_counter = 0
+                # Save best model
+                self.best_model_state = self.model.state_dict()
+            else:
+                patience_counter += 1
+                if patience_counter >= patience:
+                    print(f"\nEarly stopping triggered at epoch {epoch+1}")
+                    print(f"Best validation loss: {best_val_loss:.4f}")
+                    break
+
+        # Restore best model
+        self.model.load_state_dict(self.best_model_state)
+
+        print(f"\n{'='*80}")
+        print("TRAINING COMPLETE!")
+        print('='*80)
+        print(f"Best validation loss: {best_val_loss:.4f}")
+        print(f"Best validation MAE: {min(history['val_mae']):.4f}")
+
+        return history
+
+    def evaluate(self, X_test, y_test):
+        """Evaluate model on test set"""
+        self.model.eval()
+
+        X_test_t = torch.FloatTensor(X_test).to(self.device)
+        y_test_t = torch.FloatTensor(y_test)
 
         with torch.no_grad():
-            for batch_x, batch_y in loader:
-                pred = model(batch_x)
-                predictions.extend(pred.cpu().numpy().flatten())
-                actuals.extend(batch_y.cpu().numpy().flatten())
-
-        predictions = np.array(predictions)
-        actuals = np.array(actuals)
+            predictions = self.model(X_test_t).cpu().numpy()
 
         # Calculate metrics
-        mse = mean_squared_error(actuals, predictions)
+        mae = np.mean(np.abs(predictions - y_test))
+        mse = np.mean((predictions - y_test) ** 2)
         rmse = np.sqrt(mse)
-        mae = mean_absolute_error(actuals, predictions)
 
-        metrics = {
-            'mse': mse,
+        # Score-specific metrics
+        home_mae = np.mean(np.abs(predictions[:, 0] - y_test[:, 0]))
+        away_mae = np.mean(np.abs(predictions[:, 1] - y_test[:, 1]))
+
+        # Derived metrics
+        pred_spread = predictions[:, 0] - predictions[:, 1]
+        actual_spread = y_test[:, 0] - y_test[:, 1]
+        spread_mae = np.mean(np.abs(pred_spread - actual_spread))
+
+        pred_total = predictions[:, 0] + predictions[:, 1]
+        actual_total = y_test[:, 0] + y_test[:, 1]
+        total_mae = np.mean(np.abs(pred_total - actual_total))
+
+        # Winner accuracy
+        pred_winner = (predictions[:, 0] > predictions[:, 1]).astype(int)
+        actual_winner = (y_test[:, 0] > y_test[:, 1]).astype(int)
+        winner_accuracy = np.mean(pred_winner == actual_winner)
+
+        print(f"\n{'='*80}")
+        print("TEST SET EVALUATION")
+        print('='*80)
+        print(f"Overall MAE: {mae:.2f} points")
+        print(f"Overall RMSE: {rmse:.2f} points")
+        print(f"\nScore Prediction:")
+        print(f"  Home team MAE: {home_mae:.2f} points")
+        print(f"  Away team MAE: {away_mae:.2f} points")
+        print(f"\nDerived Metrics:")
+        print(f"  Spread MAE: {spread_mae:.2f} points")
+        print(f"  Total points MAE: {total_mae:.2f} points")
+        print(f"  Winner accuracy: {winner_accuracy:.1%}")
+
+        results = {
+            'predictions': predictions,
+            'actual': y_test,
+            'mae': mae,
             'rmse': rmse,
-            'mae': mae
+            'home_mae': home_mae,
+            'away_mae': away_mae,
+            'spread_mae': spread_mae,
+            'total_mae': total_mae,
+            'winner_accuracy': winner_accuracy
         }
 
-        print(f"\n📊 {target_name.upper()} Evaluation:")
-        print(f"   MSE:  {mse:.4f}")
-        print(f"   RMSE: {rmse:.4f}")
-        print(f"   MAE:  {mae:.4f}")
+        return results
 
-        # Vegas benchmark comparison
-        if target_name == 'spread':
-            print(f"\n   Vegas Benchmark MAE: ~7.8 points")
-            if mae < 8.0:
-                print(f"   ✅ BEATING VEGAS TARGET!")
-            elif mae < 10.0:
-                print(f"   ⚠️  Close to Vegas performance")
-            else:
-                print(f"   ❌ Below Vegas performance")
-
-        elif target_name == 'total':
-            print(f"\n   Vegas Benchmark MAE: ~9.5 points")
-            if mae < 10.0:
-                print(f"   ✅ BEATING VEGAS TARGET!")
-            elif mae < 12.0:
-                print(f"   ⚠️  Close to Vegas performance")
-            else:
-                print(f"   ❌ Below Vegas performance")
-
-        return predictions, metrics
-
-    def save_models(self, save_dir='models'):
-        """Save trained models and scaler"""
-        save_dir = Path(save_dir)
-        save_dir.mkdir(exist_ok=True)
-
-        # Save spread model
-        if self.spread_model is not None:
-            torch.save({
-                'model_state_dict': self.spread_model.state_dict(),
-                'input_dim': len(self.feature_columns),
-                'hidden_dim': self.hidden_dim,
-                'num_layers': self.num_layers,
-                'dropout': self.dropout
-            }, save_dir / 'cfb_spread_best.pth')
-            print(f"   Saved spread model")
-
-        # Save total model
-        if self.total_model is not None:
-            torch.save({
-                'model_state_dict': self.total_model.state_dict(),
-                'input_dim': len(self.feature_columns),
-                'hidden_dim': self.hidden_dim,
-                'num_layers': self.num_layers,
-                'dropout': self.dropout
-            }, save_dir / 'cfb_total_best.pth')
-            print(f"   Saved total model")
+    def save(self, model_path, scaler_path=None):
+        """Save model and scaler"""
+        # Save model
+        torch.save({
+            'model_state_dict': self.model.state_dict(),
+            'sport': self.sport,
+            'season': self.season,
+            'feature_cols': self.feature_cols
+        }, model_path)
+        print(f"\nModel saved to: {model_path}")
 
         # Save scaler
-        scaler_data = {
-            'scaler': self.scaler,
-            'feature_columns': self.feature_columns
-        }
-        with open(save_dir / 'cfb_scaler.pkl', 'wb') as f:
-            pickle.dump(scaler_data, f)
+        if scaler_path is None:
+            scaler_path = model_path.replace('.pt', '_scaler.pkl')
 
-        print(f"\n💾 Models saved to: {save_dir}")
-        print(f"   - cfb_spread_best.pth")
-        print(f"   - cfb_total_best.pth")
-        print(f"   - cfb_scaler.pkl")
+        with open(scaler_path, 'wb') as f:
+            pickle.dump(self.scaler, f)
+        print(f"Scaler saved to: {scaler_path}")
 
 
 def main():
-    """Main training pipeline"""
-    print("=" * 80)
-    print("DEEP-EAGLE CFB TRAINING PIPELINE")
-    print("=" * 80)
+    """Main training pipeline for CFB"""
+    if len(sys.argv) < 3:
+        print("Usage: py train_deep_eagle_cfb.py <season> <features_csv>")
+        print("Example: py train_deep_eagle_cfb.py 2025 cfb_2025_deep_eagle_features.csv")
+        sys.exit(1)
 
-    # Check for prepared data
-    data_file = 'cfb_training_data.csv'
-    if not Path(data_file).exists():
-        print(f"\n❌ Data file not found: {data_file}")
-        print(f"   Please run: py cfb_data_preparation.py")
-        return
+    season = int(sys.argv[1])
+    features_path = sys.argv[2]
 
-    # Load data
-    print(f"\n📁 Loading data from: {data_file}")
-    df = pd.read_csv(data_file)
-    print(f"   ✅ Loaded {len(df)} games")
+    # Create output directory
+    os.makedirs('models', exist_ok=True)
 
-    # Initialize predictor
-    predictor = CFBPredictor(
-        sequence_length=10,  # Last 10 games
-        hidden_dim=128,
-        num_layers=2,
-        dropout=0.2
+    # Initialize trainer (CFB-specific)
+    trainer = DeepEagleTrainer(sport='cfb', season=season)
+
+    # Load data with time-based split
+    # CFB: weeks 1-10 train, 11-15 test
+    train_weeks = list(range(1, 11))
+    test_weeks = list(range(11, 16))
+
+    X_train, y_train, X_test, y_test = trainer.load_data(
+        features_path,
+        train_weeks=train_weeks,
+        test_weeks=test_weeks
     )
 
-    # Split by weeks (train on early season, validate on late season)
-    train_df, val_df = predictor.split_data(df)  # Uses default weeks 2-10 train, 11-13 val
+    # Build model
+    trainer.build_model(input_dim=X_train.shape[1])
 
-    # Prepare features
-    print(f"\n🔧 Preparing features...")
-    train_features, train_spread, train_total = predictor.prepare_features(train_df)
-    val_features, val_spread, val_total = predictor.prepare_features(val_df)
+    # Train model - CFB uses lower learning rate due to higher variance
+    learning_rate = 0.0001
+    max_grad_norm = 0.5  # Stricter gradient clipping for CFB
 
-    # Scale features
-    print(f"\n📏 Scaling features...")
-    predictor.scaler = StandardScaler()
-    train_features_scaled = predictor.scaler.fit_transform(train_features)
-    val_features_scaled = predictor.scaler.transform(val_features)
-    print(f"   ✅ Features scaled")
-
-    # Train spread model
-    spread_model, spread_history = predictor.train_model(
-        train_features_scaled, train_spread,
-        val_features_scaled, val_spread,
-        model_name='spread',
-        epochs=100
-    )
-    predictor.spread_model = spread_model
-
-    # Evaluate spread model
-    spread_preds, spread_metrics = predictor.evaluate_model(
-        spread_model, val_features_scaled, val_spread, target_name='spread'
+    history = trainer.train(
+        X_train, y_train, X_test, y_test,
+        epochs=200,
+        batch_size=32,
+        learning_rate=learning_rate,
+        patience=20,
+        max_grad_norm=max_grad_norm
     )
 
-    # Train total model
-    total_model, total_history = predictor.train_model(
-        train_features_scaled, train_total,
-        val_features_scaled, val_total,
-        model_name='total',
-        epochs=100
-    )
-    predictor.total_model = total_model
+    # Evaluate
+    results = trainer.evaluate(X_test, y_test)
 
-    # Evaluate total model
-    total_preds, total_metrics = predictor.evaluate_model(
-        total_model, val_features_scaled, val_total, target_name='total'
-    )
+    # Save model
+    model_path = f'models/deep_eagle_cfb_{season}.pt'
+    trainer.save(model_path)
 
-    # Save models
-    predictor.save_models()
-
-    # Final summary
-    print("\n" + "=" * 80)
-    print("TRAINING COMPLETE")
-    print("=" * 80)
-    print(f"\nSpread Model:")
-    print(f"   MAE: {spread_metrics['mae']:.2f} points")
-    print(f"   RMSE: {spread_metrics['rmse']:.2f} points")
-
-    print(f"\nTotal Model:")
-    print(f"   MAE: {total_metrics['mae']:.2f} points")
-    print(f"   RMSE: {total_metrics['rmse']:.2f} points")
-
-    print(f"\nNext Steps:")
-    print(f"  1. Review performance metrics")
-    print(f"  2. Compare predictions to Vegas lines")
-    print(f"  3. Integrate into prediction_engine.py")
-    print(f"  4. Deploy for Week 15+ predictions")
-    print("=" * 80)
+    print(f"\n{'='*80}")
+    print(f"DEEP EAGLE CFB {season} - COMPLETE!")
+    print('='*80)
+    print(f"Model: {model_path}")
+    print(f"Winner Accuracy: {results['winner_accuracy']:.1%}")
+    print(f"Spread MAE: {results['spread_mae']:.2f} points")
+    print(f"Total MAE: {results['total_mae']:.2f} points")
 
 
 if __name__ == '__main__':
