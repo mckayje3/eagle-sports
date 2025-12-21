@@ -1828,6 +1828,46 @@ def get_all_news():
     )
     all_articles.extend(athletic_feed)
 
+    # ESPN NBA
+    espn_nba = fetch_rss_feed(
+        'https://www.espn.com/espn/rss/nba/news',
+        'ESPN NBA',
+        max_items=8
+    )
+    all_articles.extend(espn_nba)
+
+    # ESPN CBB
+    espn_cbb = fetch_rss_feed(
+        'https://www.espn.com/espn/rss/ncb/news',
+        'ESPN CBB',
+        max_items=8
+    )
+    all_articles.extend(espn_cbb)
+
+    # CBS Sports NBA
+    cbs_nba = fetch_rss_feed(
+        'https://www.cbssports.com/rss/headlines/nba/',
+        'CBS Sports NBA',
+        max_items=6
+    )
+    all_articles.extend(cbs_nba)
+
+    # CBS Sports CBB
+    cbs_cbb = fetch_rss_feed(
+        'https://www.cbssports.com/rss/headlines/college-basketball/',
+        'CBS Sports CBB',
+        max_items=6
+    )
+    all_articles.extend(cbs_cbb)
+
+    # Yahoo NBA
+    yahoo_nba = fetch_rss_feed(
+        'https://sports.yahoo.com/nba/rss/',
+        'Yahoo NBA',
+        max_items=5
+    )
+    all_articles.extend(yahoo_nba)
+
     return all_articles
 
 
@@ -1911,7 +1951,7 @@ def show_news():
 
     with col1:
         st.markdown("""
-        **ESPN**
+        **ESPN Football**
         - [College Football](https://www.espn.com/college-football/)
         - [NFL](https://www.espn.com/nfl/)
         - [CFB Scoreboard](https://www.espn.com/college-football/scoreboard)
@@ -1920,29 +1960,29 @@ def show_news():
 
     with col2:
         st.markdown("""
-        **Vegas Insider**
-        - [CFB Odds](https://www.vegasinsider.com/college-football/odds/las-vegas/)
-        - [NFL Odds](https://www.vegasinsider.com/nfl/odds/las-vegas/)
-        - [CFB Matchups](https://www.vegasinsider.com/college-football/matchups/)
-        - [NFL Matchups](https://www.vegasinsider.com/nfl/matchups/)
+        **ESPN Basketball**
+        - [NBA](https://www.espn.com/nba/)
+        - [College Basketball](https://www.espn.com/mens-college-basketball/)
+        - [NBA Scoreboard](https://www.espn.com/nba/scoreboard)
+        - [CBB Scoreboard](https://www.espn.com/mens-college-basketball/scoreboard)
         """)
 
     with col3:
         st.markdown("""
         **Betting Resources**
-        - [Action Network CFB](https://www.actionnetwork.com/ncaaf)
-        - [Action Network NFL](https://www.actionnetwork.com/nfl)
-        - [Covers CFB](https://www.covers.com/ncaaf)
-        - [Covers NFL](https://www.covers.com/nfl)
+        - [Action Network](https://www.actionnetwork.com/)
+        - [Vegas Insider](https://www.vegasinsider.com/)
+        - [Covers](https://www.covers.com/)
+        - [The Athletic](https://theathletic.com/)
         """)
 
     with col4:
         st.markdown("""
         **Analysis**
-        - [CBS Sports CFB](https://www.cbssports.com/college-football/)
-        - [CBS Sports NFL](https://www.cbssports.com/nfl/)
+        - [CBS Sports](https://www.cbssports.com/)
         - [247 Sports](https://247sports.com/)
-        - [The Athletic](https://theathletic.com/college-football/)
+        - [Bleacher Report](https://bleacherreport.com/)
+        - [Yahoo Sports](https://sports.yahoo.com/)
         """)
 
     st.markdown("---")
@@ -1959,7 +1999,10 @@ def show_news():
     # Filter options
     source_filter = st.selectbox(
         "Filter by Source",
-        ["All Sources", "ESPN CFB", "ESPN NFL", "CBS Sports CFB", "CBS Sports NFL", "Yahoo CFB", "Bleacher Report", "NBC PFT", "The Athletic"]
+        ["All Sources",
+         "ESPN CFB", "ESPN NFL", "ESPN NBA", "ESPN CBB",
+         "CBS Sports CFB", "CBS Sports NFL", "CBS Sports NBA", "CBS Sports CBB",
+         "Yahoo CFB", "Yahoo NBA", "Bleacher Report", "NBC PFT", "The Athletic"]
     )
 
     # Fetch all news
@@ -2162,6 +2205,97 @@ def show_database_explorer():
 # Model Insights Page
 # ============================================================================
 
+@st.cache_data(ttl=3600)
+def get_feature_importance(model_path: str, top_n: int = 15):
+    """
+    Extract feature importance from a Deep Eagle model by analyzing first layer weights.
+
+    Neural networks don't have simple "weights" like linear models, but we can approximate
+    feature importance by looking at the magnitude of weights connecting each input to
+    the first hidden layer. Higher magnitude = model pays more attention to that feature.
+
+    Returns:
+        List of (feature_name, importance_score, normalized_percentage) tuples
+    """
+    import torch
+
+    try:
+        checkpoint = torch.load(model_path, map_location='cpu', weights_only=False)
+        feature_cols = checkpoint.get('feature_cols', [])
+
+        if not feature_cols:
+            return None
+
+        state_dict = checkpoint['model_state_dict']
+
+        # Find first layer weights (connects input features to first hidden layer)
+        first_layer_key = None
+        for key in state_dict.keys():
+            if '0.weight' in key and 'head' not in key:
+                first_layer_key = key
+                break
+
+        if not first_layer_key:
+            return None
+
+        weights = state_dict[first_layer_key]
+
+        # Sum absolute weights across all neurons for each feature
+        # This gives us a measure of how much the model "uses" each feature
+        importance = torch.abs(weights).sum(dim=0).numpy()
+
+        # Normalize to percentages
+        total = importance.sum()
+        percentages = (importance / total) * 100
+
+        # Create sorted list
+        results = list(zip(feature_cols, importance, percentages))
+        results.sort(key=lambda x: x[1], reverse=True)
+
+        return results[:top_n]
+
+    except Exception as e:
+        return None
+
+
+def display_feature_importance(model_path: str, sport_name: str):
+    """Display feature importance chart for a model"""
+    importance = get_feature_importance(model_path)
+
+    if importance is None:
+        st.warning(f"Could not load feature importance for {sport_name} model")
+        return
+
+    st.markdown("### Feature Importance (by weight magnitude)")
+    st.caption("Shows which features the model pays most attention to. Based on first-layer neural network weights.")
+
+    # Create dataframe for display
+    df = pd.DataFrame(importance, columns=['Feature', 'Weight Sum', 'Importance %'])
+    df['Importance %'] = df['Importance %'].round(2)
+    df['Weight Sum'] = df['Weight Sum'].round(2)
+
+    # Create horizontal bar chart
+    fig = px.bar(
+        df,
+        x='Importance %',
+        y='Feature',
+        orientation='h',
+        title=f'Top {len(df)} Most Important Features',
+        color='Importance %',
+        color_continuous_scale='Blues'
+    )
+    fig.update_layout(
+        yaxis={'categoryorder': 'total ascending'},
+        height=400,
+        showlegend=False
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Show table
+    with st.expander("View detailed weights"):
+        st.dataframe(df, use_container_width=True, hide_index=True)
+
+
 def show_model_insights():
     """Display Deep Eagle model transparency and explainability information"""
     st.markdown('<p class="main-header">Deep Eagle Model Insights</p>', unsafe_allow_html=True)
@@ -2246,6 +2380,10 @@ def show_model_insights():
         with col2:
             st.metric("Home Score MAE", "~10 points")
             st.metric("Away Score MAE", "~10 points")
+
+        # Feature importance
+        st.markdown("---")
+        display_feature_importance('models/deep_eagle_nfl_2025.pt', 'NFL')
 
     # =========================================================================
     # CFB TAB
@@ -2334,6 +2472,10 @@ def show_model_insights():
         4. **Drive Data:** Provides more signal than raw stats about team quality
         """)
 
+        # Feature importance
+        st.markdown("---")
+        display_feature_importance('models/deep_eagle_cfb_2025.pt', 'CFB')
+
     # =========================================================================
     # NBA TAB
     # =========================================================================
@@ -2394,6 +2536,10 @@ def show_model_insights():
             st.metric("Last Updated", "December 2025")
 
         st.info("NBA model is actively being improved with additional historical data and features.")
+
+        # Feature importance
+        st.markdown("---")
+        display_feature_importance('models/deep_eagle_nba_2024.pt', 'NBA')
 
     # =========================================================================
     # CBB TAB
@@ -2482,6 +2628,10 @@ def show_model_insights():
         """)
 
         st.success("CBB model trained on 2024-25 season data with 12,500+ total games across both seasons.")
+
+        # Feature importance
+        st.markdown("---")
+        display_feature_importance('models/deep_eagle_cbb_2025.pt', 'CBB')
 
     # =========================================================================
     # COMMON METHODOLOGY SECTION
