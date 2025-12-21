@@ -485,9 +485,10 @@ class CFBDeepEaglePredictor:
         spread_movement = row[6] if row[6] is not None else (latest_spread - opening_spread)
         total_movement = row[7] if row[7] is not None else (latest_total - opening_total)
 
-        # Threshold features: significant movement >= 2.0 points
-        spread_significant = abs(spread_movement) >= 2.0
-        total_significant = abs(total_movement) >= 2.0
+        # Threshold features: significant movement
+        # CFB uses 4.0 pts (~21% of avg spread, since CFB spreads avg 18.8 pts)
+        spread_significant = abs(spread_movement) >= 4.0
+        total_significant = abs(total_movement) >= 3.0
 
         # Check if we have actual spread/total data
         has_spread = row[0] is not None or row[1] is not None

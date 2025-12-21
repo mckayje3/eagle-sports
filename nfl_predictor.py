@@ -236,7 +236,8 @@ class NFLPredictor:
         features['odds_total_movement'] = total_movement
         features['odds_spread_movement_abs'] = abs(spread_movement)
         features['odds_total_movement_abs'] = abs(total_movement)
-        # Threshold features: significant movement (>= 2.0 points)
+        # Threshold features: significant movement
+        # NFL uses 2.0 pts (~35% of avg spread)
         spread_significant = abs(spread_movement) >= 2.0
         total_significant = abs(total_movement) >= 2.0
         features['odds_spread_movement_significant'] = 1 if spread_significant else 0

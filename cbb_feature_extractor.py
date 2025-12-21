@@ -429,8 +429,9 @@ class CBBFeatureExtractor:
         spread_movement = float(row['spread_movement']) if pd.notna(row['spread_movement']) else (latest_spread - opening_spread)
         total_movement = float(row['total_movement']) if pd.notna(row['total_movement']) else (latest_total - opening_total)
 
-        # Threshold features: significant movement >= 2.0 points
-        spread_significant = abs(spread_movement) >= 2.0
+        # Threshold features: significant movement
+        # CBB uses 2.5 pts (~28% of avg spread)
+        spread_significant = abs(spread_movement) >= 2.5
         total_significant = abs(total_movement) >= 2.0
 
         return {

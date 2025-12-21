@@ -380,9 +380,22 @@ class DeepEagleFeatureExtractor:
             total_movement = row['latest_total'] - row['opening_total']
 
         # Threshold-based features: help model focus on significant moves, ignore noise
-        # "Significant" = movement >= 2.0 points (roughly top 25% of movements)
-        spread_significant = abs(spread_movement) >= 2.0
-        total_significant = abs(total_movement) >= 2.0
+        # Sport-specific thresholds based on typical spread sizes:
+        # - NFL/NBA: 2.0 pts (~35% of avg spread)
+        # - CBB: 2.5 pts (~28% of avg spread)
+        # - CFB: 4.0 pts (~21% of avg spread, since CFB spreads avg 18.8 pts)
+        if self.sport == 'cfb':
+            spread_threshold = 4.0
+            total_threshold = 3.0
+        elif self.sport == 'cbb':
+            spread_threshold = 2.5
+            total_threshold = 2.0
+        else:  # nfl, nba
+            spread_threshold = 2.0
+            total_threshold = 2.0
+
+        spread_significant = abs(spread_movement) >= spread_threshold
+        total_significant = abs(total_movement) >= total_threshold
 
         return {
             'opening_spread': row['opening_spread'] if pd.notna(row['opening_spread']) else 0,

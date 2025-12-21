@@ -514,7 +514,8 @@ class NBAPredictor:
         spread_movement = row[4] if row[4] is not None else (latest_spread - opening_spread)
         total_movement = row[5] if row[5] is not None else (latest_total - opening_total)
 
-        # Threshold features: significant movement >= 2.0 points
+        # Threshold features: significant movement
+        # NBA uses 2.0 pts (~29% of avg spread)
         spread_significant = abs(spread_movement) >= 2.0
         total_significant = abs(total_movement) >= 2.0
 

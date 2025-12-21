@@ -575,7 +575,8 @@ class NBAFeatureExtractor:
         spread_movement = float(row['spread_movement']) if pd.notna(row['spread_movement']) else (latest_spread - opening_spread)
         total_movement = float(row['total_movement']) if pd.notna(row['total_movement']) else (latest_total - opening_total)
 
-        # Threshold features: significant movement >= 2.0 points
+        # Threshold features: significant movement
+        # NBA uses 2.0 pts (~29% of avg spread)
         spread_significant = abs(spread_movement) >= 2.0
         total_significant = abs(total_movement) >= 2.0
 
