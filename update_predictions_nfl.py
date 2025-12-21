@@ -215,7 +215,7 @@ def sync_to_cache():
                 o.game_id, g.date, g.week, g.season,
                 ht.display_name as home_team, at.display_name as away_team,
                 o.predicted_home_score, o.predicted_away_score,
-                o.predicted_home_score - o.predicted_away_score as pred_spread,
+                o.predicted_away_score - o.predicted_home_score as pred_spread,
                 o.predicted_home_score + o.predicted_away_score as pred_total,
                 o.prediction_date,
                 o.latest_spread as vegas_spread,

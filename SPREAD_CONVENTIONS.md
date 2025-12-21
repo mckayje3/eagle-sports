@@ -2,93 +2,77 @@
 
 This document explains how spreads are stored, calculated, and displayed in Eagle Eye Sports Tracker.
 
-## Standard Betting Notation
+## Standard Betting (Vegas) Notation
 
-In sports betting, spreads are always shown from the **favorite's perspective** with a **negative number**:
-- **Favorite**: Shown with negative spread (they "give" points)
-- **Underdog**: Shown with positive spread (they "receive" points)
+In sports betting, spreads are shown from the **home team's perspective**:
+- **Negative spread** = Home team is favored (must win by that many points)
+- **Positive spread** = Home team is underdog (can lose by up to that many points)
 
 ### Examples:
-- "Chiefs -7.0" = Chiefs are 7-point favorites (expected to win by 7)
-- "Broncos +3.0" = Broncos are 3-point underdogs (expected to lose by 3)
+- "Chiefs -7.0" = Chiefs (home) are 7-point favorites
+- "Broncos +3.0" = Broncos (home) are 3-point underdogs
 
 ## Internal Data Storage
 
-### Predicted Spread (`predicted_spread`)
+### ALL Spreads Use Vegas Convention
+
+Both model predictions and Vegas lines use the same convention:
 ```
-predicted_spread = predicted_home_score - predicted_away_score
+spread = away_score - home_score
 ```
-- **Positive value** = Home team predicted to win (home is favorite)
-- **Negative value** = Away team predicted to win (away is favorite)
+- **Negative value** = Home team favored (home scored more)
+- **Positive value** = Away team favored (away scored more)
 
-### Vegas Spread (`vegas_spread`)
-Stored as the **home team's spread**:
-- **Negative value** = Home team is favorite
-- **Positive value** = Away team is favorite
+This applies to:
+- `predicted_spread` (model output)
+- `vegas_spread` / `latest_spread` / `opening_spread` (from sportsbooks)
+- `actual_spread` (game result)
 
-## Display Logic
+### Why This Convention?
 
-When displaying spreads to users, convert internal values to standard betting notation:
+Using consistent conventions throughout the system:
+1. Eliminates confusing negation logic
+2. Allows direct comparison: `deviation = model_spread - vegas_spread`
+3. Matches industry standard for spread representation
 
-### Our Predictions
+## Deviation Calculation
+
 ```python
-spread = row['predicted_spread']  # home_score - away_score
-
-if spread > 0:
-    # Home team is favorite - show as negative
-    spread_text = f"{home_team} {-spread:.1f}"  # "Eagles -7.0"
-else:
-    # Away team is favorite - show as negative
-    spread_text = f"{away_team} {spread:.1f}"   # "Vikings -3.0"
+deviation = model_spread - vegas_spread
 ```
 
-### Vegas Lines
+- **Negative deviation** = Model favors HOME more than Vegas
+  - Model spread is more negative (home winning by more)
+  - Bet: HOME to cover
+
+- **Positive deviation** = Model favors AWAY more than Vegas
+  - Model spread is less negative (or more positive)
+  - Bet: AWAY to cover
+
+### Example:
+- Vegas: -7 (home favored by 7)
+- Model: -10 (model thinks home wins by 10)
+- Deviation: -10 - (-7) = -3
+- Interpretation: Model favors HOME 3 pts more than Vegas → Bet HOME
+
+## Display
+
+Spreads display directly with their sign:
 ```python
-vegas_spread = row['vegas_spread']  # stored as home team spread
-
-if vegas_spread < 0:
-    # Home team is favorite
-    vegas_text = f"{home_team} {vegas_spread:.1f}"   # "Eagles -7.0"
-else:
-    # Away team is favorite
-    vegas_text = f"{away_team} {-vegas_spread:.1f}"  # "Vikings -3.0"
+st.write(f"{spread:+.1f}")  # Shows "+7.0" or "-3.5"
 ```
-
-## Key Rules
-
-1. **Favorites always get negative numbers** when displayed
-2. **Internal storage**: `home_score - away_score` (positive = home wins)
-3. **Vegas storage**: Home team spread (negative = home favorite)
-4. **Never show double negatives** like "Team --7.0"
-5. **Always show the favorite's name** with the spread, not the underdog
-
-## Adding a New Sport
-
-When adding predictions for a new sport (NHL, MLB, etc.):
-
-1. **Calculate spread** as `home_score - away_score`
-2. **Store in database** with positive = home team advantage
-3. **Display using standard notation**: favorite with negative number
-4. **Test with examples**:
-   - If home team wins by 5: `spread = 5`, display as "{Home} -5.0"
-   - If away team wins by 3: `spread = -3`, display as "{Away} -3.0"
-
-## Spread Ranges
-
-For confidence intervals, the spread range should be symmetric around the predicted spread:
-```python
-spread_low = predicted_spread - margin  # More favorable to away team
-spread_high = predicted_spread + margin  # More favorable to home team
-```
-
-Display these using the same convention (positive = home advantage).
 
 ## Quick Reference
 
-| Scenario | Internal Value | Display |
-|----------|---------------|---------|
-| Home favored by 7 | `+7.0` | "Home Team -7.0" |
-| Away favored by 3 | `-3.0` | "Away Team -3.0" |
-| Pick 'em | `0.0` | "Pick 'em" or "Home Team -0.0" |
-| Vegas: Home -7 | `-7.0` | "Home Team -7.0" |
-| Vegas: Away -3 | `+3.0` | "Away Team -3.0" |
+| Scenario | Spread Value | Display |
+|----------|-------------|---------|
+| Home favored by 7 | `-7.0` | "-7.0" |
+| Away favored by 3 | `+3.0` | "+3.0" |
+| Pick 'em | `0.0` | "+0.0" |
+
+## Files Using This Convention
+
+- `betting_tracker.py` - Recommendation generation
+- `streamlit_app.py` - Display and comparison
+- `update_predictions_*.py` - Prediction sync (all 4 sports)
+- All database queries calculating `pred_spread`

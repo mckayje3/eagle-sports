@@ -290,7 +290,7 @@ def get_predictions_from_db(week: int, sport: str = 'CFB', season: int = 2025):
                     g.away_score as actual_away_score,
                     o.predicted_home_score,
                     o.predicted_away_score,
-                    (o.predicted_home_score - o.predicted_away_score) as predicted_spread,
+                    (o.predicted_away_score - o.predicted_home_score) as predicted_spread,
                     (o.predicted_home_score + o.predicted_away_score) as predicted_total,
                     NULL as confidence,
                     COALESCE(o.latest_spread, o.opening_spread) as vegas_spread,
@@ -318,7 +318,7 @@ def get_predictions_from_db(week: int, sport: str = 'CFB', season: int = 2025):
                     g.away_score as actual_away_score,
                     o.predicted_home_score,
                     o.predicted_away_score,
-                    (o.predicted_home_score - o.predicted_away_score) as predicted_spread,
+                    (o.predicted_away_score - o.predicted_home_score) as predicted_spread,
                     (o.predicted_home_score + o.predicted_away_score) as predicted_total,
                     o.confidence,
                     COALESCE(o.latest_spread, o.opening_spread) as vegas_spread,
@@ -799,24 +799,19 @@ def display_game_card(row, sport_emoji="🏈"):
     has_result = game_completed and actual_home is not None and actual_away is not None
 
     if has_result:
-        actual_spread = actual_home - actual_away
+        # Vegas convention: negative = home won by that amount
+        actual_spread = actual_away - actual_home
         actual_total = actual_home + actual_away
         actual_winner = home_team if actual_home > actual_away else (away_team if actual_away > actual_home else "Tie")
 
     # Format spread for display
-    # Model spread stored as: home - away (positive = home wins, negative = home loses)
-    # Vegas convention: negative = home favored, positive = away favored
-    # So we need to NEGATE the model spread to convert to Vegas convention
+    # Model spread now stored in Vegas convention: negative = home favored
     def format_spread(spread_val):
-        """Convert model spread to Vegas convention.
-        Model: home - away (negative = home loses)
-        Vegas: negative = home favored
-        So negate: if home loses by 11 (model = -11), display as +11 (home is underdog)"""
+        """Format model spread for display.
+        Already in Vegas convention: negative = home favored."""
         if spread_val is None or pd.isna(spread_val):
             return "NL"
-        # Negate to convert to Vegas convention
-        vegas_format = -spread_val
-        return f"{vegas_format:+.1f}"
+        return f"{spread_val:+.1f}"
 
     def format_vegas_spread(spread_val):
         """Vegas spread already in correct convention.
@@ -832,10 +827,8 @@ def display_game_card(row, sport_emoji="🏈"):
     # Add recommendation badge if significant deviation from Vegas
     rec_badge = ""
     if has_vegas and model_spread is not None and not pd.isna(model_spread):
-        # Model spread is home - away, Vegas spread is in Vegas convention
-        # Convert model to Vegas convention (negate) then compare
-        model_spread_vegas = -model_spread
-        deviation = model_spread_vegas - vegas_spread
+        # Model spread is now in Vegas convention (away - home): negative = home favored
+        deviation = model_spread - vegas_spread
         abs_dev = abs(deviation)
 
         if abs_dev >= 7:
@@ -917,12 +910,12 @@ def display_game_card(row, sport_emoji="🏈"):
         if spread_moe is not None and not pd.isna(spread_moe) and has_prediction:
             st.markdown("---")
             st.caption("**Confidence Intervals (Model Spread)**")
-            # Model spread in Vegas convention (negated)
-            model_spread_vegas = -model_spread if model_spread else 0
-            ci_68_low = model_spread_vegas - spread_moe
-            ci_68_high = model_spread_vegas + spread_moe
-            ci_95_low = model_spread_vegas - 2 * spread_moe
-            ci_95_high = model_spread_vegas + 2 * spread_moe
+            # Model spread is now in Vegas convention: negative = home favored
+            spread_val = model_spread if model_spread else 0
+            ci_68_low = spread_val - spread_moe
+            ci_68_high = spread_val + spread_moe
+            ci_95_low = spread_val - 2 * spread_moe
+            ci_95_high = spread_val + 2 * spread_moe
 
             col1, col2 = st.columns(2)
             with col1:
@@ -932,7 +925,7 @@ def display_game_card(row, sport_emoji="🏈"):
 
             # Vegas deviation indicator
             if has_vegas:
-                deviation = model_spread_vegas - vegas_spread
+                deviation = model_spread - vegas_spread
                 if abs(deviation) >= 7:
                     dev_icon = "🟢"
                 elif abs(deviation) >= 5:
@@ -941,6 +934,7 @@ def display_game_card(row, sport_emoji="🏈"):
                     dev_icon = "🟠"
                 else:
                     dev_icon = "⚪"
+                # Negative deviation = model favors home MORE than Vegas
                 direction = "HOME" if deviation < 0 else "AWAY"
                 st.write(f"{dev_icon} Vegas Deviation: {abs(deviation):.1f} pts ({direction} bias)")
 
@@ -972,14 +966,9 @@ def display_game_card(row, sport_emoji="🏈"):
 
             if has_vegas:
                 # Spread comparison: who was closer to actual spread?
-                # model_spread = home_score - away_score (positive = home wins)
-                # vegas_spread = home team's line (negative = home favored)
-                # To convert vegas to same format: if vegas_spread = -7, home expected to win by 7
-                # So vegas_implied_spread = -vegas_spread
-                vegas_implied_spread = -vegas_spread
-
+                # All spreads now in Vegas convention (negative = home favored)
                 model_spread_diff = abs(actual_spread - model_spread)
-                vegas_spread_diff = abs(actual_spread - vegas_implied_spread)
+                vegas_spread_diff = abs(actual_spread - vegas_spread)
 
                 if model_spread_diff < vegas_spread_diff - 0.5:
                     tags.append("✅ Model Beat Vegas (Spread)")
@@ -1262,7 +1251,7 @@ def show_nba_predictions_live():
                 g.away_score as actual_away_score,
                 o.predicted_home_score,
                 o.predicted_away_score,
-                (o.predicted_home_score - o.predicted_away_score) as predicted_spread,
+                (o.predicted_away_score - o.predicted_home_score) as predicted_spread,
                 (o.predicted_home_score + o.predicted_away_score) as predicted_total,
                 o.confidence,
                 COALESCE(o.latest_spread, o.opening_spread) as vegas_spread,
@@ -1478,7 +1467,7 @@ def show_cbb_predictions_live():
                 g.away_score as actual_away_score,
                 o.predicted_home_score as pred_home_score,
                 o.predicted_away_score as pred_away_score,
-                (o.predicted_home_score - o.predicted_away_score) as pred_spread,
+                (o.predicted_away_score - o.predicted_home_score) as pred_spread,
                 (o.predicted_home_score + o.predicted_away_score) as pred_total,
                 o.confidence,
                 COALESCE(o.latest_spread, o.opening_spread) as vegas_spread,

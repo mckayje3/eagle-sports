@@ -213,7 +213,7 @@ def sync_to_cache():
                 ht.name as home_team, at.name as away_team,
                 op.predicted_home_score as pred_home_score,
                 op.predicted_away_score as pred_away_score,
-                (op.predicted_home_score - op.predicted_away_score) as pred_spread,
+                (op.predicted_away_score - op.predicted_home_score) as pred_spread,
                 (op.predicted_home_score + op.predicted_away_score) as pred_total,
                 op.confidence,
                 op.prediction_created as prediction_date,

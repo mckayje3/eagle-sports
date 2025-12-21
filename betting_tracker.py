@@ -98,16 +98,18 @@ class BettingTracker:
         """
         Evaluate if a game qualifies for betting recommendation.
 
+        Using Vegas convention (negative = home favored):
         Deviation = model_spread - vegas_spread
-        - Positive deviation = model favors HOME more than Vegas
-        - Negative deviation = model favors AWAY more than Vegas
+        - Negative deviation = model favors HOME more than Vegas (model more negative)
+        - Positive deviation = model favors AWAY more than Vegas (model less negative)
 
         Returns:
             Dict with recommendation details or None if no recommendation
         """
         deviation = model_spread - vegas_spread
         abs_deviation = abs(deviation)
-        direction = 'HOME' if deviation > 0 else 'AWAY'
+        # Negative deviation means model is more negative = favors home more
+        direction = 'HOME' if deviation < 0 else 'AWAY'
 
         strategies = self.STRATEGIES.get(sport, [])
 
@@ -204,7 +206,10 @@ class BettingTracker:
         recommendations = []
 
         for _, row in df.iterrows():
-            model_spread = row['predicted_home_score'] - row['predicted_away_score']
+            # Use Vegas convention: negative = home favored
+            # predicted_home - predicted_away gives positive when home wins
+            # Vegas uses negative when home is favored, so we negate
+            model_spread = row['predicted_away_score'] - row['predicted_home_score']
             vegas_spread = row['vegas_spread']
             confidence = row.get('confidence')
             moe = row.get('spread_moe')
