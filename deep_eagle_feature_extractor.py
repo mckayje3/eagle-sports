@@ -379,6 +379,11 @@ class DeepEagleFeatureExtractor:
         if total_movement == 0 and pd.notna(row['opening_total']) and pd.notna(row['latest_total']):
             total_movement = row['latest_total'] - row['opening_total']
 
+        # Threshold-based features: help model focus on significant moves, ignore noise
+        # "Significant" = movement >= 2.0 points (roughly top 25% of movements)
+        spread_significant = abs(spread_movement) >= 2.0
+        total_significant = abs(total_movement) >= 2.0
+
         return {
             'opening_spread': row['opening_spread'] if pd.notna(row['opening_spread']) else 0,
             'latest_spread': latest_spread,
@@ -390,9 +395,17 @@ class DeepEagleFeatureExtractor:
             'latest_ml_away': 0,
             'spread_movement': spread_movement,
             'total_movement': total_movement,
-            # NEW: Magnitude and direction of movement (for model to learn from)
+            # Magnitude of movement
             'spread_movement_abs': abs(spread_movement),
             'total_movement_abs': abs(total_movement),
+            # Threshold features: binary indicators for significant movement
+            'spread_movement_significant': 1 if spread_significant else 0,
+            'total_movement_significant': 1 if total_significant else 0,
+            # Direction ONLY when significant (0 for small moves = ignore)
+            # Positive = line moved toward home team (sharps like home)
+            # Negative = line moved away from home (sharps like away)
+            'spread_movement_sig_direction': spread_movement if spread_significant else 0,
+            'total_movement_sig_direction': total_movement if total_significant else 0,
         }
 
     def _get_drive_stats(self, team_id, season, current_week):

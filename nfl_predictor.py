@@ -230,10 +230,20 @@ class NFLPredictor:
         features['odds_opening_ml_away'] = odds.get('opening_ml_away', 0)
         features['odds_latest_ml_away'] = odds.get('latest_ml_away', 0)
         # Line movement features
-        features['odds_spread_movement'] = odds.get('spread_movement', 0)
-        features['odds_total_movement'] = odds.get('total_movement', 0)
-        features['odds_spread_movement_abs'] = odds.get('spread_movement_abs', 0)
-        features['odds_total_movement_abs'] = odds.get('total_movement_abs', 0)
+        spread_movement = odds.get('spread_movement', 0)
+        total_movement = odds.get('total_movement', 0)
+        features['odds_spread_movement'] = spread_movement
+        features['odds_total_movement'] = total_movement
+        features['odds_spread_movement_abs'] = abs(spread_movement)
+        features['odds_total_movement_abs'] = abs(total_movement)
+        # Threshold features: significant movement (>= 2.0 points)
+        spread_significant = abs(spread_movement) >= 2.0
+        total_significant = abs(total_movement) >= 2.0
+        features['odds_spread_movement_significant'] = 1 if spread_significant else 0
+        features['odds_total_movement_significant'] = 1 if total_significant else 0
+        # Direction ONLY when significant (0 for small moves = model ignores)
+        features['odds_spread_movement_sig_direction'] = spread_movement if spread_significant else 0
+        features['odds_total_movement_sig_direction'] = total_movement if total_significant else 0
 
         # Store warnings in features for later retrieval
         features['_warnings'] = warnings
