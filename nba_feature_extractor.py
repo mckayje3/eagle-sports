@@ -547,7 +547,7 @@ class NBAFeatureExtractor:
             SELECT
                 opening_spread, latest_spread,
                 opening_total, latest_total,
-                spread_movement
+                spread_movement, total_movement
             FROM odds_and_predictions
             WHERE game_id = ?
         '''
@@ -556,27 +556,44 @@ class NBAFeatureExtractor:
 
         if result.empty:
             return {
-                'opening_spread': 0, 'latest_spread': 0, 'line_movement': 0,
+                'opening_spread': 0, 'latest_spread': 0,
                 'opening_total': 220, 'latest_total': 220,
+                'spread_movement': 0, 'total_movement': 0,
+                'spread_movement_abs': 0, 'total_movement_abs': 0,
+                'spread_movement_significant': 0, 'total_movement_significant': 0,
+                'spread_movement_sig_direction': 0, 'total_movement_sig_direction': 0,
             }
 
         row = result.iloc[0]
 
         opening_spread = float(row['opening_spread']) if pd.notna(row['opening_spread']) else 0
         latest_spread = float(row['latest_spread']) if pd.notna(row['latest_spread']) else opening_spread
-
-        # Use spread_movement from table or calculate
-        line_movement = float(row['spread_movement']) if pd.notna(row['spread_movement']) else (latest_spread - opening_spread) if opening_spread != 0 else 0
-
         opening_total = float(row['opening_total']) if pd.notna(row['opening_total']) else 220
         latest_total = float(row['latest_total']) if pd.notna(row['latest_total']) else opening_total
+
+        # Calculate movement
+        spread_movement = float(row['spread_movement']) if pd.notna(row['spread_movement']) else (latest_spread - opening_spread)
+        total_movement = float(row['total_movement']) if pd.notna(row['total_movement']) else (latest_total - opening_total)
+
+        # Threshold features: significant movement >= 2.0 points
+        spread_significant = abs(spread_movement) >= 2.0
+        total_significant = abs(total_movement) >= 2.0
 
         return {
             'opening_spread': opening_spread,
             'latest_spread': latest_spread,
-            'line_movement': line_movement,
             'opening_total': opening_total,
             'latest_total': latest_total,
+            # Movement features
+            'spread_movement': spread_movement,
+            'total_movement': total_movement,
+            'spread_movement_abs': abs(spread_movement),
+            'total_movement_abs': abs(total_movement),
+            # Threshold features: focus on significant moves, ignore noise
+            'spread_movement_significant': 1 if spread_significant else 0,
+            'total_movement_significant': 1 if total_significant else 0,
+            'spread_movement_sig_direction': spread_movement if spread_significant else 0,
+            'total_movement_sig_direction': total_movement if total_significant else 0,
         }
 
     def save_features(self, features_df, output_path):

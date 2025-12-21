@@ -398,7 +398,8 @@ class CBBFeatureExtractor:
                 opening_spread, latest_spread,
                 opening_total, latest_total,
                 opening_moneyline_home, latest_moneyline_home,
-                opening_moneyline_away, latest_moneyline_away
+                opening_moneyline_away, latest_moneyline_away,
+                spread_movement, total_movement
             FROM odds_and_predictions
             WHERE game_id = ?
         '''
@@ -411,19 +412,46 @@ class CBBFeatureExtractor:
                 'opening_total': 0, 'closing_total': 0,
                 'opening_ml_home': 0, 'closing_ml_home': 0,
                 'opening_ml_away': 0, 'closing_ml_away': 0,
+                'spread_movement': 0, 'total_movement': 0,
+                'spread_movement_abs': 0, 'total_movement_abs': 0,
+                'spread_movement_significant': 0, 'total_movement_significant': 0,
+                'spread_movement_sig_direction': 0, 'total_movement_sig_direction': 0,
             }
 
         row = result.iloc[0]
 
+        opening_spread = float(row['opening_spread']) if pd.notna(row['opening_spread']) else 0
+        latest_spread = float(row['latest_spread']) if pd.notna(row['latest_spread']) else 0
+        opening_total = float(row['opening_total']) if pd.notna(row['opening_total']) else 0
+        latest_total = float(row['latest_total']) if pd.notna(row['latest_total']) else 0
+
+        # Calculate movement
+        spread_movement = float(row['spread_movement']) if pd.notna(row['spread_movement']) else (latest_spread - opening_spread)
+        total_movement = float(row['total_movement']) if pd.notna(row['total_movement']) else (latest_total - opening_total)
+
+        # Threshold features: significant movement >= 2.0 points
+        spread_significant = abs(spread_movement) >= 2.0
+        total_significant = abs(total_movement) >= 2.0
+
         return {
-            'opening_spread': float(row['opening_spread']) if pd.notna(row['opening_spread']) else 0,
-            'closing_spread': float(row['latest_spread']) if pd.notna(row['latest_spread']) else 0,
-            'opening_total': float(row['opening_total']) if pd.notna(row['opening_total']) else 0,
-            'closing_total': float(row['latest_total']) if pd.notna(row['latest_total']) else 0,
+            'opening_spread': opening_spread,
+            'closing_spread': latest_spread,
+            'opening_total': opening_total,
+            'closing_total': latest_total,
             'opening_ml_home': float(row['opening_moneyline_home']) if pd.notna(row['opening_moneyline_home']) else 0,
             'closing_ml_home': float(row['latest_moneyline_home']) if pd.notna(row['latest_moneyline_home']) else 0,
             'opening_ml_away': float(row['opening_moneyline_away']) if pd.notna(row['opening_moneyline_away']) else 0,
             'closing_ml_away': float(row['latest_moneyline_away']) if pd.notna(row['latest_moneyline_away']) else 0,
+            # Movement features
+            'spread_movement': spread_movement,
+            'total_movement': total_movement,
+            'spread_movement_abs': abs(spread_movement),
+            'total_movement_abs': abs(total_movement),
+            # Threshold features: focus on significant moves, ignore noise
+            'spread_movement_significant': 1 if spread_significant else 0,
+            'total_movement_significant': 1 if total_significant else 0,
+            'spread_movement_sig_direction': spread_movement if spread_significant else 0,
+            'total_movement_sig_direction': total_movement if total_significant else 0,
         }
 
     def save_features(self, features_df, output_path):

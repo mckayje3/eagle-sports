@@ -280,10 +280,11 @@ class CFBDeepEaglePredictor:
         features['neutral_site'] = game_row.get('neutral_site', 0) or 0
         features['conference_game'] = game_row.get('conference_game', 0) or 0
 
-        # Get historical stats for both teams
+        # Get historical stats for both teams (only games BEFORE this game to prevent leakage)
         season = game_row.get('season', 2025)
-        home_stats = self._get_team_stats(conn, game_row['home_team_id'], season)
-        away_stats = self._get_team_stats(conn, game_row['away_team_id'], season)
+        game_date = game_row.get('date', None)
+        home_stats = self._get_team_stats(conn, game_row['home_team_id'], season, before_date=game_date)
+        away_stats = self._get_team_stats(conn, game_row['away_team_id'], season, before_date=game_date)
 
         # Check for missing team stats
         if home_stats.get('_missing_stats'):
@@ -324,12 +325,19 @@ class CFBDeepEaglePredictor:
         conn.close()
         return features
 
-    def _get_team_stats(self, conn, team_id, season):
-        """Get team's season statistics"""
+    def _get_team_stats(self, conn, team_id, season, before_date=None):
+        """Get team's season statistics (only from games before the specified date to prevent leakage)"""
         cursor = conn.cursor()
 
+        # Build date filter to prevent data leakage
+        date_filter = ""
+        params_base = [team_id, team_id, team_id, season, team_id, team_id]
+        if before_date:
+            date_filter = " AND date < ?"
+            params_base.append(before_date)
+
         # Get PPG and basic stats
-        cursor.execute('''
+        cursor.execute(f'''
             SELECT
                 COUNT(*) as games_played,
                 AVG(CASE WHEN home_team_id = ? THEN home_score ELSE away_score END) as ppg,
@@ -337,8 +345,8 @@ class CFBDeepEaglePredictor:
                 SUM(CASE WHEN winner_team_id = ? THEN 1 ELSE 0 END) * 1.0 / NULLIF(COUNT(*), 0) as win_pct
             FROM games
             WHERE season = ? AND completed = 1
-                AND (home_team_id = ? OR away_team_id = ?)
-        ''', (team_id, team_id, team_id, season, team_id, team_id))
+                AND (home_team_id = ? OR away_team_id = ?){date_filter}
+        ''', params_base)
 
         row = cursor.fetchone()
         if not row or row[0] == 0:
@@ -352,31 +360,40 @@ class CFBDeepEaglePredictor:
         }
 
         # Get home stats
-        cursor.execute('''
+        home_params = [team_id, season, team_id]
+        if before_date:
+            home_params.append(before_date)
+        cursor.execute(f'''
             SELECT
                 COUNT(*) as home_games,
                 AVG(home_score) as home_ppg,
                 AVG(away_score) as home_papg,
                 SUM(CASE WHEN winner_team_id = ? THEN 1 ELSE 0 END) * 1.0 / NULLIF(COUNT(*), 0) as home_win_pct
             FROM games
-            WHERE season = ? AND completed = 1 AND home_team_id = ?
-        ''', (team_id, season, team_id))
+            WHERE season = ? AND completed = 1 AND home_team_id = ?{date_filter}
+        ''', home_params)
         home_row = cursor.fetchone()
 
         # Get away stats
-        cursor.execute('''
+        away_params = [team_id, season, team_id]
+        if before_date:
+            away_params.append(before_date)
+        cursor.execute(f'''
             SELECT
                 COUNT(*) as away_games,
                 AVG(away_score) as away_ppg,
                 AVG(home_score) as away_papg,
                 SUM(CASE WHEN winner_team_id = ? THEN 1 ELSE 0 END) * 1.0 / NULLIF(COUNT(*), 0) as away_win_pct
             FROM games
-            WHERE season = ? AND completed = 1 AND away_team_id = ?
-        ''', (team_id, season, team_id))
+            WHERE season = ? AND completed = 1 AND away_team_id = ?{date_filter}
+        ''', away_params)
         away_row = cursor.fetchone()
 
         # Get box score stats
-        cursor.execute('''
+        box_params = [team_id, season]
+        if before_date:
+            box_params.append(before_date)
+        cursor.execute(f'''
             SELECT
                 AVG(ts.total_yards) as total_yards_pg,
                 AVG(ts.passing_yards) as pass_yards_pg,
@@ -387,8 +404,8 @@ class CFBDeepEaglePredictor:
                 AVG(ts.possession_time) as avg_possession
             FROM team_game_stats ts
             JOIN games g ON ts.game_id = g.game_id
-            WHERE ts.team_id = ? AND g.season = ? AND g.completed = 1
-        ''', (team_id, season))
+            WHERE ts.team_id = ? AND g.season = ? AND g.completed = 1{date_filter}
+        ''', box_params)
         box_row = cursor.fetchone()
 
         stats['home_games'] = home_row[0] if home_row else 0
@@ -437,10 +454,10 @@ class CFBDeepEaglePredictor:
 
         cursor.execute('''
             SELECT
-                COALESCE(latest_spread, opening_spread) as spread,
-                COALESCE(latest_total, opening_total) as total,
-                COALESCE(latest_moneyline_home, opening_moneyline_home) as moneyline_home,
-                COALESCE(latest_moneyline_away, opening_moneyline_away) as moneyline_away
+                opening_spread, latest_spread,
+                opening_total, latest_total,
+                opening_moneyline_home, latest_moneyline_home,
+                spread_movement, total_movement
             FROM odds_and_predictions WHERE game_id = ?
             ORDER BY odds_updated_at DESC LIMIT 1
         ''', (game_id,))
@@ -448,20 +465,51 @@ class CFBDeepEaglePredictor:
         row = cursor.fetchone()
         if not row:
             return {
-                'spread': 0, 'total': 0,
-                'moneyline_home': 0, 'moneyline_away': 0,
+                'opening_spread': 0, 'latest_spread': 0,
+                'opening_total': 0, 'latest_total': 0,
+                'opening_ml_home': 0, 'latest_ml_home': 0,
+                'opening_ml_away': 0, 'latest_ml_away': 0,
+                'spread_movement': 0, 'total_movement': 0,
+                'spread_movement_abs': 0, 'total_movement_abs': 0,
+                'spread_movement_significant': 0, 'total_movement_significant': 0,
+                'spread_movement_sig_direction': 0, 'total_movement_sig_direction': 0,
                 '_missing_odds': True
             }
 
+        opening_spread = row[0] or 0
+        latest_spread = row[1] or row[0] or 0
+        opening_total = row[2] or 0
+        latest_total = row[3] or row[2] or 0
+
+        # Calculate movement
+        spread_movement = row[6] if row[6] is not None else (latest_spread - opening_spread)
+        total_movement = row[7] if row[7] is not None else (latest_total - opening_total)
+
+        # Threshold features: significant movement >= 2.0 points
+        spread_significant = abs(spread_movement) >= 2.0
+        total_significant = abs(total_movement) >= 2.0
+
         # Check if we have actual spread/total data
-        has_spread = row[0] is not None
-        has_total = row[1] is not None
+        has_spread = row[0] is not None or row[1] is not None
+        has_total = row[2] is not None or row[3] is not None
 
         return {
-            'spread': row[0] or 0,
-            'total': row[1] or 0,
-            'moneyline_home': row[2] or 0,
-            'moneyline_away': row[3] or 0,
+            'opening_spread': opening_spread,
+            'latest_spread': latest_spread,
+            'opening_total': opening_total,
+            'latest_total': latest_total,
+            'opening_ml_home': row[4] or 0,
+            'latest_ml_home': row[5] or 0,
+            'opening_ml_away': 0,
+            'latest_ml_away': 0,
+            'spread_movement': spread_movement,
+            'total_movement': total_movement,
+            'spread_movement_abs': abs(spread_movement),
+            'total_movement_abs': abs(total_movement),
+            'spread_movement_significant': 1 if spread_significant else 0,
+            'total_movement_significant': 1 if total_significant else 0,
+            'spread_movement_sig_direction': spread_movement if spread_significant else 0,
+            'total_movement_sig_direction': total_movement if total_significant else 0,
             '_missing_odds': not (has_spread and has_total)
         }
 

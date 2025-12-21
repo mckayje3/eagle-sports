@@ -485,34 +485,52 @@ class NBAPredictor:
         cursor.execute('''
             SELECT
                 opening_spread, latest_spread,
-                opening_total, latest_total
+                opening_total, latest_total,
+                spread_movement, total_movement
             FROM odds_and_predictions WHERE game_id = ?
         ''', (game_id,))
 
         row = cursor.fetchone()
 
         # Use training data means when odds are missing
-        # Training data: spread mean ~0, total mean ~223
         default_total = 223.0
 
         if not row:
             return {
-                'opening_spread': 0, 'latest_spread': 0, 'line_movement': 0,
-                'opening_total': default_total, 'latest_total': default_total
+                'opening_spread': 0, 'latest_spread': 0,
+                'opening_total': default_total, 'latest_total': default_total,
+                'spread_movement': 0, 'total_movement': 0,
+                'spread_movement_abs': 0, 'total_movement_abs': 0,
+                'spread_movement_significant': 0, 'total_movement_significant': 0,
+                'spread_movement_sig_direction': 0, 'total_movement_sig_direction': 0,
             }
 
         opening_spread = row[0] or 0
         latest_spread = row[1] or row[0] or 0
-        # Use default total when odds are missing
         opening_total = row[2] or default_total
         latest_total = row[3] or row[2] or default_total
+
+        # Calculate movement
+        spread_movement = row[4] if row[4] is not None else (latest_spread - opening_spread)
+        total_movement = row[5] if row[5] is not None else (latest_total - opening_total)
+
+        # Threshold features: significant movement >= 2.0 points
+        spread_significant = abs(spread_movement) >= 2.0
+        total_significant = abs(total_movement) >= 2.0
 
         return {
             'opening_spread': opening_spread,
             'latest_spread': latest_spread,
-            'line_movement': latest_spread - opening_spread if opening_spread else 0,
             'opening_total': opening_total,
-            'latest_total': latest_total
+            'latest_total': latest_total,
+            'spread_movement': spread_movement,
+            'total_movement': total_movement,
+            'spread_movement_abs': abs(spread_movement),
+            'total_movement_abs': abs(total_movement),
+            'spread_movement_significant': 1 if spread_significant else 0,
+            'total_movement_significant': 1 if total_significant else 0,
+            'spread_movement_sig_direction': spread_movement if spread_significant else 0,
+            'total_movement_sig_direction': total_movement if total_significant else 0,
         }
 
     def predict(self, games_df):
