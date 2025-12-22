@@ -1218,6 +1218,9 @@ def show_nba_predictions_live():
 
     selected_date = st.session_state.nba_selected_date
 
+    # Debug: Show actual dates being used
+    st.caption(f"📅 Today (Eastern): {today} | Selected: {selected_date}")
+
     col1, col2 = st.columns([1, 1])
 
     with col1:
@@ -1432,6 +1435,9 @@ def show_cbb_predictions_live():
                 st.rerun()
 
     selected_date = st.session_state.cbb_selected_date
+
+    # Debug: Show actual dates being used
+    st.caption(f"📅 Today (Eastern): {today} | Selected: {selected_date}")
 
     # Action buttons row
     col1, col2 = st.columns([1, 1])
