@@ -350,6 +350,10 @@ class NBAPredictor:
         """Get team's season statistics"""
         cursor = conn.cursor()
 
+        # Convert numpy types to native Python (SQLite doesn't handle numpy.int64)
+        team_id = int(team_id)
+        season = int(season)
+
         # Get PPG and basic stats
         cursor.execute('''
             SELECT
@@ -482,6 +486,9 @@ class NBAPredictor:
         """Get odds for a game from odds_and_predictions table - names match training data"""
         cursor = conn.cursor()
 
+        # Convert numpy types to native Python (SQLite doesn't handle numpy.int64)
+        game_id = int(game_id)
+
         cursor.execute('''
             SELECT
                 opening_spread, latest_spread,
@@ -505,14 +512,32 @@ class NBAPredictor:
                 'spread_movement_sig_direction': 0, 'total_movement_sig_direction': 0,
             }
 
-        opening_spread = row[0] or 0
-        latest_spread = row[1] or row[0] or 0
-        opening_total = row[2] or default_total
-        latest_total = row[3] or row[2] or default_total
+        # Get spread values - if opening is missing, use latest as opening (no movement)
+        opening_spread = row[0] if row[0] is not None else row[1]
+        latest_spread = row[1] if row[1] is not None else row[0]
+        opening_spread = opening_spread or 0
+        latest_spread = latest_spread or 0
 
-        # Calculate movement
-        spread_movement = row[4] if row[4] is not None else (latest_spread - opening_spread)
-        total_movement = row[5] if row[5] is not None else (latest_total - opening_total)
+        # Get total values - if opening is missing, use latest as opening (no movement)
+        opening_total = row[2] if row[2] is not None else row[3]
+        latest_total = row[3] if row[3] is not None else row[2]
+        opening_total = opening_total or default_total
+        latest_total = latest_total or default_total
+
+        # Calculate movement - only if we have both opening and latest values
+        if row[4] is not None:
+            spread_movement = row[4]
+        elif row[0] is not None and row[1] is not None:
+            spread_movement = latest_spread - opening_spread
+        else:
+            spread_movement = 0  # No movement if we don't have opening
+
+        if row[5] is not None:
+            total_movement = row[5]
+        elif row[2] is not None and row[3] is not None:
+            total_movement = latest_total - opening_total
+        else:
+            total_movement = 0  # No movement if we don't have opening
 
         # Threshold features: significant movement
         # NBA uses 2.0 pts (~29% of avg spread)

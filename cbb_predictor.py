@@ -181,6 +181,9 @@ class CBBPredictor:
         """Get team's season statistics"""
         cursor = conn.cursor()
 
+        # Convert numpy types to native Python (SQLite doesn't handle numpy.int64)
+        team_id = int(team_id)
+
         # Get current season
         cursor.execute('SELECT MAX(season) FROM games')
         season = cursor.fetchone()[0]
@@ -314,6 +317,9 @@ class CBBPredictor:
     def _get_odds(self, conn, game_id):
         """Get odds for a game from odds_and_predictions table"""
         cursor = conn.cursor()
+
+        # Convert numpy types to native Python (SQLite doesn't handle numpy.int64)
+        game_id = int(game_id)
 
         cursor.execute('''
             SELECT opening_spread, latest_spread, opening_total, latest_total,
