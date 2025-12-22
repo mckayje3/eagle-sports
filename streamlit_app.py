@@ -775,7 +775,9 @@ def display_game_card(row, sport_emoji="🏈"):
         model_spread = 0
         model_winner = None  # No prediction
     else:
-        model_winner = home_team if model_spread > 0 else away_team
+        # Vegas convention: spread = away - home
+        # Negative spread = HOME favored, Positive spread = AWAY favored
+        model_winner = home_team if model_spread < 0 else away_team
     home_win_prob = row.get('home_win_probability', 0.5)
     confidence = row.get('confidence', 0.5)
 
@@ -1130,16 +1132,17 @@ def display_top_picks(predictions_df, sport_emoji="🏈", max_picks=5, min_disag
         # Determine which disagreement is larger
         if spread_diff >= total_diff:
             # Spread is the bigger disagreement
-            # Convert model spread to Vegas convention
-            model_vegas_spread = -model_spread
-            if model_vegas_spread < vegas_spread:
-                # Model likes home more than Vegas
+            # Both model_spread and vegas_spread are in Vegas convention (away - home)
+            # Negative = home favored, Positive = away favored
+            # If model_spread < vegas_spread, model has home winning by MORE (more negative)
+            if model_spread < vegas_spread:
+                # Model favors HOME more than Vegas
                 pick_team = home_team
-                pick_desc = f"Model: {model_vegas_spread:+.1f} vs Vegas: {vegas_spread:+.1f}"
+                pick_desc = f"Model: {model_spread:+.1f} vs Vegas: {vegas_spread:+.1f}"
             else:
-                # Model likes away more than Vegas
+                # Model favors AWAY more than Vegas
                 pick_team = away_team
-                pick_desc = f"Model: {model_vegas_spread:+.1f} vs Vegas: {vegas_spread:+.1f}"
+                pick_desc = f"Model: {model_spread:+.1f} vs Vegas: {vegas_spread:+.1f}"
             disagreement_type = "Spread"
             disagreement_val = spread_diff
         else:
@@ -1760,10 +1763,14 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
             conf_val = row.get('confidence') if row.get('confidence') is not None else 0.85
             conf_pct = conf_val * 100
             spread = row['predicted_spread']
-            if spread > 0:
-                pick = f"{row['home_team']} {spread:+.1f}"
+            # Vegas convention: spread = away - home
+            # Negative spread = HOME favored, Positive spread = AWAY favored
+            if spread < 0:
+                # Home favored - show as "Home Team -X.X"
+                pick = f"{row['home_team']} {spread:.1f}"
             else:
-                pick = f"{row['away_team']} {abs(spread):+.1f}"
+                # Away favored - show as "Away Team -X.X" (negate spread for display)
+                pick = f"{row['away_team']} {-spread:.1f}"
 
             col1, col2, col3 = st.columns([3, 2, 1])
             with col1:

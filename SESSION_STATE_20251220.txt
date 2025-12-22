@@ -197,15 +197,78 @@ CRITICAL LESSONS LEARNED
    Use 0.1 for more consistent predictions.
 
 ==============================================================================
+SESSION UPDATE - Dec 21 (Afternoon) - SPREAD CONVENTION FIX
+==============================================================================
+
+ISSUE 8: RECURRING SPREAD CONVENTION INVERSION BUG (CRITICAL)
+--------------------------------------------------------------
+ROOT CAUSE: The spread convention (home favored = negative, away favored = positive)
+was correctly calculated in predictors but INCORRECTLY INTERPRETED in display code.
+
+Multiple places had the logic backwards:
+- streamlit_app.py line 778: `model_winner = home_team if model_spread > 0`
+  WRONG! Positive spread means AWAY is favored, not home.
+- streamlit_app.py lines 1762-1766: Same issue in high confidence picks
+- streamlit_app.py line 1134: Unnecessary negation of model_spread
+- update_predictions_nba.py, update_predictions_cbb.py: Dead code with wrong logic
+
+PERMANENT SOLUTION IMPLEMENTED:
+-------------------------------
+1. Created spread_utils.py - SINGLE SOURCE OF TRUTH for spread convention
+   - Defines: spread = away_score - home_score
+   - Negative = HOME favored, Positive = AWAY favored
+   - Functions: calculate_spread(), get_predicted_winner(), is_home_favored()
+   - validate_prediction_spread() - raises ValueError if convention violated
+
+2. Fixed all bugs in streamlit_app.py:
+   - Line 778: Changed `> 0` to `< 0`
+   - Lines 1132-1147: Removed -model_spread negation, fixed comparison logic
+   - Lines 1762-1773: Fixed high confidence picks display
+
+3. Added validation to ALL predictor scripts:
+   - nfl_predictor.py, cfb_deep_eagle_predictor.py
+   - nba_predictor.py, cbb_predictor.py
+   - Each now calls validate_prediction_spread() before saving
+   - Each now uses get_predicted_winner() from spread_utils
+
+4. Added SPREAD CONVENTION docstring header to all predictor files
+   - Makes the convention immediately visible when opening the file
+   - References spread_utils.py as authoritative source
+
+FILES MODIFIED:
+---------------
+NEW:
+- spread_utils.py - Central spread convention module with validation
+
+MODIFIED:
+- streamlit_app.py - Fixed 3 spread interpretation bugs
+- nfl_predictor.py - Added import, validation, convention header
+- cfb_deep_eagle_predictor.py - Added import, validation, convention header
+- nba_predictor.py - Added import, validation, convention header
+- cbb_predictor.py - Added import, validation, convention header
+- update_predictions_nba.py - Removed dead code, added convention comment
+- update_predictions_cbb.py - Removed dead code, added convention comment
+
+WHY THIS WON'T HAPPEN AGAIN:
+-----------------------------
+1. spread_utils.py is the SINGLE SOURCE OF TRUTH
+2. All predictors now use get_predicted_winner() from spread_utils
+3. validate_prediction_spread() will CRASH with clear error if convention violated
+4. Every file has the convention documented in its docstring header
+5. Comments throughout code reference "Vegas convention: negative = home favored"
+
+==============================================================================
 NEXT STEPS / TODO
 ==============================================================================
 
-1. Apply same numpy.int64 fixes to NBA and CBB predictors if needed
+1. ✅ numpy.int64 fixes applied to NBA and CBB predictors (DONE - Dec 21 morning)
 
-2. Consider automating prediction sync to database after generating CSVs
+2. ✅ Spread convention permanently fixed (DONE - Dec 21 afternoon)
 
 3. Track betting performance using deviation strategies
 
 4. Add confidence intervals to betting recommendations
+
+5. Consider database migration to add predicted_winner column
 
 ==============================================================================

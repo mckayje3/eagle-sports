@@ -1,6 +1,13 @@
 """
 NBA Deep Eagle Predictor
 Makes predictions for upcoming NBA games using Deep Eagle model
+
+SPREAD CONVENTION (Vegas standard):
+    spread = away_score - home_score
+    NEGATIVE spread (-7) = HOME team favored by 7
+    POSITIVE spread (+7) = AWAY team favored by 7
+
+See spread_utils.py for the authoritative definition.
 """
 import torch
 import torch.nn as nn
@@ -9,6 +16,7 @@ import pandas as pd
 import pickle
 import sqlite3
 from datetime import datetime, timedelta
+from spread_utils import validate_prediction_spread, get_predicted_winner
 
 
 class DeepEagleModel(nn.Module):
@@ -587,7 +595,10 @@ class NBAPredictor:
 
                 home_score = max(0, pred[0])
                 away_score = max(0, pred[1])
-                spread = home_score - away_score
+                # VEGAS CONVENTION: spread = away - home
+                # Negative spread (-7) = HOME favored by 7
+                # Positive spread (+7) = AWAY favored by 7
+                spread = away_score - home_score
                 total = home_score + away_score
 
                 # Calculate confidence
@@ -598,6 +609,12 @@ class NBAPredictor:
                 conn = sqlite3.connect(self.db_path)
                 odds = self._get_odds(conn, int(game['game_id']))
                 conn.close()
+
+                # Validate spread convention before saving
+                validate_prediction_spread(
+                    round(spread, 1), round(home_score, 1), round(away_score, 1),
+                    context=f"game_id={game['game_id']}"
+                )
 
                 predictions.append({
                     'game_id': game['game_id'],
@@ -611,7 +628,8 @@ class NBAPredictor:
                     'vegas_spread': odds['latest_spread'],
                     'vegas_total': odds['latest_total'],
                     'confidence': round(confidence, 3),
-                    'predicted_winner': game['home_team'] if spread > 0 else game['away_team']
+                    # Use spread_utils for consistent convention enforcement
+                    'predicted_winner': get_predicted_winner(spread, game['home_team'], game['away_team'])
                 })
 
             except Exception as e:

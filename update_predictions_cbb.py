@@ -233,7 +233,9 @@ def sync_to_cache():
             now = datetime.now().isoformat()
 
             for _, row in predictions.iterrows():
-                winner = row['home_team'] if row['pred_spread'] > 0 else row['away_team']
+                # Vegas convention: spread = away - home
+                # Negative spread = HOME favored, Positive spread = AWAY favored
+                # (winner variable removed - not used in cache insert)
                 confidence = row['confidence'] if row['confidence'] else 0.5
                 # Use prediction_date from cbb_games.db if available, otherwise use now
                 created_at = row.get('prediction_date') or now
