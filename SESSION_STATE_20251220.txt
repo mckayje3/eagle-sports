@@ -259,30 +259,68 @@ WHY THIS WON'T HAPPEN AGAIN:
 
 DEPLOYMENT:
 -----------
-Commit: 4bc968f
+Commit: 76ad8ba (latest)
+Previous: 4bc968f (spread convention fix)
 Pushed to: https://github.com/mckayje3/eagle-sports.git (main branch)
-Time: Dec 21, 2025 afternoon
+Time: Dec 21, 2025 evening
 
-Streamlit Cloud should auto-deploy within 1-2 minutes.
+ISSUE 9: CBB PREDICTIONS NOT SHOWING FOR TOMORROW/TUESDAY
+----------------------------------------------------------
+ROOT CAUSE: ESPN scrapers double-converted UTC dates to Eastern.
+
+Flow was:
+1. ESPN returns: "2025-12-22T16:00Z" (4pm UTC = 11am ET on Dec 22)
+2. Scraper called convert_espn_date() -> "2025-12-22" (correct so far)
+3. Database insert called utc_to_eastern_date("2025-12-22")
+4. This interpreted as midnight UTC, converted to Dec 21 7pm ET -> WRONG DATE!
+
+FIX: Keep raw UTC dates in scrapers. Let database derive game_date_eastern.
+
+Files fixed:
+- cbb_espn_scraper.py, nba_espn_scraper.py, nfl_espn_scraper.py, cfb_espn_scraper.py
+
+Also fixed existing CBB data:
+- 61 games now show for Dec 22 (tomorrow)
+- 12 games show for Dec 23 (Tuesday)
+- 40 games have Vegas lines, 40+ have predictions
+
+==============================================================================
+SESSION SUMMARY - Dec 21, 2025
+==============================================================================
+
+ISSUES FIXED TODAY:
+1. ✅ numpy.int64 SQLite compatibility (morning)
+2. ✅ Spread convention permanently fixed (afternoon)
+   - Created spread_utils.py as single source of truth
+   - All predictors now validate spreads before saving
+   - Fixed 3 bugs in streamlit_app.py
+3. ✅ ESPN scraper timezone double-conversion (evening)
+   - All 4 scrapers now keep raw UTC dates
+   - Database correctly derives game_date_eastern
+   - CBB now shows 61 games for tomorrow, 12 for Tuesday
+
+COMMITS PUSHED:
+- 4bc968f: Fix spread convention bug permanently
+- 3ddd723: Update session state with deployment info
+- 76ad8ba: Fix timezone double-conversion in ESPN scrapers
+
+ALL SPORTS WORKING:
+- NFL: Week 16 predictions ready
+- CFB: Bowl game predictions ready
+- NBA: Daily predictions working
+- CBB: Tomorrow + Tuesday predictions now showing
 
 ==============================================================================
 NEXT STEPS / TODO
 ==============================================================================
 
-1. ✅ numpy.int64 fixes applied to NBA and CBB predictors (DONE - Dec 21 morning)
-
-2. ✅ Spread convention permanently fixed (DONE - Dec 21 afternoon)
-   - Commit 4bc968f pushed to remote
-   - Created spread_utils.py as single source of truth
-   - All predictors now validate spreads before saving
-
-3. Track betting performance using deviation strategies
+1. Track betting performance using deviation strategies
    - When model disagrees with Vegas by 5+ pts, track results
    - CFB: 73%+ win rate when model favors home by 5+ more than Vegas
 
-4. Add confidence intervals to betting recommendations
+2. Add confidence intervals to betting recommendations
 
-5. Consider database migration to add predicted_winner column
+3. Consider database migration to add predicted_winner column
    - Currently calculated on-the-fly from scores
    - Pre-computing would ensure consistency
 
