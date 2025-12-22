@@ -257,6 +257,14 @@ WHY THIS WON'T HAPPEN AGAIN:
 4. Every file has the convention documented in its docstring header
 5. Comments throughout code reference "Vegas convention: negative = home favored"
 
+DEPLOYMENT:
+-----------
+Commit: 4bc968f
+Pushed to: https://github.com/mckayje3/eagle-sports.git (main branch)
+Time: Dec 21, 2025 afternoon
+
+Streamlit Cloud should auto-deploy within 1-2 minutes.
+
 ==============================================================================
 NEXT STEPS / TODO
 ==============================================================================
@@ -264,11 +272,18 @@ NEXT STEPS / TODO
 1. ✅ numpy.int64 fixes applied to NBA and CBB predictors (DONE - Dec 21 morning)
 
 2. ✅ Spread convention permanently fixed (DONE - Dec 21 afternoon)
+   - Commit 4bc968f pushed to remote
+   - Created spread_utils.py as single source of truth
+   - All predictors now validate spreads before saving
 
 3. Track betting performance using deviation strategies
+   - When model disagrees with Vegas by 5+ pts, track results
+   - CFB: 73%+ win rate when model favors home by 5+ more than Vegas
 
 4. Add confidence intervals to betting recommendations
 
 5. Consider database migration to add predicted_winner column
+   - Currently calculated on-the-fly from scores
+   - Pre-computing would ensure consistency
 
 ==============================================================================
