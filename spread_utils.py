@@ -320,7 +320,7 @@ def validate_prediction_spread(
         ValueError: If spread doesn't match scores
     """
     expected = pred_away_score - pred_home_score
-    tolerance = 0.1
+    tolerance = 0.2  # Allow for rounding differences (0.1 rounding on each score)
 
     if abs(pred_spread - expected) > tolerance:
         context_str = f" ({context})" if context else ""

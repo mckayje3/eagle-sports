@@ -101,13 +101,12 @@ class NBAESPNScraper:
             # Get venue
             venue = competition.get('venue', {})
 
-            # Convert UTC date to Eastern Time
+            # Keep raw UTC date - let database derive game_date_eastern
             date_str_utc = event.get('date', '')
-            date_str = convert_espn_date(date_str_utc) or date_str_utc
 
             games.append({
                 'game_id': game_id,
-                'date': date_str,
+                'date': date_str_utc,  # Keep UTC for proper timezone conversion
                 'home_team_id': int(home_team.get('team', {}).get('id', 0)),
                 'away_team_id': int(away_team.get('team', {}).get('id', 0)),
                 'home_score': home_score,

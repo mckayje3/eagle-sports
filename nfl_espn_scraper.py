@@ -7,7 +7,7 @@ import json
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 import time
-from database import FootballDatabase
+from cfb_nfl_database import FootballDatabase
 from timezone_utils import convert_espn_date
 
 
@@ -87,7 +87,7 @@ class NFLESPNScraper:
             'conference': team_json.get('conferenceId')
         }
 
-    def parse_game_data(self, event: Dict, season: int) -> Dict:
+    def parse_game_data(self, event: Dict, season: int, season_type: int = 2) -> Dict:
         """Parse game information from ESPN scoreboard event"""
         game_id = event.get('id')
         competitions = event.get('competitions', [{}])[0]
@@ -112,15 +112,32 @@ class NFLESPNScraper:
         # Get venue info
         venue = competitions.get('venue', {})
 
-        # Convert UTC date to Eastern Time
+        # Keep raw UTC date - let database derive game_date_eastern
         date_str_utc = event.get('date')
-        date_str = convert_espn_date(date_str_utc) or date_str_utc
+
+        # Determine postseason_type based on season_type
+        # season_type: 1=preseason, 2=regular, 3=postseason
+        # postseason_type: NULL for regular season, set for playoffs
+        postseason_type = None
+        if season_type == 3:
+            # Map postseason weeks to game types
+            week_num = event.get('week', {}).get('number', 1)
+            postseason_map = {
+                1: 'Wild Card',
+                2: 'Divisional',
+                3: 'Conference Championship',
+                4: 'Pro Bowl',
+                5: 'Super Bowl'
+            }
+            postseason_type = postseason_map.get(week_num, 'Playoff')
 
         return {
             'game_id': int(game_id),
             'season': season,
+            'season_type': season_type,  # 1=preseason, 2=regular, 3=postseason (for tracking)
+            'postseason_type': postseason_type,  # NULL for regular, playoff type otherwise
             'week': event.get('week', {}).get('number'),
-            'date': date_str,
+            'date': date_str_utc,  # Keep UTC for proper timezone conversion
             'neutral_site': 1 if competitions.get('neutralSite', False) else 0,
             'conference_game': 1 if competitions.get('conferenceCompetition', False) else 0,
             'completed': 1 if event.get('status', {}).get('type', {}).get('completed', False) else 0,
@@ -403,7 +420,7 @@ class NFLESPNScraper:
 
         for event in events:
             # Parse and save game data
-            game_data = self.parse_game_data(event, season)
+            game_data = self.parse_game_data(event, season, season_type)
 
             # Save teams
             competitions = event.get('competitions', [{}])[0]
