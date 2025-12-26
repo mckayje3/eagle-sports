@@ -106,18 +106,18 @@ class VegasComparison:
                 g.away_score,
                 (g.home_score - g.away_score) as actual_spread,
                 (g.home_score + g.away_score) as actual_total,
-                go.latest_spread as vegas_spread,
-                go.current_total as vegas_total,
-                go.current_moneyline_home as home_ml,
-                go.current_moneyline_away as away_ml
+                op.latest_spread as vegas_spread,
+                op.current_total as vegas_total,
+                op.current_moneyline_home as home_ml,
+                op.current_moneyline_away as away_ml
             FROM games g
             LEFT JOIN teams ht ON g.home_team_id = ht.team_id
             LEFT JOIN teams at ON g.away_team_id = at.team_id
-            LEFT JOIN game_odds go ON g.game_id = go.game_id
+            LEFT JOIN odds_and_predictions op ON g.game_id = op.game_id
             WHERE g.season = {season}
                 AND g.completed = 1
                 {week_filter}
-                AND go.latest_spread IS NOT NULL
+                AND op.latest_spread IS NOT NULL
             ORDER BY g.week, g.date
         '''
 

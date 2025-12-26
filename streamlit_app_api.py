@@ -146,7 +146,7 @@ def load_database_stats():
     # Games with odds
     try:
         stats['games_with_odds'] = pd.read_sql_query(
-            "SELECT COUNT(DISTINCT game_id) as count FROM game_odds", conn
+            "SELECT COUNT(DISTINCT game_id) as count FROM odds_and_predictions WHERE latest_spread IS NOT NULL", conn
         ).iloc[0]['count']
     except:
         stats['games_with_odds'] = 0
@@ -415,7 +415,7 @@ def show_database_explorer():
     # Table selector
     table = st.selectbox(
         "Select Table",
-        ["games", "teams", "team_game_stats", "game_odds"]
+        ["games", "teams", "team_game_stats", "odds_and_predictions"]
     )
 
     # Query builder
@@ -451,17 +451,17 @@ def show_database_explorer():
             ORDER BY tgs.game_id DESC
             LIMIT 100
         """
-    elif table == "game_odds":
+    elif table == "odds_and_predictions":
         query = """
             SELECT
-                go.*,
+                op.*,
                 ht.name as home_team,
                 at.name as away_team
-            FROM game_odds go
-            JOIN games g ON go.game_id = g.game_id
+            FROM odds_and_predictions op
+            JOIN games g ON op.game_id = g.game_id
             JOIN teams ht ON g.home_team_id = ht.team_id
             JOIN teams at ON g.away_team_id = at.team_id
-            ORDER BY go.odds_id DESC
+            ORDER BY op.id DESC
             LIMIT 100
         """
 
@@ -653,7 +653,7 @@ def get_upcoming_games_with_odds():
         FROM games g
         JOIN teams ht ON g.home_team_id = ht.team_id
         JOIN teams at ON g.away_team_id = at.team_id
-        LEFT JOIN game_odds go ON g.game_id = go.game_id
+        LEFT JOIN odds_and_predictions op ON g.game_id = op.game_id
         WHERE g.completed = 0 AND g.season = 2025
         ORDER BY g.date
         LIMIT 20
@@ -681,7 +681,7 @@ def get_nfl_upcoming_games_with_odds():
         FROM games g
         JOIN teams ht ON g.home_team_id = ht.team_id
         JOIN teams at ON g.away_team_id = at.team_id
-        LEFT JOIN game_odds go ON g.game_id = go.game_id
+        LEFT JOIN odds_and_predictions op ON g.game_id = op.game_id
         WHERE g.completed = 0 AND g.season = 2025
         ORDER BY g.date
         LIMIT 20

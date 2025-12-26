@@ -535,12 +535,12 @@ class EnsemblePredictor:
                 COALESCE(at.display_name, at.name) as away_team,
                 g.neutral_site, g.completed,
                 g.home_score, g.away_score,
-                go.latest_spread as vegas_spread,
-                go.closing_total as vegas_total
+                op.latest_spread as vegas_spread,
+                op.closing_total as vegas_total
             FROM games g
             JOIN teams ht ON g.home_team_id = ht.team_id
             JOIN teams at ON g.away_team_id = at.team_id
-            LEFT JOIN game_odds go ON g.game_id = go.game_id
+            LEFT JOIN odds_and_predictions op ON g.game_id = op.game_id
             WHERE g.week = {week} AND g.season = {season}
             ORDER BY g.date, g.game_id
         '''

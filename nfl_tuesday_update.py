@@ -214,47 +214,23 @@ def save_predictions_to_database(season, week, dry_run=False):
         conn = sqlite3.connect('nfl_games.db')
         cursor = conn.cursor()
 
-        # Create predictions table if not exists
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS predictions (
-                game_id INTEGER PRIMARY KEY,
-                pred_home_score REAL,
-                pred_away_score REAL,
-                pred_spread REAL,
-                pred_total REAL,
-                pred_home_win INTEGER,
-                pred_home_win_prob REAL,
-                vegas_spread REAL,
-                vegas_total REAL,
-                spread_edge REAL,
-                total_edge REAL,
-                prediction_date TEXT,
-                model_version TEXT
-            )
-        ''')
-
-        # Insert/update predictions
+        # Insert/update predictions in odds_and_predictions table
         for _, row in predictions_df.iterrows():
             cursor.execute('''
-                INSERT OR REPLACE INTO predictions
-                (game_id, pred_home_score, pred_away_score, pred_spread, pred_total,
-                 pred_home_win, pred_home_win_prob, vegas_spread, vegas_total,
-                 spread_edge, total_edge, prediction_date, model_version)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO odds_and_predictions (game_id, predicted_home_score, predicted_away_score,
+                    home_win_probability, prediction_created)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(game_id) DO UPDATE SET
+                    predicted_home_score = excluded.predicted_home_score,
+                    predicted_away_score = excluded.predicted_away_score,
+                    home_win_probability = excluded.home_win_probability,
+                    prediction_created = excluded.prediction_created
             ''', (
                 int(row['game_id']),
                 row.get('pred_home_score'),
                 row.get('pred_away_score'),
-                row.get('pred_spread'),
-                row.get('pred_total'),
-                int(row.get('pred_home_win', 0)),
                 row.get('pred_home_win_prob'),
-                row.get('vegas_spread'),
-                row.get('vegas_total'),
-                row.get('spread_edge'),
-                row.get('total_edge'),
-                datetime.now().isoformat(),
-                f'deep_eagle_nfl_{season}'
+                datetime.now().isoformat()
             ))
 
         conn.commit()

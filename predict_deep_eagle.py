@@ -211,7 +211,7 @@ def predict_upcoming_games(sport, season, db_path, model_path, scaler_path, min_
             game_id,
             COALESCE(MAX(latest_spread), MAX(opening_spread)) as vegas_spread,
             COALESCE(MAX(current_total), MAX(opening_total)) as vegas_total
-        FROM game_odds
+        FROM odds_and_predictions
         GROUP BY game_id
     ''', conn)
     conn.close()
