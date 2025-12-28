@@ -134,7 +134,7 @@ def generate_predictions(days=7):
 
             predictions_df = predict_upcoming_games(
                 sport='cbb',
-                season=2025,
+                season=2026,
                 db_path='cbb_games.db',
                 model_path='models/deep_eagle_cbb_2025.pt',
                 scaler_path='models/deep_eagle_cbb_2025_scaler.pkl'
