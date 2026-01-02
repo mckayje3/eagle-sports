@@ -7,9 +7,12 @@ Instead of predicting game outcomes directly, this model predicts:
 The key insight: our model has predictable error patterns that a meta-model can exploit.
 
 Architecture:
-- Input: Meta-features (model-Vegas diffs, situational factors, recent accuracy)
+- Input: Meta-features (model-Vegas diffs, situational factors, recent accuracy, star injuries)
 - Output: Probabilities for SPREAD and TOTAL betting decisions
 - Training: Walk-forward to avoid lookahead bias
+
+Updated 2026-01-02: Now uses production Ridge model with star injury adjustment.
+Star injury features added to meta-features for improved edge detection.
 """
 from __future__ import annotations
 
@@ -32,12 +35,18 @@ MODEL_DIR = Path(__file__).parent / 'models'
 
 
 class BasePredictor:
-    """Simple predictor to generate model predictions for training data."""
+    """
+    Predictor to generate model predictions for training data.
+    Now includes star injury tracking matching the production Ridge model.
+    """
     DECAY = 0.97
     MIN_GAMES = 10
+    STAR_PPG_THRESHOLD = 15.0
+    STAR_INJURY_FACTOR = 0.05
 
     def __init__(self):
         self.team_stats = defaultdict(lambda: {'ppg': [], 'papg': [], 'wts': []})
+        self.player_stats = defaultdict(lambda: {'points': [], 'games': 0})
         self.last_game = {}
         self.model_accuracy = defaultdict(lambda: {'correct': 0, 'total': 0})
 
@@ -63,6 +72,62 @@ class BasePredictor:
             return 0.5
         correct = sum(s['correct'] for s in self.model_accuracy.values())
         return correct / total
+
+    def get_star_ppg(self, tid: int) -> dict[int, float]:
+        """Get PPG for star players (15+ PPG) on a team."""
+        stars = {}
+        for (team_id, player_id), stats in self.player_stats.items():
+            if team_id == tid and stats['games'] >= 5:
+                avg_ppg = np.mean(stats['points'][-20:]) if stats['points'] else 0
+                if avg_ppg >= self.STAR_PPG_THRESHOLD:
+                    stars[player_id] = avg_ppg
+        return stars
+
+    def get_star_injury_info(self, hid: int, aid: int, dnp_players: dict | None) -> dict:
+        """
+        Get star injury information for a game.
+
+        Returns dict with:
+        - home_star_ppg_out: Total PPG of home stars out
+        - away_star_ppg_out: Total PPG of away stars out
+        - star_injury_adjustment: The adjustment to spread (factor * diff)
+        - has_star_injury: Whether any star is out
+        """
+        if dnp_players is None:
+            return {
+                'home_star_ppg_out': 0.0,
+                'away_star_ppg_out': 0.0,
+                'star_injury_adjustment': 0.0,
+                'has_star_injury': 0,
+            }
+
+        home_stars = self.get_star_ppg(hid)
+        away_stars = self.get_star_ppg(aid)
+
+        home_ppg_out = sum(home_stars.get(pid, 0) for pid in dnp_players.get(hid, []))
+        away_ppg_out = sum(away_stars.get(pid, 0) for pid in dnp_players.get(aid, []))
+
+        adjustment = (home_ppg_out - away_ppg_out) * self.STAR_INJURY_FACTOR
+        has_injury = 1 if (home_ppg_out > 0 or away_ppg_out > 0) else 0
+
+        return {
+            'home_star_ppg_out': home_ppg_out,
+            'away_star_ppg_out': away_ppg_out,
+            'star_injury_adjustment': adjustment,
+            'has_star_injury': has_injury,
+        }
+
+    def update_player_stats(self, player_stats_df):
+        """Update player stats from a game's box score."""
+        for _, row in player_stats_df.iterrows():
+            if row.get('did_not_play', 0) == 1 or row.get('minutes', 0) <= 0:
+                continue
+            key = (row['team_id'], row['player_id'])
+            ps = self.player_stats[key]
+            ps['points'].append(row['points'])
+            ps['games'] += 1
+            if len(ps['points']) > 30:
+                ps['points'] = ps['points'][-30:]
 
     def extract_spread_features(self, hid, aid, date):
         hs = self.team_stats[hid]
@@ -181,9 +246,9 @@ def generate_training_data():
     Generate training data with meta-features and labels.
 
     For each game:
-    - Run base predictor to get model spread/total
+    - Run base predictor to get model spread/total (with star injury adjustment)
     - Compare to Vegas
-    - Create meta-features
+    - Create meta-features including star injury info
     - Label: did betting WITH model win? did FADING model win?
     """
     print("=" * 70)
@@ -200,6 +265,24 @@ def generate_training_data():
         WHERE g.completed = 1 AND g.home_score > 0
         ORDER BY g.date
     ''', conn)
+
+    # Load player stats for injury tracking
+    print("Loading player stats for injury tracking...")
+    player_game_stats = pd.read_sql_query('''
+        SELECT game_id, player_id, team_id, minutes, points, did_not_play, dnp_reason
+        FROM player_game_stats
+    ''', conn)
+
+    # Pre-compute injury DNPs per game (excluding coach's decision, rest, etc.)
+    injury_dnps = player_game_stats[
+        (player_game_stats['did_not_play'] == 1) &
+        (~player_game_stats['dnp_reason'].isin(["COACH'S DECISION", "NOT WITH TEAM", "REST"]))
+    ].groupby('game_id').apply(
+        lambda x: {tid: list(x[x['team_id'] == tid]['player_id']) for tid in x['team_id'].unique()},
+        include_groups=False
+    ).to_dict()
+    print(f"Found {len(injury_dnps)} games with injury DNPs")
+
     conn.close()
 
     # Filter to games with Vegas lines
@@ -221,10 +304,19 @@ def generate_training_data():
     recent_total_results = []   # Track recent O/U results
 
     for idx, g in games.iterrows():
+        game_id = g['game_id']
         actual_spread = g['away_score'] - g['home_score']
         actual_total = g['home_score'] + g['away_score']
         vegas_spread = g['vegas_spread']
         vegas_total = g['vegas_total']
+
+        # Get injury DNPs for this game
+        dnp_players = injury_dnps.get(game_id)
+
+        # Get star injury info
+        star_injury_info = predictor.get_star_injury_info(
+            g['home_team_id'], g['away_team_id'], dnp_players
+        )
 
         # Get features
         spread_feat = predictor.extract_spread_features(
@@ -239,9 +331,12 @@ def generate_training_data():
             # Fit ridge models
             X_s = spread_scaler.fit_transform(np.array(X_spread_train))
             spread_ridge = Ridge(alpha=0.1).fit(X_s, np.array(y_spread_train))
-            model_spread = spread_ridge.predict(
+            model_spread_base = spread_ridge.predict(
                 spread_scaler.transform(spread_feat.reshape(1, -1))
             )[0]
+
+            # Apply star injury adjustment (matching production model)
+            model_spread = model_spread_base + star_injury_info['star_injury_adjustment']
 
             X_t = total_scaler.fit_transform(np.array(X_total_train))
             total_ridge = Ridge(alpha=0.1).fit(X_t, np.array(y_total_train))
@@ -314,6 +409,14 @@ def generate_training_data():
                 # Total magnitude features
                 'vegas_total_high': 1 if vegas_total > 230 else 0,
                 'vegas_total_low': 1 if vegas_total < 215 else 0,
+
+                # Star injury features (NEW)
+                'home_star_ppg_out': star_injury_info['home_star_ppg_out'],
+                'away_star_ppg_out': star_injury_info['away_star_ppg_out'],
+                'star_injury_adjustment': star_injury_info['star_injury_adjustment'],
+                'has_star_injury': star_injury_info['has_star_injury'],
+                'star_ppg_diff': star_injury_info['home_star_ppg_out'] - star_injury_info['away_star_ppg_out'],
+                'total_star_ppg_out': star_injury_info['home_star_ppg_out'] + star_injury_info['away_star_ppg_out'],
             }
 
             # Labels: did betting with model win? did fading win?
@@ -362,6 +465,11 @@ def generate_training_data():
         predictor.update(g['home_team_id'], g['home_score'], g['away_score'], g['date'])
         predictor.update(g['away_team_id'], g['away_score'], g['home_score'], g['date'])
 
+        # Update player stats for injury tracking
+        game_player_stats = player_game_stats[player_game_stats['game_id'] == game_id]
+        if not game_player_stats.empty:
+            predictor.update_player_stats(game_player_stats)
+
     df = pd.DataFrame(training_data)
     print(f"Training samples generated: {len(df)}")
 
@@ -374,7 +482,7 @@ def train_classifier(df: pd.DataFrame):
     print("TRAINING EDGE CLASSIFIER")
     print("=" * 70)
 
-    # Feature columns
+    # Feature columns (updated with star injury features)
     feature_cols = [
         'spread_edge', 'spread_edge_abs', 'spread_edge_positive',
         'total_edge', 'total_edge_abs', 'total_edge_positive',
@@ -385,6 +493,9 @@ def train_classifier(df: pd.DataFrame):
         'season_progress', 'early_season', 'mid_season', 'late_season',
         'vegas_spread_abs', 'big_favorite', 'close_game',
         'vegas_total_high', 'vegas_total_low',
+        # Star injury features (NEW)
+        'home_star_ppg_out', 'away_star_ppg_out', 'star_injury_adjustment',
+        'has_star_injury', 'star_ppg_diff', 'total_star_ppg_out',
     ]
 
     X = df[feature_cols].values
@@ -401,11 +512,20 @@ def train_classifier(df: pd.DataFrame):
     y_total[df['total_fade_model_wins'] == 1] = 2
 
     # Train/test split by season
-    train_seasons = [2023, 2024]
-    test_season = 2025
+    # Using 2023-2025 for training, 2026 for testing (most recent data)
+    train_seasons = [2023, 2024, 2025]
+    test_season = 2026
 
     train_mask = df['season'].isin(train_seasons)
     test_mask = df['season'] == test_season
+
+    # Fall back to 2025 as test if no 2026 data
+    if test_mask.sum() < 50:
+        print("Not enough 2026 data, using 2025 as test set")
+        train_seasons = [2023, 2024]
+        test_season = 2025
+        train_mask = df['season'].isin(train_seasons)
+        test_mask = df['season'] == test_season
 
     X_train, X_test = X[train_mask], X[test_mask]
     y_spread_train, y_spread_test = y_spread[train_mask], y_spread[test_mask]
@@ -665,6 +785,37 @@ def find_edge_patterns(df: pd.DataFrame):
         if high_home.sum() > 10:
             wr = df.loc[high_home, 'spread_with_model_wins'].mean()
             print(f"  {fav_label}, Model likes home (-5): {high_home.sum()} games, WR: {wr*100:.1f}%")
+
+    print("\n6. STAR INJURY PATTERNS:")
+    # Games with star injuries
+    has_injury = df['has_star_injury'] == 1
+    no_injury = df['has_star_injury'] == 0
+
+    if has_injury.sum() > 20:
+        inj_spread_wr = df.loc[has_injury, 'spread_with_model_wins'].mean()
+        no_inj_spread_wr = df.loc[no_injury, 'spread_with_model_wins'].mean()
+        print(f"  With star injuries: {has_injury.sum()} games, spread WR: {inj_spread_wr*100:.1f}%")
+        print(f"  No star injuries: {no_injury.sum()} games, spread WR: {no_inj_spread_wr*100:.1f}%")
+
+        # Home star out
+        home_star_out = df['home_star_ppg_out'] > 15
+        if home_star_out.sum() > 10:
+            wr = df.loc[home_star_out, 'spread_with_model_wins'].mean()
+            fade_wr = df.loc[home_star_out, 'spread_fade_model_wins'].mean()
+            print(f"  Home star out (15+ PPG): {home_star_out.sum()} games, with: {wr*100:.1f}%, fade: {fade_wr*100:.1f}%")
+
+        # Away star out
+        away_star_out = df['away_star_ppg_out'] > 15
+        if away_star_out.sum() > 10:
+            wr = df.loc[away_star_out, 'spread_with_model_wins'].mean()
+            fade_wr = df.loc[away_star_out, 'spread_fade_model_wins'].mean()
+            print(f"  Away star out (15+ PPG): {away_star_out.sum()} games, with: {wr*100:.1f}%, fade: {fade_wr*100:.1f}%")
+
+        # Big injury differential
+        big_diff = df['star_ppg_diff'].abs() > 20
+        if big_diff.sum() > 10:
+            wr = df.loc[big_diff, 'spread_with_model_wins'].mean()
+            print(f"  Big injury differential (>20 PPG): {big_diff.sum()} games, with_model WR: {wr*100:.1f}%")
 
 
 def main():
