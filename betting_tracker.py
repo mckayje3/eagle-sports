@@ -12,6 +12,13 @@ Edge Classifier Integration (2026-01-02):
 - Neural network meta-model predicts when to bet WITH vs FADE model
 - Spread: BET_WITH @ 0.65 confidence = 53.8% win rate, +2.8% ROI
 - Totals: FADE @ 0.70 confidence = 56.3% win rate, +7.5% ROI
+
+Segment-Aware Thresholds (2026-01-02):
+- Model performs best mid-season (games 300-800): 52.5% ATS
+- Early/late season: raise thresholds to be more selective
+- Early (0-300): require 7+ pt edge
+- Mid (300-800): standard 5+ pt edge
+- Late (800+): require 7+ pt edge
 """
 from __future__ import annotations
 
@@ -51,6 +58,49 @@ class BettingTracker:
         'vegas_spread_abs', 'big_favorite', 'close_game',
         'vegas_total_high', 'vegas_total_low',
     ]
+
+    # NBA Season segments (by games played in season, ~1230 total)
+    NBA_SEASON_SEGMENTS = {
+        'early': (0, 300),      # First ~25% - model still learning
+        'mid': (300, 800),      # Middle ~40% - model strongest (52.5% ATS)
+        'late': (800, 9999),    # Final ~35% - fatigue/tanking effects
+    }
+
+    # Segment-aware NBA strategies
+    # Higher thresholds in early/late = more selective when model is weaker
+    NBA_SEGMENT_SPREAD_STRATEGIES = {
+        'early': [
+            # Require larger edge in early season
+            {'min_dev': 8, 'dir': 'AWAY', 'win_rate': 0.52, 'base_units': 2},
+            {'min_dev': 7, 'dir': 'AWAY', 'win_rate': 0.51, 'base_units': 1},
+        ],
+        'mid': [
+            # Standard thresholds - model at its best
+            {'min_dev': 6, 'dir': 'AWAY', 'win_rate': 0.570, 'base_units': 2},
+            {'min_dev': 5, 'dir': 'AWAY', 'win_rate': 0.534, 'base_units': 1},
+        ],
+        'late': [
+            # Require larger edge in late season
+            {'min_dev': 8, 'dir': 'AWAY', 'win_rate': 0.52, 'base_units': 2},
+            {'min_dev': 7, 'dir': 'AWAY', 'win_rate': 0.51, 'base_units': 1},
+        ],
+    }
+
+    NBA_SEGMENT_TOTAL_STRATEGIES = {
+        'early': [
+            # More selective in early season
+            {'min_dev': 8, 'dir': 'FADE_UNDER', 'win_rate': 0.52, 'base_units': 1},
+        ],
+        'mid': [
+            # Standard thresholds
+            {'min_dev': 7, 'dir': 'FADE_UNDER', 'win_rate': 0.537, 'base_units': 2},
+            {'min_dev': 5, 'dir': 'FADE_UNDER', 'win_rate': 0.538, 'base_units': 1},
+        ],
+        'late': [
+            # More selective in late season
+            {'min_dev': 8, 'dir': 'FADE_UNDER', 'win_rate': 0.52, 'base_units': 1},
+        ],
+    }
 
     # Deviation strategy thresholds based on historical analysis
     # Updated 2026-01-02 based on edge analysis
@@ -110,6 +160,58 @@ class BettingTracker:
     def _get_sport_conn(self, sport: str) -> sqlite3.Connection:
         """Get connection to sport-specific database"""
         return sqlite3.connect(self.SPORT_DBS[sport])
+
+    def _get_nba_season_segment(self) -> str:
+        """
+        Determine current NBA season segment based on completed games.
+
+        Returns:
+            'early', 'mid', or 'late'
+        """
+        try:
+            conn = self._get_sport_conn('NBA')
+            cursor = conn.cursor()
+
+            # Get current season
+            cursor.execute('''
+                SELECT MAX(season) FROM games WHERE completed = 1
+            ''')
+            current_season = cursor.fetchone()[0]
+
+            if not current_season:
+                conn.close()
+                return 'mid'  # Default to mid if no data
+
+            # Count completed games this season
+            cursor.execute('''
+                SELECT COUNT(*) FROM games
+                WHERE season = ? AND completed = 1
+            ''', (current_season,))
+            games_played = cursor.fetchone()[0]
+            conn.close()
+
+            # Determine segment
+            for segment, (low, high) in self.NBA_SEASON_SEGMENTS.items():
+                if low <= games_played < high:
+                    return segment
+
+            return 'late'  # Default if past all thresholds
+
+        except Exception as e:
+            logger.warning(f"Error determining NBA segment: {e}")
+            return 'mid'  # Default to mid on error
+
+    def _get_nba_spread_strategies(self, segment: str = None) -> list:
+        """Get NBA spread strategies for the given segment."""
+        if segment is None:
+            segment = self._get_nba_season_segment()
+        return self.NBA_SEGMENT_SPREAD_STRATEGIES.get(segment, self.SPREAD_STRATEGIES['NBA'])
+
+    def _get_nba_total_strategies(self, segment: str = None) -> list:
+        """Get NBA total strategies for the given segment."""
+        if segment is None:
+            segment = self._get_nba_season_segment()
+        return self.NBA_SEGMENT_TOTAL_STRATEGIES.get(segment, self.TOTAL_STRATEGIES['NBA'])
 
     def _load_classifier(self, sport: str = 'NBA') -> bool:
         """Load the edge classifier model if available."""
@@ -434,7 +536,7 @@ class BettingTracker:
             return 2.0
 
     def evaluate_spread(self, sport: str, model_spread: float, vegas_spread: float,
-                        confidence: float = None) -> Optional[Dict]:
+                        confidence: float = None, segment: str = None) -> Optional[dict]:
         """
         Evaluate if a game qualifies for spread betting recommendation.
 
@@ -442,6 +544,13 @@ class BettingTracker:
         Deviation = model_spread - vegas_spread
         - Negative deviation = model favors HOME more than Vegas (model more negative)
         - Positive deviation = model favors AWAY more than Vegas (model less negative)
+
+        Args:
+            sport: Sport code (NBA, NFL, etc.)
+            model_spread: Model's predicted spread
+            vegas_spread: Vegas spread
+            confidence: Model confidence score
+            segment: NBA season segment override (early/mid/late)
 
         Returns:
             Dict with recommendation details or None if no recommendation
@@ -451,11 +560,23 @@ class BettingTracker:
         # Negative deviation means model is more negative = favors home more
         direction = 'HOME' if deviation < 0 else 'AWAY'
 
-        strategies = self.SPREAD_STRATEGIES.get(sport, [])
+        # Use segment-aware strategies for NBA
+        if sport == 'NBA':
+            strategies = self._get_nba_spread_strategies(segment)
+            current_segment = segment or self._get_nba_season_segment()
+        else:
+            strategies = self.SPREAD_STRATEGIES.get(sport, [])
+            current_segment = None
 
         for strategy in strategies:
             if abs_deviation >= strategy['min_dev'] and direction == strategy['dir']:
                 units = self.calculate_units(confidence, strategy['win_rate'])
+
+                # Include segment info in reason for NBA
+                if current_segment:
+                    reason = f"{sport} {direction} bias {abs_deviation:.1f} pts [{current_segment}] ({strategy['win_rate']*100:.0f}% hist)"
+                else:
+                    reason = f"{sport} {direction} spread bias {abs_deviation:.1f} pts ({strategy['win_rate']*100:.0f}% historical)"
 
                 return {
                     'bet_type': 'SPREAD',
@@ -464,18 +585,26 @@ class BettingTracker:
                     'abs_deviation': abs_deviation,
                     'expected_win_rate': strategy['win_rate'],
                     'recommended_units': units,
-                    'reason': f"{sport} {direction} spread bias {abs_deviation:.1f} pts ({strategy['win_rate']*100:.0f}% historical)"
+                    'segment': current_segment,
+                    'reason': reason
                 }
 
         return None
 
     def evaluate_total(self, sport: str, model_total: float, vegas_total: float,
-                       confidence: float = None) -> Optional[Dict]:
+                       confidence: float = None, segment: str = None) -> Optional[dict]:
         """
         Evaluate if a game qualifies for total (O/U) betting recommendation.
 
         For NBA, we fade the UNDER signal:
         - When model < Vegas (model says UNDER), bet OVER instead
+
+        Args:
+            sport: Sport code (NBA, NFL, etc.)
+            model_total: Model's predicted total
+            vegas_total: Vegas total
+            confidence: Model confidence score
+            segment: NBA season segment override (early/mid/late)
 
         Returns:
             Dict with recommendation details or None if no recommendation
@@ -483,13 +612,25 @@ class BettingTracker:
         deviation = model_total - vegas_total
         abs_deviation = abs(deviation)
 
-        strategies = self.TOTAL_STRATEGIES.get(sport, [])
+        # Use segment-aware strategies for NBA
+        if sport == 'NBA':
+            strategies = self._get_nba_total_strategies(segment)
+            current_segment = segment or self._get_nba_season_segment()
+        else:
+            strategies = self.TOTAL_STRATEGIES.get(sport, [])
+            current_segment = None
 
         for strategy in strategies:
             if strategy['dir'] == 'FADE_UNDER':
                 # Model < Vegas = model says under, but we fade it = bet OVER
                 if deviation <= -strategy['min_dev']:
                     units = self.calculate_units(confidence, strategy['win_rate'])
+
+                    # Include segment info in reason for NBA
+                    if current_segment:
+                        reason = f"{sport} FADE UNDER: {abs_deviation:.1f} pts [{current_segment}] ({strategy['win_rate']*100:.0f}% hist)"
+                    else:
+                        reason = f"{sport} FADE UNDER: model {abs_deviation:.1f} below Vegas, bet OVER ({strategy['win_rate']*100:.0f}% historical)"
 
                     return {
                         'bet_type': 'TOTAL',
@@ -498,7 +639,8 @@ class BettingTracker:
                         'abs_deviation': abs_deviation,
                         'expected_win_rate': strategy['win_rate'],
                         'recommended_units': units,
-                        'reason': f"{sport} FADE UNDER: model {abs_deviation:.1f} below Vegas, bet OVER ({strategy['win_rate']*100:.0f}% historical)"
+                        'segment': current_segment,
+                        'reason': reason
                     }
 
         return None
