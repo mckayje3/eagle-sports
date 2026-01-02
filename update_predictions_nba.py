@@ -3,6 +3,11 @@ Update NBA Predictions Script
 Fetches latest odds from ESPN and regenerates predictions.
 Called by the dashboard "Update Predictions" button.
 
+Uses Enhanced Ridge model (16 features for spread, 12 for total).
+Switched from Deep Eagle NN on 2026-01-02 after comparison showed:
+- Spread: Nearly equal (Ridge 11.26 vs NN ~11.7 MAE)
+- Totals: Ridge significantly better (bias +0.83 vs +2.56)
+
 Usage:
     py update_predictions_nba.py              # Update with latest odds
     py update_predictions_nba.py --days 7     # Predictions for next N days
@@ -102,20 +107,17 @@ def check_missing_vegas_lines(days=7):
 
 
 def generate_predictions(days=7):
-    """Generate predictions using Deep Eagle model"""
+    """Generate predictions using Enhanced Ridge model"""
     logger.info(f"Generating NBA predictions for next {days} days...")
 
     try:
-        from nba_predictor import NBAPredictor
+        from nba_ridge_model import NBARidgePredictor
 
-        # Use 2024 model (most recent trained model)
-        predictor = NBAPredictor(
-            model_path='models/deep_eagle_nba_2024.pt',
-            scaler_path='models/deep_eagle_nba_2024_scaler.pkl'
-        )
+        predictor = NBARidgePredictor()
 
         if predictor.model is None:
-            logger.warning("NBA model not loaded - no predictions generated")
+            logger.warning("NBA Ridge model not loaded - no predictions generated")
+            logger.warning("Train the model first: py nba_ridge_model.py")
             return None
 
         predictions_df = predictor.predict_upcoming(days=days)
