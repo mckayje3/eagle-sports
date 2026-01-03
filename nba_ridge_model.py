@@ -5,7 +5,7 @@ Full-featured Ridge regression model with:
 - Recent form (last 5 games)
 - Momentum/trend (last 6 games)
 - Win/loss streaks
-- Per-team HCA (scaled & shrunk toward league mean)
+- Dynamic per-team HCA (decay-weighted, blended with previous season baseline)
 - Both spread and total predictions
 - Injury impact features (optional, enabled by default)
 
@@ -47,13 +47,19 @@ class NBARidgeModel:
     Enhanced Ridge regression model for NBA predictions.
 
     Features (16 for spread, 12 for total):
-    - PPG/PAPG differentials (weighted by decay)
+    - PPG/PAPG differentials (weighted by decay=0.97)
     - Recent form (last 5 games)
     - Momentum (trend over last 6 games)
     - Win/loss streaks
     - Rest days and back-to-back indicators
-    - Per-team HCA (scaled & shrunk)
+    - Dynamic per-team HCA (decay-weighted, blended with previous season)
     - Season progress / reliability weights
+
+    Dynamic HCA:
+    - Tracks home and away margins separately with same decay as PPG
+    - Blends current season data with previous season baseline
+    - At 40+ games played, fully weights current season
+    - Still applies shrinkage toward league mean and scaling
     """
 
     DECAY = 0.97
@@ -77,12 +83,15 @@ class NBARidgeModel:
         # Team state tracking
         self.team_stats: dict = defaultdict(lambda: {
             'ppg': [], 'papg': [], 'wts': [],
-            'margins': [], 'wins': []
+            'margins': [], 'wins': [],
+            # Dynamic HCA tracking
+            'home_margins': [], 'home_wts': [],
+            'away_margins': [], 'away_wts': [],
         })
         self.prev_ratings: dict = {}
         self.last_game: dict = {}
         self.league_hca: float = self.HCA_DEFAULT
-        self.team_hca: dict = {}
+        self.team_hca: dict = {}  # Previous season HCA (baseline)
 
         # Player importance tracking (for injury features)
         # Maps (team_id, player_id) -> rolling stats
@@ -117,8 +126,46 @@ class NBARidgeModel:
             return 2
 
     def get_team_hca(self, tid: int) -> float:
-        """Get per-team HCA, falling back to league average."""
-        return self.team_hca.get(tid, self.league_hca)
+        """
+        Get per-team HCA with dynamic updating.
+
+        Computes weighted average of home vs away margins from current season,
+        blended with previous season's HCA based on sample size.
+        """
+        ts = self.team_stats[tid]
+        prev_hca = self.team_hca.get(tid, self.league_hca)
+
+        # Need minimum games to compute current season HCA
+        n_home = len(ts['home_margins'])
+        n_away = len(ts['away_margins'])
+
+        if n_home < 3 or n_away < 3:
+            # Not enough current season data, use previous season
+            return prev_hca
+
+        # Compute weighted home and away margins
+        home_margin = self._wavg(ts['home_margins'], ts['home_wts'])
+        away_margin = self._wavg(ts['away_margins'], ts['away_wts'])
+
+        if home_margin is None or away_margin is None:
+            return prev_hca
+
+        # Raw current season HCA
+        current_hca_raw = home_margin - away_margin
+
+        # Shrink toward league mean
+        current_hca_shrunk = self.league_hca + self.HCA_SHRINK * (
+            self.HCA_SCALE * current_hca_raw - self.league_hca
+        )
+
+        # Blend with previous season based on sample size
+        # More games = more weight on current season
+        total_games = n_home + n_away
+        blend_weight = min(total_games / 40, 1.0)  # Full current weight at ~40 games
+
+        blended_hca = blend_weight * current_hca_shrunk + (1 - blend_weight) * prev_hca
+
+        return blended_hca
 
     def get_player_importance(self, tid: int) -> dict[int, float]:
         """
@@ -249,7 +296,12 @@ class NBARidgeModel:
                 ps['points'] = ps['points'][-30:]
 
     def calculate_team_hca(self, games_df: pd.DataFrame, season: int):
-        """Calculate per-team HCA from a season's data."""
+        """
+        Calculate per-team HCA baseline from previous season's data.
+
+        This provides the starting point for dynamic HCA. As the current season
+        progresses, get_team_hca() blends this baseline with current season data.
+        """
         sg = games_df[games_df['season'] == season]
         raw_hca = {}
 
@@ -418,15 +470,30 @@ class NBARidgeModel:
 
         return np.array(base_features)
 
-    def update_team(self, tid: int, pts_for: int, pts_against: int, date: str, won: bool):
+    def update_team(self, tid: int, pts_for: int, pts_against: int, date: str,
+                    won: bool, is_home: bool):
         """Update team state after a game."""
         ts = self.team_stats[tid]
+        margin = pts_for - pts_against
+
+        # Update general stats with decay
         ts['wts'] = [w * self.DECAY for w in ts['wts']]
         ts['ppg'].append(pts_for)
         ts['papg'].append(pts_against)
         ts['wts'].append(1.0)
-        ts['margins'].append(pts_for - pts_against)
+        ts['margins'].append(margin)
         ts['wins'].append(1 if won else 0)
+
+        # Update home/away margins for dynamic HCA
+        if is_home:
+            ts['home_wts'] = [w * self.DECAY for w in ts['home_wts']]
+            ts['home_margins'].append(margin)
+            ts['home_wts'].append(1.0)
+        else:
+            ts['away_wts'] = [w * self.DECAY for w in ts['away_wts']]
+            ts['away_margins'].append(margin)
+            ts['away_wts'].append(1.0)
+
         self.last_game[tid] = date
 
     def set_prev_season(self, season: int, games_df: pd.DataFrame):
@@ -529,8 +596,10 @@ class NBARidgeModel:
 
                 # Update team state
                 home_won = g['home_score'] > g['away_score']
-                self.update_team(g['home_team_id'], g['home_score'], g['away_score'], g['date'], home_won)
-                self.update_team(g['away_team_id'], g['away_score'], g['home_score'], g['date'], not home_won)
+                self.update_team(g['home_team_id'], g['home_score'], g['away_score'],
+                                 g['date'], home_won, is_home=True)
+                self.update_team(g['away_team_id'], g['away_score'], g['home_score'],
+                                 g['date'], not home_won, is_home=False)
 
                 # Update player stats (if using injuries)
                 if self.use_injuries and player_game_stats is not None:

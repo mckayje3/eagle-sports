@@ -1,6 +1,6 @@
 # NBA Ridge Model Performance Report
 
-**Date:** 2026-01-02
+**Date:** 2026-01-03 (updated)
 **Model:** Enhanced Ridge with Star Injury Adjustment
 **Code:** `nba_ridge_model.py`
 
@@ -154,7 +154,45 @@ python nba_ridge_model.py
 
 ---
 
-## 9. Future Improvements
+## 9. Dynamic Per-Team HCA (Added 2026-01-03)
+
+The model now tracks home court advantage dynamically throughout the season.
+
+### How It Works
+```python
+# Track home and away margins separately with decay (0.97)
+home_margin_wavg = weighted_avg(home_margins, decay_weights)
+away_margin_wavg = weighted_avg(away_margins, decay_weights)
+
+# Current season HCA (raw)
+current_hca = home_margin_wavg - away_margin_wavg
+
+# Blend with previous season based on sample size
+blend_weight = min(total_games / 40, 1.0)
+dynamic_hca = blend_weight * current + (1 - blend_weight) * prev_season
+```
+
+### Blending Schedule
+| Games Played | Current Season | Previous Season |
+|--------------|----------------|-----------------|
+| 0-5 | 0% | 100% |
+| 10 | 25% | 75% |
+| 20 | 50% | 50% |
+| 40+ | 100% | 0% |
+
+### 2026 Season HCA Distribution
+- Mean: 1.41 pts
+- Std: 0.69 pts
+- Range: -0.49 to 2.79 pts
+
+### Why Dynamic HCA?
+- Captures teams whose home advantage is changing mid-season
+- New arena energy, roster changes, injury impacts
+- Uses same decay as PPG/PAPG for consistency
+
+---
+
+## 10. Future Improvements
 
 ### Potential Enhancements
 1. **Segment-specific models** - Train separate models for early/mid/late season
@@ -169,7 +207,7 @@ python nba_ridge_model.py
 
 ---
 
-## 10. Comparison with Other Approaches
+## 11. Comparison with Other Approaches
 
 | Approach | Spread MAE | Notes |
 |----------|------------|-------|
@@ -180,7 +218,7 @@ python nba_ridge_model.py
 
 ---
 
-## 11. Edge Classifier Integration
+## 12. Edge Classifier Integration
 
 The neural network edge classifier has been updated to include star injury features.
 

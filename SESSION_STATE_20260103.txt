@@ -1,0 +1,59 @@
+SESSION STATE - January 3, 2026
+================================
+
+## Recent Changes This Session
+
+### 1. NBA Ridge Model - Dynamic HCA (nba_ridge_model.py)
+Previously: Per-team HCA was static, calculated once from previous season
+Now: Dynamic HCA that updates throughout the season with decay weighting
+
+Implementation:
+- Added home_margins/away_margins tracking to team_stats dict
+- Modified update_team() to take is_home parameter
+- Rewrote get_team_hca() to compute weighted average of home vs away margins
+- Blends current season with previous season baseline (40 games = full current weight)
+- Uses same decay (0.97) as PPG/PAPG
+
+Key constants:
+- HCA_SCALE = 0.36
+- HCA_SHRINK = 0.50  
+- HCA_DEFAULT = 1.8
+- Blend threshold = 40 games for full current season weight
+
+### 2. Edge Classifier Retraining (nba_edge_classifier.py)
+- Added star injury features to meta-features
+- Retrained with 2025 test set
+- Best strategies found:
+  * Spread: BET_WITH @ 0.70 = 62.8% WR, +19.9% ROI
+  * Total: BET_WITH @ 0.65 = 65.2% WR, +24.5% ROI  
+  * Total: FADE @ 0.70 = 61.0% WR, +16.4% ROI (contrarian signal)
+
+### 3. Star Injury Adjustment (already in place)
+- Factor: 0.05 per star PPG lost
+- Threshold: 15+ PPG = "star"
+- Formula: adjusted_spread = base + (home_star_ppg - away_star_ppg) * 0.05
+
+### 4. Betting Tracker Updates (betting_tracker.py)
+- Updated CLASSIFIER_THRESHOLDS with new values
+- Added star injury features to CLASSIFIER_FEATURES
+
+## Files Modified This Session
+- nba_ridge_model.py (dynamic HCA)
+- nba_edge_classifier.py (star injury features)
+- betting_tracker.py (new thresholds)
+- analysis/nba_ridge_model_performance.md (new report)
+- analysis/nba_player_impact_analysis.md (updated)
+
+## Model Performance (2026 Season)
+- Spread MAE: 11.02 (Vegas: 10.59, gap +0.43)
+- Mid-season MAE at Vegas parity: 11.08 vs 11.04
+- ATS: 52.3% overall
+
+## Git Status
+- Committed and pushed: Star injury adjustment, edge classifier updates
+- Uncommitted: Dynamic HCA changes to nba_ridge_model.py
+
+## Next Steps
+- Retrain models with dynamic HCA
+- Evaluate if dynamic HCA improves mid-season predictions
+- Check tomorrow's games (Jan 3) when lines are posted
