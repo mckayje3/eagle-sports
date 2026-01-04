@@ -1,35 +1,51 @@
-# NBA Ridge Model Performance Report
+# NBA Enhanced Ridge Model Performance Report
 
-**Date:** 2026-01-03 (updated)
-**Model:** Enhanced Ridge with Star Injury Adjustment
-**Code:** `nba_ridge_model.py`
+**Date:** 2026-01-04 (updated)
+**Model:** Enhanced Ridge with Dynamic HCA and Star Injury Adjustment
+**Code:** `nba_enhanced_ridge.py`
+
+> **See also:** [NBA Simple Model](nba_simple_model.md) for the baseline 12-feature model without injuries or dynamic HCA.
 
 ---
 
 ## Executive Summary
 
-The NBA Ridge model now achieves **near-parity with Vegas MAE** in Mid Season (+0.04 pts difference) with strong 56.3% ATS performance. The star injury post-hoc adjustment contributes +0.25 MAE improvement on injury games.
+The Enhanced model uses 17 features including dynamic per-team HCA, DNP-based star injury adjustments, and momentum indicators. Despite the added complexity, it currently performs **on par with the simpler 12-feature model** (MAE: 11.08 vs 11.09).
+
+**Current Status:** The extra features haven't yet translated to measurable improvement. The hypothesis is that value may emerge in specific scenarios (injury games, mid-season, etc.) that warrant continued development.
 
 ---
 
 ## 1. Model Architecture
 
-### Base Features (12)
-- PPG/PAPG differentials (weighted by decay=0.97)
-- Recent form (last 5 games)
-- Momentum trend (last 6 games)
-- Rest days and back-to-back indicators
-- Per-team HCA (scaled & shrunk toward league mean)
-- Season progress / reliability weights
+### Features (17)
+| # | Feature | Coefficient | Notes |
+|---|---------|-------------|-------|
+| 0 | PPG diff | -1.59 | |
+| 1 | PAPG diff | +2.04 | Defense matters more |
+| 2 | Net rating diff | -2.99 | **Strongest** |
+| 3 | Recent form (L5) | +1.02 | Last 5 games margin |
+| 4 | Momentum | -0.01 | Weak signal |
+| 5 | Streak diff | +0.08 | Weak signal |
+| 6 | Rest diff | -0.49 | |
+| 7 | Home B2B | +0.78 | Fatigue penalty |
+| 8 | Away B2B | -0.88 | Fatigue penalty |
+| 9 | Dynamic HCA | -0.67 | Per-team, blended |
+| 10 | Home reliability | +0.38 | Games played proxy |
+| 11 | Away reliability | -0.25 | |
+| 12 | Injury adj | -0.59 | DNP-based stars |
+| 13 | Season progress | +0.35 | |
+| 14 | FG% diff | -0.53 | |
+| 15 | Reb diff | -0.32 | |
+| 16 | TOV diff | +0.73 | |
 
-### Injury Features (2)
-- Home importance lost
-- Away importance lost
-
-### Star Injury Adjustment (Post-hoc)
+### Star Injury Adjustment (DNP-Based)
+- **Data Source:** `player_game_stats.did_not_play` (available all seasons)
 - **Factor:** 0.05 per star PPG lost
-- **Threshold:** Players averaging 15+ PPG are "stars"
-- **Formula:** `adjusted_spread = base_spread + (home_star_ppg_lost - away_star_ppg_lost) * 0.05`
+- **Importance Threshold:** 0.35 (top ~3 players per team)
+- **Importance Formula:** 40% minutes share + 30% points share + 15% plus/minus + 15% starter rate
+- **Non-Injury Exclusions:** COACH'S DECISION, NOT WITH TEAM, REST, G LEAGUE, PERSONAL
+- **Coefficient:** -0.591 (9th strongest feature)
 
 ---
 
@@ -88,17 +104,26 @@ The NBA Ridge model now achieves **near-parity with Vegas MAE** in Mid Season (+
 
 ---
 
-## 5. Feature Importance (Spread Model)
+## 5. Feature Analysis
 
-| Feature | Coefficient | Impact |
-|---------|-------------|--------|
-| Net Rating Diff | -2.91 | Strongest predictor |
-| PAPG Diff | +2.25 | Defense matters |
-| PPG Diff | -1.41 | Offense secondary |
-| Home B2B | +0.98 | Fatigue hurts home |
-| Away B2B | -0.96 | Fatigue hurts away |
-| Home Reliability | +0.73 | More games = better estimate |
-| Recent PPG | -0.73 | Recent form matters |
+### Strong Signals (|coef| > 0.7)
+| Feature | Coefficient | Notes |
+|---------|-------------|-------|
+| Net rating diff | -2.99 | By far the strongest |
+| PAPG diff | +2.04 | Defense predicts better |
+| PPG diff | -1.59 | |
+| Recent form (L5) | +1.02 | Last 5 games margin |
+| Away B2B | -0.88 | |
+| Home B2B | +0.78 | |
+| TOV diff | +0.73 | |
+
+### Weak/Negligible Signals (|coef| < 0.1)
+| Feature | Coefficient | Notes |
+|---------|-------------|-------|
+| Momentum | -0.01 | Essentially zero |
+| Streak diff | +0.08 | Minimal impact |
+
+**Observation:** Momentum and streak features add no value. Consider removing in future versions.
 
 ---
 
@@ -121,14 +146,18 @@ From earlier analysis (`nba_player_impact_analysis.md`):
 
 ### Constants
 ```python
-STAR_INJURY_FACTOR = 0.05  # Optimal for MAE
-STAR_PPG_THRESHOLD = 15.0  # Players averaging 15+ PPG
+STAR_INJURY_FACTOR = 0.05        # Optimal for MAE
+STAR_IMPORTANCE_THRESHOLD = 0.35 # Top ~3 players per team
+
+# Non-injury DNP reasons (filtered out)
+NON_INJURY_REASONS = ["COACH'S DECISION", "NOT WITH TEAM", "REST",
+                      "G LEAGUE - TWO-WAY", "G LEAGUE", "PERSONAL"]
 ```
 
 ### Key Methods
-- `get_star_ppg(tid)` - Returns star player PPG for a team
-- `get_star_injury_adjustment(hid, aid, dnp_players)` - Calculates post-hoc adjustment
-- `predict()` - Now returns `predicted_spread_base`, `star_injury_adjustment`, and `predicted_spread`
+- `load_player_rankings()` - Calculates importance scores (mins/pts/pm/starter)
+- `get_injury_adjustment(team_id, game_id)` - Uses DNP data from player_game_stats
+- `predict()` - Returns spread with injury adjustment baked in
 
 ### Output Columns
 - `pred_spread` - Final prediction (base + adjustment)
@@ -260,6 +289,79 @@ The neural network edge classifier has been updated to include star injury featu
 
 ---
 
-*Report generated by Claude Code on 2026-01-02*
-*Model: nba_ridge_model.py with star injury adjustment*
-*Edge Classifier: nba_edge_classifier.py with star injury features*
+## 13. Model Comparison: Simple vs Enhanced (Fair Comparison)
+
+Test set: 867 games (2025 season with Vegas lines)
+
+| Aspect | Simple Model | Enhanced Model |
+|--------|--------------|----------------|
+| **Spread Features** | 12 | 17 |
+| **Total Features** | 6 | 15 |
+| **HCA** | Flat (intercept) | Dynamic per-team |
+| **Injuries** | None | DNP-based star adjustment |
+| **Box scores** | FG%, Reb, TOV | FG%, Reb, TOV |
+| **Decay** | 0.97 | 0.93 |
+| **Spread MAE** | 11.05 | 11.09 |
+| **Total MAE** | 14.78 | 14.86 |
+| **Winner Acc** | 67.1% | 66.7% |
+| **Vegas Spread MAE** | 10.75 | 10.75 |
+| **Vegas Total MAE** | 14.25 | 14.25 |
+
+### Enhanced Total Features (15)
+
+| # | Feature | Description |
+|---|---------|-------------|
+| 0 | Combined PPG | Home + Away PPG |
+| 1 | Combined PAPG | Home + Away PAPG |
+| 2 | Home pace proxy | (PPG + PAPG) / 2 |
+| 3 | Away pace proxy | (PPG + PAPG) / 2 |
+| 4 | Home B2B | Back-to-back indicator |
+| 5 | Away B2B | Back-to-back indicator |
+| 6 | Home reliability | Games played / 30 |
+| 7 | Away reliability | Games played / 30 |
+| 8 | Combined FG% | Home + Away FG% |
+| 9 | Combined Reb | Home + Away rebounds |
+| 10 | Combined TOV | Home + Away turnovers |
+| 11 | Recent intensity | Sum of absolute margins (L5) |
+| 12 | Combined momentum | Sum of absolute momentum |
+| 13 | Season progress | Total games / 164 |
+| 14 | Injury total adj | Star PPG out (lowers total) |
+
+### Current Reality
+
+**Simple model slightly wins.** Enhanced total improved from 15.00 (8 feat) to 14.86 (15 feat) but still trails Simple (14.78). Vegas beats both.
+
+### Why Keep the Enhanced Model?
+
+1. **Injury tracking available** - Coefficient shows model learns from star injuries
+2. **Total improved** - 15 features better than old 8 features
+3. **Edge classifier input** - May provide different signals for identifying betting edges
+4. **Different decay** - 0.93 vs 0.97 captures different dynamics
+
+### When to Use Each
+
+- **Simple Model**: Primary model. Clean, interpretable, slightly better MAE.
+- **Enhanced Model**: Use for injury-aware predictions and edge classifier experiments.
+
+### Code Files
+- Simple: `nba_simple_model.py` → `models/nba_simple_model.pkl`
+- Enhanced: `nba_enhanced_ridge.py` → `models/nba_ridge_enhanced.pkl`
+
+---
+
+## 14. Future Research Directions
+
+The enhanced model provides infrastructure for exploring:
+
+1. **Injury-specific edge** - Evaluate ATS on games with star injuries vs without
+2. **Dynamic HCA edge** - Do teams with unusual HCA values present betting opportunities?
+3. **Momentum signals** - Currently weak (coef -0.01) - explore different windows or definitions
+4. **Segment-specific models** - Train separate models for early/mid/late season
+5. **Non-linear injury effects** - #1 star out may have different impact than #2/#3
+
+---
+
+*Last updated: 2026-01-04*
+*Models: nba_simple_model.py, nba_enhanced_ridge.py*
+*Edge Classifier: nba_edge_classifier.py*
+*Injury Data: player_game_stats.did_not_play (all seasons)*
