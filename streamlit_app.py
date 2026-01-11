@@ -1338,10 +1338,9 @@ def display_top_picks(predictions_df, sport_emoji="🏈", max_picks=5, min_disag
         return
 
     # Calculate disagreement
-    # Model spread: home - away (positive = home wins)
-    # Vegas spread: negative = home favored
-    # To compare: convert model to Vegas convention by negating
-    df['spread_disagreement'] = abs((-df[spread_col]) - df['vegas_spread'])
+    # Both model and Vegas use same convention: away - home
+    # Negative = home favored, Positive = away favored
+    df['spread_disagreement'] = abs(df[spread_col] - df['vegas_spread'])
     df['total_disagreement'] = abs(df[total_col] - df['vegas_total'])
     df['max_disagreement'] = df[['spread_disagreement', 'total_disagreement']].max(axis=1)
 
