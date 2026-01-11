@@ -609,163 +609,210 @@ def show_predictions():
     if selected_sport == "College Football":
         show_sport_predictions('CFB', max_week=20, default_week=get_current_cfb_week())
     elif selected_sport == "NFL":
-        is_playoffs, round_name = is_nfl_playoffs()
-        if is_playoffs:
-            show_nfl_playoff_predictions(round_name)
-        else:
-            show_sport_predictions('NFL', max_week=18, default_week=get_current_nfl_week())
+        show_nfl_predictions()
     elif selected_sport == "NBA":
         show_nba_predictions_live()
     else:
         show_cbb_predictions_live()
 
 
-def show_nfl_playoff_predictions(round_name: str):
-    """Display NFL playoff predictions with special formatting."""
+def show_nfl_predictions():
+    """Display NFL predictions with unified week/playoff selector."""
     import pandas as pd
 
-    st.markdown(f"### 🏆 NFL {round_name} Predictions")
+    # Build week options: 1-18 plus playoff rounds
+    week_options = [f"Week {i}" for i in range(1, 19)]
+    playoff_rounds = ["Wild Card", "Divisional", "Conference", "Super Bowl"]
+    week_options.extend(playoff_rounds)
 
-    # Action buttons
-    col1, col2 = st.columns([1, 1])
+    # Determine default selection based on current date
+    is_playoffs, round_name = is_nfl_playoffs()
+    if is_playoffs and round_name in playoff_rounds:
+        default_idx = week_options.index(round_name)
+    else:
+        current_week = min(get_current_nfl_week(), 18)
+        default_idx = current_week - 1  # 0-indexed
+
+    # Week/Round selector
+    col1, col2, col3 = st.columns([3, 1, 1])
 
     with col1:
-        if st.button("🔄 Refresh", use_container_width=True, key="nfl_playoff_refresh"):
+        selected = st.selectbox(
+            "Select NFL Week",
+            week_options,
+            index=default_idx,
+            key="nfl_week_select"
+        )
+
+    is_playoff_round = selected in playoff_rounds
+
+    # Header
+    if is_playoff_round:
+        st.markdown(f"### 🏆 NFL {selected} Predictions")
+    else:
+        week_num = int(selected.replace("Week ", ""))
+        st.markdown(f"### 🏈 NFL {selected} Predictions")
+
+    with col2:
+        if st.button("🔄 Refresh", use_container_width=True, key="nfl_refresh"):
             st.cache_data.clear()
             st.rerun()
 
-    with col2:
-        if st.button("📊 Update Predictions", use_container_width=True, key="nfl_playoff_update"):
-            with st.spinner("Fetching latest odds and updating playoff predictions..."):
-                try:
-                    from update_predictions_nfl import update_predictions
-                    success, predictions_df = update_predictions(force_playoffs=True)
+    with col3:
+        if st.button("📊 Update", use_container_width=True, key="nfl_update"):
+            with st.spinner("Updating predictions..."):
+                if is_playoff_round:
+                    try:
+                        from update_predictions_nfl import update_predictions
+                        success, predictions_df = update_predictions(force_playoffs=True)
+                        if success:
+                            st.success(f"Updated playoff predictions!")
+                            st.cache_data.clear()
+                            st.rerun()
+                        else:
+                            st.error("Failed to update predictions")
+                    except Exception as e:
+                        st.error(f"Error: {e}")
+                else:
+                    week_num = int(selected.replace("Week ", ""))
+                    success, msg = run_nfl_predictions_update(week_num)
                     if success:
-                        st.success(f"Updated {len(predictions_df) if predictions_df is not None else 0} playoff predictions!")
+                        st.success(msg)
                         st.cache_data.clear()
                         st.rerun()
                     else:
-                        st.error("Failed to update playoff predictions - check logs")
-                except Exception as e:
-                    st.error(f"Error: {e}")
+                        st.error(msg)
 
-    # Load predictions from CSV
-    try:
-        predictions_df = pd.read_csv('nfl_playoff_predictions.csv')
-    except FileNotFoundError:
+    # Load predictions based on selection
+    if is_playoff_round:
+        # Load from playoff CSV
         try:
-            predictions_df = pd.read_csv('nfl_current_predictions.csv')
+            predictions_df = pd.read_csv('nfl_playoff_predictions.csv')
         except FileNotFoundError:
-            st.warning("No playoff predictions found. Click 'Update Predictions' to generate them.")
+            st.warning("No playoff predictions found. Click 'Update' to generate them.")
             return
 
-    if predictions_df.empty:
-        st.warning("No playoff predictions available.")
-        return
+        if predictions_df.empty:
+            st.warning("No playoff predictions available.")
+            return
 
-    # Check if this is playoff data
-    if 'is_playoff' not in predictions_df.columns:
-        st.info("Current predictions are for regular season. Click 'Update Predictions' to get playoff predictions.")
+        # Filter to upcoming games only (not finished)
+        today_str = today_eastern().strftime('%Y-%m-%d')
+        predictions_df = predictions_df[predictions_df['date'] >= today_str]
 
-    st.success(f"Found {len(predictions_df)} playoff games")
+        if predictions_df.empty:
+            st.info("All playoff games for this round have been played.")
+            return
 
-    # Summary stats
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        avg_total = predictions_df['pred_total'].mean() if 'pred_total' in predictions_df.columns else 0
-        st.metric("Avg Total", f"{avg_total:.1f}")
-    with col2:
-        avg_spread = predictions_df['pred_spread'].abs().mean() if 'pred_spread' in predictions_df.columns else 0
-        st.metric("Avg Spread", f"{avg_spread:.1f}")
-    with col3:
-        big_edges = (predictions_df['edge'].abs() >= 3).sum() if 'edge' in predictions_df.columns else 0
-        st.metric("Strong Edges (3+)", big_edges)
-    with col4:
-        games_count = len(predictions_df)
-        st.metric("Games", games_count)
+        st.success(f"Found {len(predictions_df)} upcoming playoff games")
 
-    st.markdown("---")
-
-    # Sort by edge magnitude for top picks
-    if 'edge' in predictions_df.columns:
+        # Sort by edge magnitude
         predictions_df = predictions_df.sort_values('edge', key=abs, ascending=False)
 
-    # Display top picks first
-    st.markdown("### 🎯 Top Plays (Sorted by Edge)")
+        # Display playoff games
+        for _, row in predictions_df.iterrows():
+            edge = row.get('edge', 0)
+            vegas_spread = row.get('vegas_spread', 0)
+            pred_spread = row.get('pred_spread', 0)
 
-    for _, row in predictions_df.iterrows():
-        edge = row.get('edge', 0)
-        vegas_spread = row.get('vegas_spread', 0)
-        pred_spread = row.get('pred_spread', 0)
-
-        # Determine confidence level and pick direction
-        abs_edge = abs(edge)
-        if abs_edge >= 4:
-            conf_stars = "⭐⭐⭐"
-            conf_text = "HIGH"
-        elif abs_edge >= 2:
-            conf_stars = "⭐⭐"
-            conf_text = "MEDIUM"
-        else:
-            conf_stars = "⭐"
-            conf_text = "LOW"
-
-        # Determine bet direction
-        # edge > 0 means model says away better than Vegas thinks -> bet AWAY
-        # edge < 0 means model says home better than Vegas thinks -> bet HOME
-        if edge > 0:
-            if vegas_spread > 0:
-                pick = f"{row['away_team']} -{vegas_spread:.1f}"
+            # Confidence stars
+            abs_edge = abs(edge)
+            if abs_edge >= 4:
+                conf_stars = "⭐⭐⭐"
+            elif abs_edge >= 2:
+                conf_stars = "⭐⭐"
             else:
-                pick = f"{row['away_team']} +{abs(vegas_spread):.1f}"
-            pick_direction = "AWAY"
-        else:
-            if vegas_spread > 0:
-                pick = f"{row['home_team']} +{vegas_spread:.1f}"
+                conf_stars = "⭐"
+
+            # Pick direction
+            if edge > 0:
+                pick_team = row['away_team']
+                if vegas_spread > 0:
+                    pick = f"{pick_team} -{abs(vegas_spread):.1f}"
+                else:
+                    pick = f"{pick_team} +{abs(vegas_spread):.1f}"
             else:
-                pick = f"{row['home_team']} {vegas_spread:.1f}"
-            pick_direction = "HOME"
+                pick_team = row['home_team']
+                if vegas_spread > 0:
+                    pick = f"{pick_team} +{vegas_spread:.1f}"
+                else:
+                    pick = f"{pick_team} {vegas_spread:.1f}"
 
-        # Create game card with playoff styling
-        time_slot = row.get('time_slot', '')
-        game_date = row.get('date', '')[:10] if row.get('date') else ''
+            # Game card
+            with st.container():
+                cols = st.columns([3, 2, 2, 1])
+                with cols[0]:
+                    st.markdown(f"**{row['away_team']} @ {row['home_team']}**")
+                    st.caption(f"{row['date']} • {row.get('time_slot', '')}")
+                with cols[1]:
+                    st.markdown(f"Vegas: **{vegas_spread:+.1f}**")
+                    st.caption(f"Model: {pred_spread:+.1f}")
+                with cols[2]:
+                    st.markdown(f"Edge: **{edge:+.1f}**")
+                    st.caption(f"Pick: {pick}")
+                with cols[3]:
+                    st.markdown(conf_stars)
+                st.markdown("---")
+    else:
+        # Regular season - use existing DB query
+        week_num = int(selected.replace("Week ", ""))
+        predictions_df = get_predictions_from_db(week_num, sport='NFL', season=2025)
 
-        with st.container():
-            # Header row
-            cols = st.columns([3, 2, 2, 1])
-            with cols[0]:
-                st.markdown(f"**🏈 {row['away_team']} @ {row['home_team']}**")
-                if time_slot:
-                    st.caption(f"{game_date} • {time_slot}")
-            with cols[1]:
-                st.markdown(f"Vegas: **{vegas_spread:+.1f}**")
-                st.caption(f"Model: {pred_spread:+.1f}")
-            with cols[2]:
-                st.markdown(f"Edge: **{edge:+.1f}**")
-                st.caption(f"Pick: {pick}")
-            with cols[3]:
-                st.markdown(f"{conf_stars}")
-                st.caption(conf_text)
+        if predictions_df.empty:
+            st.warning(f"No predictions available for {selected}")
+            return
 
-            # Show team stats if available
-            if 'home_ppg' in row and 'away_ppg' in row:
-                with st.expander("📊 Team Stats"):
-                    stat_cols = st.columns(2)
-                    with stat_cols[0]:
-                        st.write(f"**{row['away_team']}**")
-                        st.write(f"PPG: {row.get('away_ppg', 'N/A'):.1f}")
-                        st.write(f"Form: {row.get('away_form', 0):+.1f}")
-                    with stat_cols[1]:
-                        st.write(f"**{row['home_team']}**")
-                        st.write(f"PPG: {row.get('home_ppg', 'N/A'):.1f}")
-                        st.write(f"Form: {row.get('home_form', 0):+.1f}")
+        st.success(f"Found {len(predictions_df)} games for {selected}")
 
-            st.markdown("---")
+        # Use existing display logic from show_sport_predictions
+        _display_nfl_regular_season(predictions_df, week_num)
 
-    # Link to regular season option
+
+def _display_nfl_regular_season(predictions_df, week: int):
+    """Display regular season NFL predictions (helper function)."""
+    # Determine if viewing past games
+    is_past_games = False
+    if 'date' in predictions_df.columns and not predictions_df.empty:
+        try:
+            latest_game_date = pd.to_datetime(predictions_df['date']).max()
+            if pd.notna(latest_game_date) and latest_game_date.date() < today_eastern():
+                is_past_games = True
+        except Exception:
+            pass
+
+    display_prediction_freshness(predictions_df, is_past_games=is_past_games, sport='NFL')
+
+    # Check for fallback predictions
+    if is_fallback_predictions(predictions_df):
+        st.warning("Using fallback predictions. Click 'Update' to regenerate with Deep Eagle.")
+
+    # Add confidence column if missing
+    if 'confidence' not in predictions_df.columns:
+        predictions_df['confidence'] = 0.85
+
+    # Display stats
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        avg_total = predictions_df['predicted_total'].mean() if 'predicted_total' in predictions_df.columns else 0
+        st.metric("Avg Total", f"{avg_total:.1f}")
+    with col2:
+        avg_spread = predictions_df['predicted_spread'].abs().mean() if 'predicted_spread' in predictions_df.columns else 0
+        st.metric("Avg Spread", f"{avg_spread:.1f}")
+    with col3:
+        games_count = len(predictions_df)
+        st.metric("Games", games_count)
+    with col4:
+        avg_conf = predictions_df['confidence'].mean() * 100
+        st.metric("Avg Confidence", f"{avg_conf:.0f}%")
+
     st.markdown("---")
-    if st.checkbox("Show regular season predictions instead"):
-        show_sport_predictions('NFL', max_week=18, default_week=18)
+
+    # Show top picks
+    show_top_picks(predictions_df, "🏈", max_picks=5, min_disagreement=2.0)
+
+    # Display all games
+    for _, row in predictions_df.iterrows():
+        display_game_prediction_card(row, sport_emoji="🏈")
 
 
 def run_nfl_predictions_update(week: int = None):
