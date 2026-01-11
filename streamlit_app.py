@@ -14,6 +14,7 @@ import os
 import requests
 from timezone_utils import now_eastern, today_eastern
 from betting_tracker import BettingTracker
+from system_health import check_system_health, get_health_banner_html
 
 # Try to import feedparser for RSS feeds
 try:
@@ -23,20 +24,66 @@ except ImportError:
     FEEDPARSER_AVAILABLE = False
 # Helper functions for calculating current sports weeks
 def get_current_nfl_week():
-    """Calculate current NFL week based on date"""
+    """
+    Calculate current NFL week based on date.
+
+    Returns:
+        int: Week number (1-18 for regular season, 19+ for playoffs)
+
+    For playoffs, returns week number but is_nfl_playoffs() should be used
+    to determine playoff status and get the round name.
+    """
     today = datetime.now()
-    
+
     if today.year == 2025:
         season_start = datetime(2025, 9, 4)
     else:
         season_start = datetime(2024, 9, 5)
-    
+
     if today < season_start:
+        # Check if we're in previous year's playoffs (Jan-Feb)
+        if today.month in (1, 2):
+            return 19  # Signal playoffs
         return 1
-    
+
     days_since_start = (today - season_start).days
     week = (days_since_start // 7) + 1
-    return min(week, 18)
+    return week  # Don't cap - let it go past 18 for playoffs
+
+
+def is_nfl_playoffs() -> tuple[bool, str]:
+    """
+    Check if NFL is in playoffs and return round name.
+
+    Returns:
+        Tuple of (is_playoffs, round_name)
+        round_name is one of: "Wild Card", "Divisional", "Conference", "Super Bowl"
+    """
+    today = datetime.now()
+    week = get_current_nfl_week()
+
+    # Jan-Feb = playoffs
+    if today.month in (1, 2):
+        # Determine round based on date
+        day = today.day
+
+        if today.month == 1:
+            if day <= 15:
+                return True, "Wild Card"
+            elif day <= 22:
+                return True, "Divisional"
+            else:
+                return True, "Conference"
+        else:  # February
+            if day <= 15:
+                return True, "Super Bowl"
+            return False, ""
+
+    # After week 18 in Dec/Jan
+    if week > 18:
+        return True, "Playoffs"
+
+    return False, ""
 
 
 def get_current_cfb_week():
@@ -562,11 +609,163 @@ def show_predictions():
     if selected_sport == "College Football":
         show_sport_predictions('CFB', max_week=20, default_week=get_current_cfb_week())
     elif selected_sport == "NFL":
-        show_sport_predictions('NFL', max_week=18, default_week=get_current_nfl_week())
+        is_playoffs, round_name = is_nfl_playoffs()
+        if is_playoffs:
+            show_nfl_playoff_predictions(round_name)
+        else:
+            show_sport_predictions('NFL', max_week=18, default_week=get_current_nfl_week())
     elif selected_sport == "NBA":
         show_nba_predictions_live()
     else:
         show_cbb_predictions_live()
+
+
+def show_nfl_playoff_predictions(round_name: str):
+    """Display NFL playoff predictions with special formatting."""
+    import pandas as pd
+
+    st.markdown(f"### 🏆 NFL {round_name} Predictions")
+
+    # Action buttons
+    col1, col2 = st.columns([1, 1])
+
+    with col1:
+        if st.button("🔄 Refresh", use_container_width=True, key="nfl_playoff_refresh"):
+            st.cache_data.clear()
+            st.rerun()
+
+    with col2:
+        if st.button("📊 Update Predictions", use_container_width=True, key="nfl_playoff_update"):
+            with st.spinner("Fetching latest odds and updating playoff predictions..."):
+                try:
+                    from update_predictions_nfl import update_predictions
+                    success, predictions_df = update_predictions(force_playoffs=True)
+                    if success:
+                        st.success(f"Updated {len(predictions_df) if predictions_df is not None else 0} playoff predictions!")
+                        st.cache_data.clear()
+                        st.rerun()
+                    else:
+                        st.error("Failed to update playoff predictions - check logs")
+                except Exception as e:
+                    st.error(f"Error: {e}")
+
+    # Load predictions from CSV
+    try:
+        predictions_df = pd.read_csv('nfl_playoff_predictions.csv')
+    except FileNotFoundError:
+        try:
+            predictions_df = pd.read_csv('nfl_current_predictions.csv')
+        except FileNotFoundError:
+            st.warning("No playoff predictions found. Click 'Update Predictions' to generate them.")
+            return
+
+    if predictions_df.empty:
+        st.warning("No playoff predictions available.")
+        return
+
+    # Check if this is playoff data
+    if 'is_playoff' not in predictions_df.columns:
+        st.info("Current predictions are for regular season. Click 'Update Predictions' to get playoff predictions.")
+
+    st.success(f"Found {len(predictions_df)} playoff games")
+
+    # Summary stats
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        avg_total = predictions_df['pred_total'].mean() if 'pred_total' in predictions_df.columns else 0
+        st.metric("Avg Total", f"{avg_total:.1f}")
+    with col2:
+        avg_spread = predictions_df['pred_spread'].abs().mean() if 'pred_spread' in predictions_df.columns else 0
+        st.metric("Avg Spread", f"{avg_spread:.1f}")
+    with col3:
+        big_edges = (predictions_df['edge'].abs() >= 3).sum() if 'edge' in predictions_df.columns else 0
+        st.metric("Strong Edges (3+)", big_edges)
+    with col4:
+        games_count = len(predictions_df)
+        st.metric("Games", games_count)
+
+    st.markdown("---")
+
+    # Sort by edge magnitude for top picks
+    if 'edge' in predictions_df.columns:
+        predictions_df = predictions_df.sort_values('edge', key=abs, ascending=False)
+
+    # Display top picks first
+    st.markdown("### 🎯 Top Plays (Sorted by Edge)")
+
+    for _, row in predictions_df.iterrows():
+        edge = row.get('edge', 0)
+        vegas_spread = row.get('vegas_spread', 0)
+        pred_spread = row.get('pred_spread', 0)
+
+        # Determine confidence level and pick direction
+        abs_edge = abs(edge)
+        if abs_edge >= 4:
+            conf_stars = "⭐⭐⭐"
+            conf_text = "HIGH"
+        elif abs_edge >= 2:
+            conf_stars = "⭐⭐"
+            conf_text = "MEDIUM"
+        else:
+            conf_stars = "⭐"
+            conf_text = "LOW"
+
+        # Determine bet direction
+        # edge > 0 means model says away better than Vegas thinks -> bet AWAY
+        # edge < 0 means model says home better than Vegas thinks -> bet HOME
+        if edge > 0:
+            if vegas_spread > 0:
+                pick = f"{row['away_team']} -{vegas_spread:.1f}"
+            else:
+                pick = f"{row['away_team']} +{abs(vegas_spread):.1f}"
+            pick_direction = "AWAY"
+        else:
+            if vegas_spread > 0:
+                pick = f"{row['home_team']} +{vegas_spread:.1f}"
+            else:
+                pick = f"{row['home_team']} {vegas_spread:.1f}"
+            pick_direction = "HOME"
+
+        # Create game card with playoff styling
+        time_slot = row.get('time_slot', '')
+        game_date = row.get('date', '')[:10] if row.get('date') else ''
+
+        with st.container():
+            # Header row
+            cols = st.columns([3, 2, 2, 1])
+            with cols[0]:
+                st.markdown(f"**🏈 {row['away_team']} @ {row['home_team']}**")
+                if time_slot:
+                    st.caption(f"{game_date} • {time_slot}")
+            with cols[1]:
+                st.markdown(f"Vegas: **{vegas_spread:+.1f}**")
+                st.caption(f"Model: {pred_spread:+.1f}")
+            with cols[2]:
+                st.markdown(f"Edge: **{edge:+.1f}**")
+                st.caption(f"Pick: {pick}")
+            with cols[3]:
+                st.markdown(f"{conf_stars}")
+                st.caption(conf_text)
+
+            # Show team stats if available
+            if 'home_ppg' in row and 'away_ppg' in row:
+                with st.expander("📊 Team Stats"):
+                    stat_cols = st.columns(2)
+                    with stat_cols[0]:
+                        st.write(f"**{row['away_team']}**")
+                        st.write(f"PPG: {row.get('away_ppg', 'N/A'):.1f}")
+                        st.write(f"Form: {row.get('away_form', 0):+.1f}")
+                    with stat_cols[1]:
+                        st.write(f"**{row['home_team']}**")
+                        st.write(f"PPG: {row.get('home_ppg', 'N/A'):.1f}")
+                        st.write(f"Form: {row.get('home_form', 0):+.1f}")
+
+            st.markdown("---")
+
+    # Link to regular season option
+    st.markdown("---")
+    if st.checkbox("Show regular season predictions instead"):
+        show_sport_predictions('NFL', max_week=18, default_week=18)
 
 
 def run_nfl_predictions_update(week: int = None):
@@ -575,13 +774,15 @@ def run_nfl_predictions_update(week: int = None):
         from update_predictions import update_predictions
         success, predictions_df = update_predictions(force_week=week)
         if success:
-            return True, "NFL predictions updated successfully!"
+            count = len(predictions_df) if predictions_df is not None else 0
+            return True, f"NFL predictions updated! ({count} games)"
         else:
-            return False, "Failed to generate NFL predictions"
+            return False, "Failed to generate NFL predictions - check logs for details"
     except ImportError as e:
         return False, f"Import error: {str(e)}"
     except Exception as e:
-        return False, f"Error running update: {str(e)}"
+        import traceback
+        return False, f"Error: {str(e)}\n{traceback.format_exc()[:200]}"
 
 
 def run_cfb_predictions_update(week: int = None):
@@ -590,13 +791,15 @@ def run_cfb_predictions_update(week: int = None):
         from update_predictions_cfb import update_predictions
         success, predictions_df = update_predictions(force_week=week)
         if success:
-            return True, "CFB predictions updated successfully!"
+            count = len(predictions_df) if predictions_df is not None else 0
+            return True, f"CFB predictions updated! ({count} games)"
         else:
-            return False, "Failed to generate CFB predictions"
+            return False, "Failed to generate CFB predictions - check logs for details"
     except ImportError as e:
         return False, f"Import error: {str(e)}"
     except Exception as e:
-        return False, f"Error running update: {str(e)}"
+        import traceback
+        return False, f"Error: {str(e)}\n{traceback.format_exc()[:200]}"
 
 
 def run_nba_predictions_update(days: int = 7):
@@ -605,13 +808,31 @@ def run_nba_predictions_update(days: int = 7):
         from update_predictions_nba import update_predictions
         success, predictions_df = update_predictions(days=days)
         if success:
-            return True, "NBA predictions updated successfully!"
+            count = len(predictions_df) if predictions_df is not None else 0
+            return True, f"NBA predictions updated! ({count} games)"
         else:
-            return False, "Failed to generate NBA predictions"
+            # Check logs for specific error
+            import os
+            from pathlib import Path
+            log_dir = Path("logs")
+            if log_dir.exists():
+                logs = sorted(log_dir.glob("daily_update_*.log"), reverse=True)
+                if logs:
+                    try:
+                        with open(logs[0]) as f:
+                            content = f.read()
+                        if "Error generating predictions:" in content:
+                            for line in content.split('\n'):
+                                if "Error generating predictions:" in line:
+                                    return False, f"NBA update failed: {line.split('Error generating predictions:')[-1].strip()}"
+                    except Exception:
+                        pass
+            return False, "Failed to generate NBA predictions - check logs for details"
     except ImportError as e:
         return False, f"Import error: {str(e)}"
     except Exception as e:
-        return False, f"Error running update: {str(e)}"
+        import traceback
+        return False, f"Error: {str(e)}\n{traceback.format_exc()[:200]}"
 
 
 def run_cbb_predictions_update(days: int = 7):
@@ -620,13 +841,27 @@ def run_cbb_predictions_update(days: int = 7):
         from update_predictions_cbb import update_predictions
         success, predictions_df = update_predictions(days=days)
         if success:
-            return True, "CBB predictions updated successfully!"
+            count = len(predictions_df) if predictions_df is not None else 0
+            return True, f"CBB predictions updated! ({count} games)"
         else:
-            return False, "Failed to generate CBB predictions"
+            # Check for no upcoming games
+            import sqlite3
+            conn = sqlite3.connect('cbb_games.db')
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT COUNT(*) FROM games
+                WHERE completed = 0 AND game_date_eastern >= date('now')
+            """)
+            upcoming = cursor.fetchone()[0]
+            conn.close()
+            if upcoming == 0:
+                return False, "No upcoming CBB games in database - schedule may need updating"
+            return False, "Failed to generate CBB predictions - check logs for details"
     except ImportError as e:
         return False, f"Import error: {str(e)}"
     except Exception as e:
-        return False, f"Error running update: {str(e)}"
+        import traceback
+        return False, f"Error: {str(e)}\n{traceback.format_exc()[:200]}"
 
 
 def sync_nfl_predictions_to_cache():
@@ -3136,6 +3371,15 @@ def main_page():
     st.markdown('<h1 class="app-header">🦅 Eagle Eye Sports Tracker</h1>', unsafe_allow_html=True)
     st.markdown('<p class="app-subtitle">AI-Powered CFB & NFL Predictions</p>', unsafe_allow_html=True)
     st.markdown("---")
+
+    # System health banner (cached for 5 minutes to avoid repeated checks)
+    @st.cache_data(ttl=300)
+    def get_cached_health():
+        return check_system_health()
+
+    health = get_cached_health()
+    if health.status != "ok":
+        st.markdown(get_health_banner_html(health), unsafe_allow_html=True)
 
     # Main content
     if st.session_state.current_page == "Overview":
