@@ -815,7 +815,7 @@ def _display_nfl_regular_season(predictions_df, week: int):
     st.markdown("---")
 
     # Show top picks
-    show_top_picks(predictions_df, "🏈", max_picks=5, min_disagreement=2.0)
+    display_top_picks(predictions_df, "🏈", max_picks=5, min_disagreement=2.0)
 
     # Display all games
     for _, row in predictions_df.iterrows():
