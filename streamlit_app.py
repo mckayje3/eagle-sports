@@ -1807,9 +1807,118 @@ def show_nba_predictions_live():
 
     st.markdown(f"### Showing {len(filtered_df)} predictions")
 
-    # Display predictions using unified display component
-    for idx, row in filtered_df.iterrows():
-        display_game_card(row, sport_emoji="🏀")
+    # Calculate edge and sort by magnitude
+    filtered_df = filtered_df.copy()
+    if 'predicted_spread' in filtered_df.columns and 'vegas_spread' in filtered_df.columns:
+        filtered_df['edge'] = filtered_df['predicted_spread'] - filtered_df['vegas_spread']
+    else:
+        filtered_df['edge'] = 0
+    filtered_df = filtered_df.sort_values('edge', key=abs, ascending=False)
+
+    today_str = today_eastern().strftime('%Y-%m-%d')
+
+    # Display predictions using 3-row format
+    for _, row in filtered_df.iterrows():
+        edge = row.get('edge', 0)
+        vegas_spread = row.get('vegas_spread', 0)
+        pred_spread = row.get('predicted_spread', 0)
+
+        # Handle NaN values
+        if pd.isna(edge):
+            edge = 0
+        if pd.isna(vegas_spread):
+            vegas_spread = 0
+        if pd.isna(pred_spread):
+            pred_spread = 0
+
+        # Spread confidence stars (NBA uses 5/3 thresholds)
+        abs_edge = abs(edge)
+        if abs_edge >= 5:
+            conf_stars = "⭐⭐⭐"
+        elif abs_edge >= 3:
+            conf_stars = "⭐⭐"
+        else:
+            conf_stars = "⭐"
+
+        # Pick direction
+        if edge > 0:
+            pick_team = row['away_team']
+            if vegas_spread > 0:
+                pick = f"{pick_team} -{abs(vegas_spread):.1f}"
+            else:
+                pick = f"{pick_team} +{abs(vegas_spread):.1f}"
+        else:
+            pick_team = row['home_team']
+            if vegas_spread > 0:
+                pick = f"{pick_team} +{vegas_spread:.1f}"
+            else:
+                pick = f"{pick_team} {vegas_spread:.1f}"
+
+        # Totals
+        pred_total = row.get('predicted_total', 0)
+        vegas_total = row.get('vegas_total', 0)
+        if pd.isna(pred_total):
+            pred_total = 0
+        if pd.isna(vegas_total):
+            vegas_total = 0
+        total_edge = pred_total - vegas_total if vegas_total else 0
+        total_pick = f"OVER {vegas_total:.1f}" if total_edge > 0 else f"UNDER {vegas_total:.1f}"
+
+        # Total confidence stars (NBA uses 8/5 thresholds for totals)
+        abs_total_edge = abs(total_edge)
+        if abs_total_edge >= 8:
+            total_stars = "⭐⭐⭐"
+        elif abs_total_edge >= 5:
+            total_stars = "⭐⭐"
+        else:
+            total_stars = "⭐"
+
+        # Check if game is completed
+        game_date = str(row.get('game_date', ''))[:10]
+        is_completed = row.get('game_completed', 0) == 1
+
+        # Game card - 3-row format
+        with st.container():
+            # Row 1: Matchup | Date/Time | Result
+            cols1 = st.columns([3, 3, 2])
+            with cols1[0]:
+                if is_completed:
+                    st.markdown(f"**{row['away_team']} @ {row['home_team']}** ✓")
+                else:
+                    st.markdown(f"**{row['away_team']} @ {row['home_team']}**")
+            with cols1[1]:
+                st.caption(f"{game_date}")
+            with cols1[2]:
+                if is_completed:
+                    st.caption("Final")
+
+            # Row 2: Spread | Vegas | Model | Edge | Pick | Stars
+            cols2 = st.columns([1, 2, 2, 2, 1])
+            with cols2[0]:
+                st.caption("Spread")
+            with cols2[1]:
+                st.caption(f"Vegas: {vegas_spread:+.1f}")
+            with cols2[2]:
+                st.caption(f"Model: {pred_spread:+.1f}")
+            with cols2[3]:
+                st.caption(f"Edge: {edge:+.1f} → **{pick}**")
+            with cols2[4]:
+                st.caption(conf_stars)
+
+            # Row 3: Total | Vegas | Model | Edge | Pick | Stars
+            cols3 = st.columns([1, 2, 2, 2, 1])
+            with cols3[0]:
+                st.caption("Total")
+            with cols3[1]:
+                st.caption(f"Vegas: {vegas_total:.1f}")
+            with cols3[2]:
+                st.caption(f"Model: {pred_total:.1f}")
+            with cols3[3]:
+                st.caption(f"Edge: {total_edge:+.1f} → **{total_pick}**")
+            with cols3[4]:
+                st.caption(total_stars)
+
+            st.markdown("---")
 
 
 def show_cbb_predictions_live():
@@ -2055,18 +2164,118 @@ def show_cbb_predictions_live():
 
     st.markdown(f"### Showing {len(filtered_df)} predictions")
 
-    # Rename columns to match display_game_card expectations
-    display_df = filtered_df.rename(columns={
-        'pred_home_score': 'predicted_home_score',
-        'pred_away_score': 'predicted_away_score',
-        'pred_spread': 'predicted_spread',
-        'pred_total': 'predicted_total',
-        'completed': 'game_completed'
-    })
+    # Calculate edge and sort by magnitude
+    filtered_df = filtered_df.copy()
+    if 'pred_spread' in filtered_df.columns and 'vegas_spread' in filtered_df.columns:
+        filtered_df['edge'] = filtered_df['pred_spread'] - filtered_df['vegas_spread']
+    else:
+        filtered_df['edge'] = 0
+    filtered_df = filtered_df.sort_values('edge', key=abs, ascending=False)
 
-    # Display predictions using unified display component
-    for idx, row in display_df.iterrows():
-        display_game_card(row, sport_emoji="🏀")
+    today_str = today_eastern().strftime('%Y-%m-%d')
+
+    # Display predictions using 3-row format
+    for _, row in filtered_df.iterrows():
+        edge = row.get('edge', 0)
+        vegas_spread = row.get('vegas_spread', 0)
+        pred_spread = row.get('pred_spread', 0)
+
+        # Handle NaN values
+        if pd.isna(edge):
+            edge = 0
+        if pd.isna(vegas_spread):
+            vegas_spread = 0
+        if pd.isna(pred_spread):
+            pred_spread = 0
+
+        # Spread confidence stars (CBB uses 5/3 thresholds)
+        abs_edge = abs(edge)
+        if abs_edge >= 5:
+            conf_stars = "⭐⭐⭐"
+        elif abs_edge >= 3:
+            conf_stars = "⭐⭐"
+        else:
+            conf_stars = "⭐"
+
+        # Pick direction
+        if edge > 0:
+            pick_team = row['away_team']
+            if vegas_spread > 0:
+                pick = f"{pick_team} -{abs(vegas_spread):.1f}"
+            else:
+                pick = f"{pick_team} +{abs(vegas_spread):.1f}"
+        else:
+            pick_team = row['home_team']
+            if vegas_spread > 0:
+                pick = f"{pick_team} +{vegas_spread:.1f}"
+            else:
+                pick = f"{pick_team} {vegas_spread:.1f}"
+
+        # Totals
+        pred_total = row.get('pred_total', 0)
+        vegas_total = row.get('vegas_total', 0)
+        if pd.isna(pred_total):
+            pred_total = 0
+        if pd.isna(vegas_total):
+            vegas_total = 0
+        total_edge = pred_total - vegas_total if vegas_total else 0
+        total_pick = f"OVER {vegas_total:.1f}" if total_edge > 0 else f"UNDER {vegas_total:.1f}"
+
+        # Total confidence stars (CBB uses 8/5 thresholds for totals)
+        abs_total_edge = abs(total_edge)
+        if abs_total_edge >= 8:
+            total_stars = "⭐⭐⭐"
+        elif abs_total_edge >= 5:
+            total_stars = "⭐⭐"
+        else:
+            total_stars = "⭐"
+
+        # Check if game is completed
+        game_date = str(row.get('game_date', ''))[:10]
+        is_completed = row.get('completed', 0) == 1
+
+        # Game card - 3-row format
+        with st.container():
+            # Row 1: Matchup | Date/Time | Result
+            cols1 = st.columns([3, 3, 2])
+            with cols1[0]:
+                if is_completed:
+                    st.markdown(f"**{row['away_team']} @ {row['home_team']}** ✓")
+                else:
+                    st.markdown(f"**{row['away_team']} @ {row['home_team']}**")
+            with cols1[1]:
+                st.caption(f"{game_date}")
+            with cols1[2]:
+                if is_completed:
+                    st.caption("Final")
+
+            # Row 2: Spread | Vegas | Model | Edge | Pick | Stars
+            cols2 = st.columns([1, 2, 2, 2, 1])
+            with cols2[0]:
+                st.caption("Spread")
+            with cols2[1]:
+                st.caption(f"Vegas: {vegas_spread:+.1f}")
+            with cols2[2]:
+                st.caption(f"Model: {pred_spread:+.1f}")
+            with cols2[3]:
+                st.caption(f"Edge: {edge:+.1f} → **{pick}**")
+            with cols2[4]:
+                st.caption(conf_stars)
+
+            # Row 3: Total | Vegas | Model | Edge | Pick | Stars
+            cols3 = st.columns([1, 2, 2, 2, 1])
+            with cols3[0]:
+                st.caption("Total")
+            with cols3[1]:
+                st.caption(f"Vegas: {vegas_total:.1f}")
+            with cols3[2]:
+                st.caption(f"Model: {pred_total:.1f}")
+            with cols3[3]:
+                st.caption(f"Edge: {total_edge:+.1f} → **{total_pick}**")
+            with cols3[4]:
+                st.caption(total_stars)
+
+            st.markdown("---")
 
 
 def show_sport_predictions(sport: str, max_week: int, default_week: int):
@@ -2247,10 +2456,118 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
 
     st.markdown(f"### Showing {len(filtered_df)} predictions")
 
-    # Display predictions using unified display component
-    sport_emoji = "🏈" if sport == "NFL" else "🏟️"
-    for idx, row in filtered_df.iterrows():
-        display_game_card(row, sport_emoji=sport_emoji)
+    # Calculate edge and sort by magnitude
+    filtered_df = filtered_df.copy()
+    if 'predicted_spread' in filtered_df.columns and 'vegas_spread' in filtered_df.columns:
+        filtered_df['edge'] = filtered_df['predicted_spread'] - filtered_df['vegas_spread']
+    else:
+        filtered_df['edge'] = 0
+    filtered_df = filtered_df.sort_values('edge', key=abs, ascending=False)
+
+    today_str = today_eastern().strftime('%Y-%m-%d')
+
+    # Display predictions using 3-row format
+    for _, row in filtered_df.iterrows():
+        edge = row.get('edge', 0)
+        vegas_spread = row.get('vegas_spread', 0)
+        pred_spread = row.get('predicted_spread', 0)
+
+        # Handle NaN values
+        if pd.isna(edge):
+            edge = 0
+        if pd.isna(vegas_spread):
+            vegas_spread = 0
+        if pd.isna(pred_spread):
+            pred_spread = 0
+
+        # Spread confidence stars (CFB uses 5/3 thresholds)
+        abs_edge = abs(edge)
+        if abs_edge >= 5:
+            conf_stars = "⭐⭐⭐"
+        elif abs_edge >= 3:
+            conf_stars = "⭐⭐"
+        else:
+            conf_stars = "⭐"
+
+        # Pick direction
+        if edge > 0:
+            pick_team = row['away_team']
+            if vegas_spread > 0:
+                pick = f"{pick_team} -{abs(vegas_spread):.1f}"
+            else:
+                pick = f"{pick_team} +{abs(vegas_spread):.1f}"
+        else:
+            pick_team = row['home_team']
+            if vegas_spread > 0:
+                pick = f"{pick_team} +{vegas_spread:.1f}"
+            else:
+                pick = f"{pick_team} {vegas_spread:.1f}"
+
+        # Totals
+        pred_total = row.get('predicted_total', 0)
+        vegas_total = row.get('vegas_total', 0)
+        if pd.isna(pred_total):
+            pred_total = 0
+        if pd.isna(vegas_total):
+            vegas_total = 0
+        total_edge = pred_total - vegas_total if vegas_total else 0
+        total_pick = f"OVER {vegas_total:.1f}" if total_edge > 0 else f"UNDER {vegas_total:.1f}"
+
+        # Total confidence stars (CFB uses 8/5 thresholds for totals)
+        abs_total_edge = abs(total_edge)
+        if abs_total_edge >= 8:
+            total_stars = "⭐⭐⭐"
+        elif abs_total_edge >= 5:
+            total_stars = "⭐⭐"
+        else:
+            total_stars = "⭐"
+
+        # Check if game is completed
+        game_date = str(row.get('date', ''))[:10]
+        is_completed = row.get('game_completed', 0) == 1
+
+        # Game card - 3-row format
+        with st.container():
+            # Row 1: Matchup | Date/Time | Result
+            cols1 = st.columns([3, 3, 2])
+            with cols1[0]:
+                if is_completed:
+                    st.markdown(f"**{row['away_team']} @ {row['home_team']}** ✓")
+                else:
+                    st.markdown(f"**{row['away_team']} @ {row['home_team']}**")
+            with cols1[1]:
+                st.caption(f"{game_date}")
+            with cols1[2]:
+                if is_completed:
+                    st.caption("Final")
+
+            # Row 2: Spread | Vegas | Model | Edge | Pick | Stars
+            cols2 = st.columns([1, 2, 2, 2, 1])
+            with cols2[0]:
+                st.caption("Spread")
+            with cols2[1]:
+                st.caption(f"Vegas: {vegas_spread:+.1f}")
+            with cols2[2]:
+                st.caption(f"Model: {pred_spread:+.1f}")
+            with cols2[3]:
+                st.caption(f"Edge: {edge:+.1f} → **{pick}**")
+            with cols2[4]:
+                st.caption(conf_stars)
+
+            # Row 3: Total | Vegas | Model | Edge | Pick | Stars
+            cols3 = st.columns([1, 2, 2, 2, 1])
+            with cols3[0]:
+                st.caption("Total")
+            with cols3[1]:
+                st.caption(f"Vegas: {vegas_total:.1f}")
+            with cols3[2]:
+                st.caption(f"Model: {pred_total:.1f}")
+            with cols3[3]:
+                st.caption(f"Edge: {total_edge:+.1f} → **{total_pick}**")
+            with cols3[4]:
+                st.caption(total_stars)
+
+            st.markdown("---")
 
 
 # ============================================================================
