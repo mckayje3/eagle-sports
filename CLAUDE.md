@@ -5,11 +5,11 @@ Spread and total predictions for NFL, CFB, NBA, and CBB using Ridge regression a
 ## Key Commands
 
 ```bash
-# Daily update (auto-detects in-season sports)
+# Daily update (auto-detects in-season sports, syncs to cloud)
 python daily_update.py
 
 # Generate predictions for specific sports
-python predict_nfl_playoffs.py      # NFL playoff predictions
+python predict_nfl_playoffs.py      # NFL playoff predictions (updates CSV)
 python cfb_predictor.py             # CFB predictions
 python nba_predictor.py             # NBA predictions
 python cbb_predictor.py             # CBB predictions
@@ -21,8 +21,11 @@ python train_deep_eagle_nfl.py      # Retrain NFL deep model (requires deep-eagl
 # Update odds from ESPN
 python espn_unified_odds.py         # Scrape current odds for all sports
 
+# Sync to cloud (DBs + prediction CSVs)
+python push_databases.py
+
 # Streamlit dashboard
-streamlit run streamlit_app.py
+streamlit run streamlit_app.py      # Local: http://localhost:8501
 ```
 
 ## Architecture
@@ -106,6 +109,16 @@ Totals edges need ~1.5x magnitude for equivalent confidence.
 
 ## Dashboard Features
 
+### Unified Game Card Format
+All sports (NFL, CFB, NBA, CBB) use a consistent 3-row game card:
+```
+Row 1: Away @ Home          | Date/Time     | ✓ (if completed)
+Row 2: Spread | Vegas: +X.X | Model: +X.X | Edge: +X.X → Pick | ⭐⭐⭐
+Row 3: Total  | Vegas: X.X  | Model: X.X  | Edge: +X.X → OVER/UNDER | ⭐⭐
+```
+
+Games are sorted by edge magnitude (best picks first).
+
 ### System Health Banner
 The dashboard shows a color-coded health banner:
 - **Green**: All systems operational
@@ -118,20 +131,39 @@ Check `system_health.py` for health logic. Monitors:
 - Vegas odds availability
 - Daily update log success/failure
 
-### NFL Playoff Mode
-During playoffs (Jan-Feb), the NFL view auto-switches to playoff mode:
-- Games sorted by edge magnitude (best picks first)
-- Shows round name (Wild Card, Divisional, Conference, Super Bowl)
-- Confidence stars based on edge size
-- Expandable team stats per game
+### NFL Week Selector
+NFL predictions use a unified week selector:
+- Weeks 1-18: Regular season
+- Wild Card, Divisional, Conference, Super Bowl: Playoff rounds
 
-### Confidence Display
-All predictions show confidence indicators:
-| Stars | Edge | Meaning |
-|-------|------|---------|
-| 3 stars | >= 4 pts | HIGH confidence |
-| 2 stars | >= 2 pts | MEDIUM confidence |
-| 1 star | >= 1 pt | LOW confidence |
+During playoffs (Jan-Feb), select the playoff round to see predictions.
+Playoff predictions come from `predict_nfl_playoffs.py` and `nfl_playoff_predictions.csv`.
+
+### Confidence Stars
+| Spread Edge | Stars | Total Edge | Stars |
+|-------------|-------|------------|-------|
+| >= 5 pts | ⭐⭐⭐ | >= 8 pts | ⭐⭐⭐ |
+| >= 3 pts | ⭐⭐ | >= 5 pts | ⭐⭐ |
+| < 3 pts | ⭐ | < 5 pts | ⭐ |
+
+## Cloud Sync
+
+The daily update automatically syncs local and cloud apps:
+
+**What gets committed:**
+- Databases: `*_games.db`
+- Predictions: `*_predictions.csv`, `*_current_predictions.csv`
+
+**How it works:**
+1. `daily_update.py` runs at 9am (scheduled task)
+2. Updates results, odds, predictions for in-season sports
+3. Calls `push_databases.py` which commits DBs + CSVs
+4. Cloud app auto-deploys from GitHub
+
+**Manual sync:**
+```bash
+python push_databases.py  # Commit and push all DBs + CSVs
+```
 
 ## Don't Touch
 
@@ -139,7 +171,6 @@ All predictions show confidence indicators:
 - **`models/*.pt` + `*_scaler.pkl`** - Trained model pairs, always update together
 - **Deep Eagle models** - Require external `deep-eagle` library at `DEEP_EAGLE_PATH`
 - **`users.db`** - Auth database for API/dashboard
-- **`push_databases.py`** - Handles git push, uses specific commit format
 
 ## Common Tasks
 
@@ -148,6 +179,17 @@ All predictions show confidence indicators:
 python predict_nfl_playoffs.py   # Or cfb/nba/cbb_predictor.py
 ```
 Look for 3+ point edges on spreads, 5+ on totals.
+
+### Update NFL Playoff Lines
+Edit `PLAYOFF_GAMES` in `predict_nfl_playoffs.py`:
+```python
+# Format: (away, home, vegas_spread, vegas_total, date, time_slot)
+PLAYOFF_GAMES = [
+    ('Bills', 'Jaguars', +1.5, 52.5, '2026-01-11', 'SAT 1:00 PM'),
+    # ... more games
+]
+```
+Then run `python predict_nfl_playoffs.py` to regenerate predictions.
 
 ### Add New Game Data
 ESPN scrapers auto-fetch. For manual:
