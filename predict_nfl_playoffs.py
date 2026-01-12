@@ -14,17 +14,17 @@ from sklearn.preprocessing import StandardScaler
 DB_PATH = Path(__file__).parent / 'nfl_games.db'
 
 # Current playoff games - update each round as matchups become known
-# Format: (away_team, home_team, vegas_spread, game_date, time_slot)
+# Format: (away_team, home_team, vegas_spread, vegas_total, game_date, time_slot)
 # Convention: spread = away_score - home_score (positive = away favored)
 PLAYOFF_GAMES = [
     # 2025 Season Wild Card Weekend - Jan 10-13, 2026
-    # Convention: spread = away_score - home_score (positive = away favored)
-    ('Rams', 'Panthers', +6.5, '2026-01-10', 'FRI 8:00 PM'),          # Rams (away) favored by 6.5
-    ('Bills', 'Jaguars', +8.5, '2026-01-11', 'SAT 1:00 PM'),          # Bills (away) favored by 8.5
-    ('Packers', 'Bears', +3.0, '2026-01-11', 'SAT 4:30 PM'),          # Packers (away) favored by 3
-    ('49ers', 'Eagles', -5.5, '2026-01-11', 'SAT 8:00 PM'),           # Eagles (home) favored by 5.5
-    ('Chargers', 'Patriots', -3.5, '2026-01-12', 'SUN 1:00 PM'),      # Patriots (home) favored by 3.5
-    ('Texans', 'Steelers', +3.0, '2026-01-13', 'MON 8:00 PM'),        # Texans (away) favored by 3
+    # Lines as of Jan 11, 2026 (source: CBS Sports)
+    ('Rams', 'Panthers', +10.0, 46.5, '2026-01-10', 'FRI 8:00 PM'),      # Rams (away) favored by 10
+    ('Bills', 'Jaguars', +1.5, 52.5, '2026-01-11', 'SAT 1:00 PM'),       # Bills (away) favored by 1.5
+    ('Packers', 'Bears', +1.5, 45.5, '2026-01-11', 'SAT 4:30 PM'),       # Packers (away) favored by 1.5
+    ('49ers', 'Eagles', -4.5, 44.5, '2026-01-11', 'SAT 8:00 PM'),        # Eagles (home) favored by 4.5
+    ('Chargers', 'Patriots', -3.5, 46.5, '2026-01-12', 'SUN 1:00 PM'),   # Patriots (home) favored by 3.5
+    ('Texans', 'Steelers', +3.0, 39.5, '2026-01-13', 'MON 8:00 PM'),     # Texans (away) favored by 3
 ]
 
 # NFL Simple model constants (optimized)
@@ -364,12 +364,12 @@ def main():
 
     results = []
     csv_rows = []
-    for away, home, vegas, date, time in games:
+    for away, home, vegas, vegas_total, date, time in games:
         pred, err = predict_game(state, away, home, vegas, date)
         if err:
             print(f"Error: {err}")
             continue
-        results.append((time, pred))
+        results.append((time, pred, vegas_total))
 
         # Build CSV row
         pred_total = pred['home_ppg'] + pred['away_ppg']
@@ -385,7 +385,7 @@ def main():
             'pred_spread': round(pred['model_spread'], 1),
             'pred_total': round(pred_total, 1),
             'vegas_spread': vegas,
-            'vegas_total': 44.0,  # Placeholder
+            'vegas_total': vegas_total,
             'edge': round(pred['edge'], 1),
             'is_playoff': True,
             'home_ppg': pred['home_ppg'],
@@ -409,12 +409,15 @@ def main():
     print("=" * 90)
     print()
 
-    for time, p in results:
+    for time, p, v_total in results:
         edge_dir = "FADE VEGAS" if p['edge'] > 0 else "WITH VEGAS"
         confidence = "HIGH" if abs(p['edge']) >= 4 else ("MEDIUM" if abs(p['edge']) >= 2 else "LOW")
+        pred_total = p['home_ppg'] + p['away_ppg']
+        total_edge = pred_total - v_total
 
         print(f"{time}: {p['away_team']} @ {p['home_team']}")
-        print(f"  Vegas: {p['vegas_spread']:+.1f} | Model: {p['model_spread']:+.1f} | Edge: {p['edge']:+.1f}")
+        print(f"  Spread: Vegas {p['vegas_spread']:+.1f} | Model {p['model_spread']:+.1f} | Edge {p['edge']:+.1f}")
+        print(f"  Total:  Vegas {v_total:.1f} | Model {pred_total:.1f} | Edge {total_edge:+.1f} ({'OVER' if total_edge > 0 else 'UNDER'})")
         print(f"  Recommendation: {edge_dir} ({confidence} confidence)")
         print(f"  {p['away_team']}: {p['away_ppg']:.1f} PPG, {p['away_papg']:.1f} PAPG, {p['away_yards']:.0f} YPG, Form: {p['away_form']:+.1f}, Streak: {p['away_streak']:+d}")
         print(f"  {p['home_team']}: {p['home_ppg']:.1f} PPG, {p['home_papg']:.1f} PAPG, {p['home_yards']:.0f} YPG, Form: {p['home_form']:+.1f}, Streak: {p['home_streak']:+d}")
@@ -426,9 +429,9 @@ def main():
     print("=" * 90)
     print()
 
-    plays = [(t, p) for t, p in results if abs(p['edge']) >= 3.0]
+    plays = [(t, p, vt) for t, p, vt in results if abs(p['edge']) >= 3.0]
     if plays:
-        for time, p in plays:
+        for time, p, _ in plays:
             vegas = p['vegas_spread']
             # vegas > 0 means away team favored, vegas < 0 means home team favored
             if p['edge'] > 0:
