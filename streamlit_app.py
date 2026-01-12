@@ -738,6 +738,25 @@ def show_nfl_predictions():
                 else:
                     pick = f"{pick_team} {vegas_spread:.1f}"
 
+            # Totals
+            pred_total = row.get('pred_total', 0)
+            vegas_total = row.get('vegas_total', 44.0)  # Default playoff total
+            if pd.isna(pred_total):
+                pred_total = 0
+            if pd.isna(vegas_total):
+                vegas_total = 44.0
+            total_edge = pred_total - vegas_total if vegas_total else 0
+            total_pick = f"OVER {vegas_total:.1f}" if total_edge > 0 else f"UNDER {vegas_total:.1f}"
+
+            # Total confidence stars
+            abs_total_edge = abs(total_edge)
+            if abs_total_edge >= 5:
+                total_stars = "⭐⭐⭐"
+            elif abs_total_edge >= 3:
+                total_stars = "⭐⭐"
+            else:
+                total_stars = "⭐"
+
             # Check if game is completed
             game_date = row.get('date', '')
             is_completed = game_date < today_str if game_date else False
@@ -759,6 +778,17 @@ def show_nfl_predictions():
                     st.caption(f"Pick: {pick}")
                 with cols[3]:
                     st.markdown(conf_stars)
+
+                # Second row for totals
+                cols2 = st.columns([3, 2, 2, 1])
+                with cols2[0]:
+                    st.caption("Total")
+                with cols2[1]:
+                    st.caption(f"Vegas: {vegas_total:.1f} | Model: {pred_total:.1f}")
+                with cols2[2]:
+                    st.caption(f"Edge: {total_edge:+.1f} | {total_pick}")
+                with cols2[3]:
+                    st.caption(total_stars)
                 st.markdown("---")
     else:
         # Regular season - use existing DB query
@@ -843,6 +873,25 @@ def _display_nfl_regular_season(predictions_df, week: int):
             else:
                 pick = f"{pick_team} {vegas_spread:.1f}"
 
+        # Totals
+        pred_total = row.get('predicted_total', 0)
+        vegas_total = row.get('vegas_total', 0)
+        if pd.isna(pred_total):
+            pred_total = 0
+        if pd.isna(vegas_total):
+            vegas_total = 0
+        total_edge = pred_total - vegas_total if vegas_total else 0
+        total_pick = f"OVER {vegas_total:.1f}" if total_edge > 0 else f"UNDER {vegas_total:.1f}"
+
+        # Total confidence stars
+        abs_total_edge = abs(total_edge)
+        if abs_total_edge >= 5:
+            total_stars = "⭐⭐⭐"
+        elif abs_total_edge >= 3:
+            total_stars = "⭐⭐"
+        else:
+            total_stars = "⭐"
+
         # Check if game is completed
         game_date = str(row.get('date', ''))[:10]
         is_completed = game_date < today_str if game_date else False
@@ -864,6 +913,17 @@ def _display_nfl_regular_season(predictions_df, week: int):
                 st.caption(f"Pick: {pick}")
             with cols[3]:
                 st.markdown(conf_stars)
+
+            # Second row for totals
+            cols2 = st.columns([3, 2, 2, 1])
+            with cols2[0]:
+                st.caption("Total")
+            with cols2[1]:
+                st.caption(f"Vegas: {vegas_total:.1f} | Model: {pred_total:.1f}")
+            with cols2[2]:
+                st.caption(f"Edge: {total_edge:+.1f} | {total_pick}")
+            with cols2[3]:
+                st.caption(total_stars)
             st.markdown("---")
 
 
