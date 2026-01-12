@@ -696,15 +696,15 @@ def show_nfl_predictions():
             st.warning("No playoff predictions available.")
             return
 
-        # Filter to upcoming games only (not finished)
+        # Show all games in the round (don't filter by date - playoffs span multiple days)
         today_str = today_eastern().strftime('%Y-%m-%d')
-        predictions_df = predictions_df[predictions_df['date'] >= today_str]
+        upcoming = predictions_df[predictions_df['date'] >= today_str]
+        completed = predictions_df[predictions_df['date'] < today_str]
 
-        if predictions_df.empty:
-            st.info("All playoff games for this round have been played.")
-            return
-
-        st.success(f"Found {len(predictions_df)} upcoming playoff games")
+        if not upcoming.empty:
+            st.success(f"Found {len(upcoming)} upcoming + {len(completed)} completed playoff games")
+        else:
+            st.info(f"All {len(predictions_df)} playoff games for this round have been played.")
 
         # Sort by edge magnitude
         predictions_df = predictions_df.sort_values('edge', key=abs, ascending=False)
@@ -738,11 +738,18 @@ def show_nfl_predictions():
                 else:
                     pick = f"{pick_team} {vegas_spread:.1f}"
 
+            # Check if game is completed
+            game_date = row.get('date', '')
+            is_completed = game_date < today_str if game_date else False
+
             # Game card
             with st.container():
                 cols = st.columns([3, 2, 2, 1])
                 with cols[0]:
-                    st.markdown(f"**{row['away_team']} @ {row['home_team']}**")
+                    if is_completed:
+                        st.markdown(f"~~{row['away_team']} @ {row['home_team']}~~ ✓")
+                    else:
+                        st.markdown(f"**{row['away_team']} @ {row['home_team']}**")
                     st.caption(f"{row['date']} • {row.get('time_slot', '')}")
                 with cols[1]:
                     st.markdown(f"Vegas: **{vegas_spread:+.1f}**")
