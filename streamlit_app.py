@@ -819,7 +819,7 @@ def _display_nfl_regular_season(predictions_df, week: int):
 
     # Display all games
     for _, row in predictions_df.iterrows():
-        display_game_prediction_card(row, sport_emoji="🏈")
+        display_game_card(row, sport_emoji="🏈")
 
 
 def run_nfl_predictions_update(week: int = None):
