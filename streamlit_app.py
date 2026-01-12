@@ -761,34 +761,47 @@ def show_nfl_predictions():
             game_date = row.get('date', '')
             is_completed = game_date < today_str if game_date else False
 
-            # Game card
+            # Game card - new 3-row format
             with st.container():
-                cols = st.columns([3, 2, 2, 1])
-                with cols[0]:
+                # Row 1: Matchup | Date/Time | Result
+                cols1 = st.columns([3, 3, 2])
+                with cols1[0]:
                     if is_completed:
-                        st.markdown(f"~~{row['away_team']} @ {row['home_team']}~~ ✓")
+                        st.markdown(f"**{row['away_team']} @ {row['home_team']}** ✓")
                     else:
                         st.markdown(f"**{row['away_team']} @ {row['home_team']}**")
+                with cols1[1]:
                     st.caption(f"{row['date']} • {row.get('time_slot', '')}")
-                with cols[1]:
-                    st.markdown(f"Vegas: **{vegas_spread:+.1f}**")
-                    st.caption(f"Model: {pred_spread:+.1f}")
-                with cols[2]:
-                    st.markdown(f"Edge: **{edge:+.1f}**")
-                    st.caption(f"Pick: {pick}")
-                with cols[3]:
-                    st.markdown(conf_stars)
+                with cols1[2]:
+                    if is_completed:
+                        st.caption("Final")
 
-                # Second row for totals
-                cols2 = st.columns([3, 2, 2, 1])
+                # Row 2: Spread | Vegas | Model | Edge | Pick | Stars
+                cols2 = st.columns([1, 2, 2, 2, 1])
                 with cols2[0]:
-                    st.caption("Total")
+                    st.caption("Spread")
                 with cols2[1]:
-                    st.caption(f"Vegas: {vegas_total:.1f} | Model: {pred_total:.1f}")
+                    st.caption(f"Vegas: {vegas_spread:+.1f}")
                 with cols2[2]:
-                    st.caption(f"Edge: {total_edge:+.1f} | {total_pick}")
+                    st.caption(f"Model: {pred_spread:+.1f}")
                 with cols2[3]:
+                    st.caption(f"Edge: {edge:+.1f} → **{pick}**")
+                with cols2[4]:
+                    st.caption(conf_stars)
+
+                # Row 3: Total | Vegas | Model | Edge | Pick | Stars
+                cols3 = st.columns([1, 2, 2, 2, 1])
+                with cols3[0]:
+                    st.caption("Total")
+                with cols3[1]:
+                    st.caption(f"Vegas: {vegas_total:.1f}")
+                with cols3[2]:
+                    st.caption(f"Model: {pred_total:.1f}")
+                with cols3[3]:
+                    st.caption(f"Edge: {total_edge:+.1f} → **{total_pick}**")
+                with cols3[4]:
                     st.caption(total_stars)
+
                 st.markdown("---")
     else:
         # Regular season - use existing DB query
@@ -896,34 +909,47 @@ def _display_nfl_regular_season(predictions_df, week: int):
         game_date = str(row.get('date', ''))[:10]
         is_completed = game_date < today_str if game_date else False
 
-        # Game card (same format as Wild Card)
+        # Game card - 3-row format (matches Wild Card)
         with st.container():
-            cols = st.columns([3, 2, 2, 1])
-            with cols[0]:
+            # Row 1: Matchup | Date/Time | Result
+            cols1 = st.columns([3, 3, 2])
+            with cols1[0]:
                 if is_completed:
-                    st.markdown(f"~~{row['away_team']} @ {row['home_team']}~~ ✓")
+                    st.markdown(f"**{row['away_team']} @ {row['home_team']}** ✓")
                 else:
                     st.markdown(f"**{row['away_team']} @ {row['home_team']}**")
+            with cols1[1]:
                 st.caption(f"{game_date}")
-            with cols[1]:
-                st.markdown(f"Vegas: **{vegas_spread:+.1f}**")
-                st.caption(f"Model: {pred_spread:+.1f}")
-            with cols[2]:
-                st.markdown(f"Edge: **{edge:+.1f}**")
-                st.caption(f"Pick: {pick}")
-            with cols[3]:
-                st.markdown(conf_stars)
+            with cols1[2]:
+                if is_completed:
+                    st.caption("Final")
 
-            # Second row for totals
-            cols2 = st.columns([3, 2, 2, 1])
+            # Row 2: Spread | Vegas | Model | Edge | Pick | Stars
+            cols2 = st.columns([1, 2, 2, 2, 1])
             with cols2[0]:
-                st.caption("Total")
+                st.caption("Spread")
             with cols2[1]:
-                st.caption(f"Vegas: {vegas_total:.1f} | Model: {pred_total:.1f}")
+                st.caption(f"Vegas: {vegas_spread:+.1f}")
             with cols2[2]:
-                st.caption(f"Edge: {total_edge:+.1f} | {total_pick}")
+                st.caption(f"Model: {pred_spread:+.1f}")
             with cols2[3]:
+                st.caption(f"Edge: {edge:+.1f} → **{pick}**")
+            with cols2[4]:
+                st.caption(conf_stars)
+
+            # Row 3: Total | Vegas | Model | Edge | Pick | Stars
+            cols3 = st.columns([1, 2, 2, 2, 1])
+            with cols3[0]:
+                st.caption("Total")
+            with cols3[1]:
+                st.caption(f"Vegas: {vegas_total:.1f}")
+            with cols3[2]:
+                st.caption(f"Model: {pred_total:.1f}")
+            with cols3[3]:
+                st.caption(f"Edge: {total_edge:+.1f} → **{total_pick}**")
+            with cols3[4]:
                 st.caption(total_stars)
+
             st.markdown("---")
 
 
