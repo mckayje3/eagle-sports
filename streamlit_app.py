@@ -777,27 +777,16 @@ def show_nfl_predictions():
 
 def _display_nfl_regular_season(predictions_df, week: int):
     """Display regular season NFL predictions (helper function)."""
-    # Determine if viewing past games
-    is_past_games = False
-    if 'date' in predictions_df.columns and not predictions_df.empty:
-        try:
-            latest_game_date = pd.to_datetime(predictions_df['date']).max()
-            if pd.notna(latest_game_date) and latest_game_date.date() < today_eastern():
-                is_past_games = True
-        except Exception:
-            pass
+    today_str = today_eastern().strftime('%Y-%m-%d')
 
-    display_prediction_freshness(predictions_df, is_past_games=is_past_games, sport='NFL')
+    # Calculate edge for each game
+    if 'predicted_spread' in predictions_df.columns and 'vegas_spread' in predictions_df.columns:
+        predictions_df = predictions_df.copy()
+        predictions_df['edge'] = predictions_df['predicted_spread'] - predictions_df['vegas_spread']
+    else:
+        predictions_df['edge'] = 0
 
-    # Check for fallback predictions
-    if is_fallback_predictions(predictions_df):
-        st.warning("Using fallback predictions. Click 'Update' to regenerate with Deep Eagle.")
-
-    # Add confidence column if missing
-    if 'confidence' not in predictions_df.columns:
-        predictions_df['confidence'] = 0.85
-
-    # Display stats
+    # Summary stats
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         avg_total = predictions_df['predicted_total'].mean() if 'predicted_total' in predictions_df.columns else 0
@@ -806,20 +795,76 @@ def _display_nfl_regular_season(predictions_df, week: int):
         avg_spread = predictions_df['predicted_spread'].abs().mean() if 'predicted_spread' in predictions_df.columns else 0
         st.metric("Avg Spread", f"{avg_spread:.1f}")
     with col3:
+        big_edges = (predictions_df['edge'].abs() >= 3).sum()
+        st.metric("Strong Edges (3+)", big_edges)
+    with col4:
         games_count = len(predictions_df)
         st.metric("Games", games_count)
-    with col4:
-        avg_conf = predictions_df['confidence'].mean() * 100
-        st.metric("Avg Confidence", f"{avg_conf:.0f}%")
 
     st.markdown("---")
 
-    # Show top picks
-    display_top_picks(predictions_df, "🏈", max_picks=5, min_disagreement=2.0)
+    # Sort by edge magnitude
+    predictions_df = predictions_df.sort_values('edge', key=abs, ascending=False)
 
-    # Display all games
+    # Display all games in Wild Card style
     for _, row in predictions_df.iterrows():
-        display_game_card(row, sport_emoji="🏈")
+        edge = row.get('edge', 0)
+        vegas_spread = row.get('vegas_spread', 0)
+        pred_spread = row.get('predicted_spread', 0)
+
+        # Handle NaN values
+        if pd.isna(edge):
+            edge = 0
+        if pd.isna(vegas_spread):
+            vegas_spread = 0
+        if pd.isna(pred_spread):
+            pred_spread = 0
+
+        # Confidence stars
+        abs_edge = abs(edge)
+        if abs_edge >= 4:
+            conf_stars = "⭐⭐⭐"
+        elif abs_edge >= 2:
+            conf_stars = "⭐⭐"
+        else:
+            conf_stars = "⭐"
+
+        # Pick direction
+        if edge > 0:
+            pick_team = row['away_team']
+            if vegas_spread > 0:
+                pick = f"{pick_team} -{abs(vegas_spread):.1f}"
+            else:
+                pick = f"{pick_team} +{abs(vegas_spread):.1f}"
+        else:
+            pick_team = row['home_team']
+            if vegas_spread > 0:
+                pick = f"{pick_team} +{vegas_spread:.1f}"
+            else:
+                pick = f"{pick_team} {vegas_spread:.1f}"
+
+        # Check if game is completed
+        game_date = str(row.get('date', ''))[:10]
+        is_completed = game_date < today_str if game_date else False
+
+        # Game card (same format as Wild Card)
+        with st.container():
+            cols = st.columns([3, 2, 2, 1])
+            with cols[0]:
+                if is_completed:
+                    st.markdown(f"~~{row['away_team']} @ {row['home_team']}~~ ✓")
+                else:
+                    st.markdown(f"**{row['away_team']} @ {row['home_team']}**")
+                st.caption(f"{game_date}")
+            with cols[1]:
+                st.markdown(f"Vegas: **{vegas_spread:+.1f}**")
+                st.caption(f"Model: {pred_spread:+.1f}")
+            with cols[2]:
+                st.markdown(f"Edge: **{edge:+.1f}**")
+                st.caption(f"Pick: {pick}")
+            with cols[3]:
+                st.markdown(conf_stars)
+            st.markdown("---")
 
 
 def run_nfl_predictions_update(week: int = None):
