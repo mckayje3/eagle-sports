@@ -1,0 +1,26 @@
+game_id,date,week,postseason_type,home_team,away_team,pred_home_score,pred_away_score,pred_spread,pred_total,pred_home_MOE,pred_away_MOE,pred_spread_MOE,pred_total_MOE,vegas_spread,vegas_total,confidence,pred_home_win_prob,predicted_winner
+401778316,2025-12-27,17,,East Carolina Pirates,Pittsburgh Panthers,19.2,28.8,9.6,48.0,3.65,4.92,2.84,8.19,12.5,52.5,0.822,0.0,Pittsburgh Panthers
+401778317,2025-12-27,17,,Clemson Tigers,Penn State Nittany Lions,20.5,20.6,0.1,41.1,3.85,4.45,4.28,7.13,-2.5,47.5,0.757,0.43,Penn State Nittany Lions
+401778318,2025-12-27,17,,Army Black Knights,UConn Huskies,16.3,14.2,-2.1,30.4,4.34,4.49,4.28,7.72,-8.5,42.5,0.757,0.7,Army Black Knights
+401778319,2025-12-27,17,,BYU Cougars,Georgia Tech Yellow Jackets,25.4,22.8,-2.5,48.2,6.31,4.72,4.98,9.97,-3.5,55.5,0.726,0.66,BYU Cougars
+401778320,2025-12-27,17,,Fresno State Bulldogs,Miami (OH) RedHawks,19.7,21.3,1.6,41.0,4.34,4.55,4.62,7.61,-5.5,41.5,0.742,0.32,Miami (OH) RedHawks
+401778321,2025-12-27,17,,San Diego State Aztecs,North Texas Mean Green,25.1,34.3,9.2,59.4,5.01,5.31,3.8,9.6,6.5,52.5,0.779,0.01,North Texas Mean Green
+401778322,2025-12-27,17,,Missouri Tigers,Virginia Cavaliers,20.4,22.3,1.9,42.8,4.22,4.92,5.52,7.32,-4.0,43.5,0.702,0.36,Virginia Cavaliers
+401778323,2025-12-27,17,,Houston Cougars,LSU Tigers,21.1,21.6,0.6,42.7,5.22,3.81,5.23,7.5,-1.5,41.5,0.715,0.4,LSU Tigers
+401778325,2025-12-30,18,,Louisiana Tech Bulldogs,Coastal Carolina Chanticleers,23.0,16.4,-6.6,39.4,5.21,3.73,4.87,7.64,-9.5,51.5,0.731,0.92,Louisiana Tech Bulldogs
+401778326,2025-12-30,18,,Illinois Fighting Illini,Tennessee Volunteers,27.2,28.9,1.7,56.1,5.19,5.45,4.67,9.57,2.5,61.5,0.74,0.27,Tennessee Volunteers
+401778327,2025-12-30,18,,TCU Horned Frogs,USC Trojans,22.4,29.7,7.3,52.1,4.72,5.19,3.82,9.16,6.5,55.5,0.778,0.04,USC Trojans
+401769070,2025-12-31,18,,Ohio State Buckeyes,TBD,22.3,5.5,-16.8,27.8,5.91,2.02,6.12,6.38,-9.5,42.5,0.675,1.0,Ohio State Buckeyes
+401778328,2025-12-31,18,,Vanderbilt Commodores,Iowa Hawkeyes,25.4,19.3,-6.1,44.8,5.54,4.94,5.33,9.04,-4.5,46.5,0.71,0.91,Vanderbilt Commodores
+401778329,2025-12-31,18,,Duke Blue Devils,Arizona State Sun Devils,25.4,19.6,-5.7,45.0,5.1,4.59,4.81,8.42,-3.0,49.5,0.734,0.87,Duke Blue Devils
+401778330,2025-12-31,18,,Texas Longhorns,Michigan Wolverines,22.3,17.1,-5.2,39.4,5.22,4.76,4.89,8.71,-8.5,48.5,0.73,0.86,Texas Longhorns
+401778331,2025-12-31,18,,Utah Utes,Nebraska Cornhuskers,26.1,16.4,-9.7,42.5,5.65,4.01,5.96,7.78,-14.0,50.5,0.682,0.95,Utah Utes
+401769071,2026-01-01,18,,Texas Tech Red Raiders,TBD,20.4,9.5,-11.0,29.9,5.85,3.6,6.53,7.2,2.5,52.5,0.656,0.95,Texas Tech Red Raiders
+401769072,2026-01-01,18,,Indiana Hoosiers,TBD,27.9,5.4,-22.5,33.4,6.65,1.95,6.98,6.87,-6.5,48.5,0.636,1.0,Indiana Hoosiers
+401769073,2026-01-01,18,,Georgia Bulldogs,TBD,29.9,7.6,-22.3,37.5,6.58,2.49,6.8,7.27,-6.5,55.5,0.644,1.0,Georgia Bulldogs
+401778332,2026-01-02,18,,Texas State Bobcats,Rice Owls,31.6,19.5,-12.1,51.1,5.64,4.91,6.53,8.33,-11.5,59.5,0.656,0.99,Texas State Bobcats
+401778333,2026-01-02,18,,Cincinnati Bearcats,Navy Midshipmen,19.4,30.0,10.6,49.5,3.75,4.3,3.79,7.12,7.0,54.5,0.779,0.03,Navy Midshipmen
+401778334,2026-01-02,18,,Mississippi State Bulldogs,Wake Forest Demon Deacons,25.1,21.0,-4.2,46.1,5.23,4.12,4.87,8.05,-3.5,53.5,0.731,0.78,Mississippi State Bulldogs
+401831583,2026-01-02,18,,SMU Mustangs,Arizona Wildcats,22.6,25.3,2.7,47.9,3.98,4.46,4.22,7.32,3.0,51.5,0.76,0.27,Arizona Wildcats
+401769074,2026-01-09,19,,TBD,TBD,10.2,12.9,2.7,23.1,3.27,4.34,3.12,7.02,0.0,0.0,0.81,0.2,TBD
+401769076,2026-01-19,20,,TBD,TBD,10.5,12.6,2.1,23.1,2.96,4.46,3.44,6.74,0.0,0.0,0.795,0.24,TBD

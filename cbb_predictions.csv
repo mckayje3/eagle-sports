@@ -1,157 +1,29 @@
 game_id,date,home_team,away_team,pred_home_score,pred_away_score,pred_spread,pred_total,confidence,predicted_winner
-401817480,2025-12-11,Syracuse Orange,Saint Joseph's Hawks,71.4,55.9,15.5,127.2,0.95,Syracuse Orange
-401817511,2025-12-11,IU Indianapolis Jaguars,Green Bay Phoenix,56.4,50.0,6.4,106.4,0.7139999866485596,IU Indianapolis Jaguars
-401817524,2025-12-11,Virginia Tech Hokies,Western Carolina Catamounts,80.0,60.5,19.4,140.5,0.95,Virginia Tech Hokies
-401819878,2025-12-11,Iowa State Cyclones,Iowa Hawkeyes,78.4,58.5,19.9,136.9,0.95,Iowa State Cyclones
-401820813,2025-12-11,East Carolina Pirates,App State Mountaineers,66.1,53.0,13.1,119.1,0.9380000233650208,East Carolina Pirates
-401823738,2025-12-11,Cal State Bakersfield Roadrunners,North Dakota State Bison,63.3,52.0,11.3,115.3,0.878000020980835,Cal State Bakersfield Roadrunners
-401823872,2025-12-11,UT Rio Grande Valley Vaqueros,UT Arlington Mavericks,63.6,50.6,13.0,114.2,0.9350000023841858,UT Rio Grande Valley Vaqueros
-401827157,2025-12-11,Missouri Tigers,Alabama State Hornets,79.1,60.1,19.0,139.2,0.95,Missouri Tigers
-401812291,2025-12-11,Fordham Rams,Fairleigh Dickinson Knights,71.9,55.4,16.5,127.3,0.95,Fordham Rams
-401817150,2025-12-11,George Washington Revolutionaries,Delaware Blue Hens,82.4,59.9,22.6,142.3,0.95,George Washington Revolutionaries
-401817203,2025-12-11,St. Bonaventure Bonnies,Colgate Raiders,71.9,55.2,16.7,127.0,0.95,St. Bonaventure Bonnies
-401817216,2025-12-11,Boston College Eagles,Massachusetts Minutemen,59.7,51.1,8.7,110.8,0.7889999747276306,Boston College Eagles
-401817258,2025-12-11,NC State Wolfpack,Liberty Flames,75.0,56.1,18.9,131.1,0.95,NC State Wolfpack
-401817438,2025-12-11,Notre Dame Fighting Irish,Idaho Vandals,69.6,55.0,14.6,124.6,0.95,Notre Dame Fighting Irish
-401820619,2025-12-11,Iona Gaels,Bryant Bulldogs,72.5,55.4,17.1,128.0,0.95,Iona Gaels
-401820630,2025-12-11,Boston University Terriers,Maine Black Bears,67.9,52.8,15.1,120.7,0.95,Boston University Terriers
-401822740,2025-12-11,VCU Rams,New Mexico Lobos,74.4,56.7,17.6,131.1,0.95,VCU Rams
-401823364,2025-12-11,Marshall Thundering Herd,Western Kentucky Hilltoppers,61.2,50.4,10.8,111.6,0.8600000143051147,Marshall Thundering Herd
-401825406,2025-12-11,Purdue Boilermakers,Minnesota Golden Gophers,77.1,60.6,16.5,137.7,0.95,Purdue Boilermakers
-401826836,2025-12-11,South Florida Bulls,Charleston Cougars,74.6,56.2,18.5,130.8,0.95,South Florida Bulls
-401828685,2025-12-11,NJIT Highlanders,New Haven Chargers,53.2,44.5,8.7,97.8,0.7910000085830688,NJIT Highlanders
-401823397,2025-12-11,Purdue Fort Wayne Mastodons,Eastern Michigan Eagles,65.5,53.8,11.6,119.3,0.8880000114440918,Purdue Fort Wayne Mastodons
-401824814,2025-12-11,Houston Cougars,Jackson State Tigers,96.6,66.6,30.0,163.3,0.95,Houston Cougars
-401824857,2025-12-11,Utah Valley Wolverines,Idaho State Bengals,69.0,54.3,14.7,123.3,0.95,Utah Valley Wolverines
-401826957,2025-12-11,Kansas City Roos,Weber State Wildcats,58.0,49.2,8.8,107.3,0.7940000295639038,Kansas City Roos
-401827133,2025-12-11,Tulsa Golden Hurricane,Arkansas-Pine Bluff Golden Lions,85.6,59.9,25.7,145.5,0.95,Tulsa Golden Hurricane
-401828547,2025-12-11,Eastern Illinois Panthers,Eastern Kentucky Colonels,56.6,47.8,8.9,104.4,0.7950000166893005,Eastern Illinois Panthers
-401829393,2025-12-11,Southern Illinois Salukis,UT Martin Skyhawks,67.2,54.0,13.3,121.2,0.9419999718666077,Southern Illinois Salukis
-401827018,2025-12-11,Texas State Bobcats,Southern Jaguars,66.7,52.8,13.9,119.5,0.95,Texas State Bobcats
-401813453,2025-12-11,Boise State Broncos,Duquesne Dukes,75.7,59.1,16.6,134.8,0.95,Boise State Broncos
-401825405,2025-12-11,Nebraska Cornhuskers,Wisconsin Badgers,62.4,52.5,9.8,114.9,0.828000009059906,Nebraska Cornhuskers
-401823262,2025-12-11,Cal State Northridge Matadors,Fresno State Bulldogs,62.6,52.3,10.2,114.9,0.8399999737739563,Cal State Northridge Matadors
-401823767,2025-12-11,San Diego State Aztecs,Lamar Cardinals,79.8,59.4,20.4,139.1,0.95,San Diego State Aztecs
-401808702,2025-12-12,McNeese Cowboys,East Texas A&M Lions,83.2,60.8,22.4,144.0,0.95,McNeese Cowboys
-401812794,2025-12-12,UConn Huskies,Texas Longhorns,89.1,64.3,24.8,153.4,0.95,UConn Huskies
-401823042,2025-12-12,North Carolina A&T Aggies,Maryland Eastern Shore Hawks,84.1,60.5,23.6,144.7,0.95,North Carolina A&T Aggies
-401823328,2025-12-12,Xavier Musketeers,Missouri State Bears,87.3,63.1,24.2,150.5,0.95,Xavier Musketeers
-401823506,2025-12-12,Eastern Washington Eagles,California Baptist Lancers,84.2,62.3,22.0,146.5,0.95,Eastern Washington Eagles
-401824893,2025-12-12,Austin Peay Governors,East Tennessee State Buccaneers,88.1,63.5,24.6,151.6,0.95,Austin Peay Governors
-401826056,2025-12-12,UMBC Retrievers,Army Black Knights,87.6,63.8,23.8,151.4,0.95,UMBC Retrievers
-401808901,2025-12-13,Houston Cougars,New Orleans Privateers,87.4,62.7,24.7,150.0,0.95,Houston Cougars
-401808953,2025-12-13,Houston Christian Huskies,SE Louisiana Lions,83.0,60.4,22.5,143.4,0.95,Houston Christian Huskies
-401809421,2025-12-13,Miami Hurricanes,UL Monroe Warhawks,85.3,62.4,23.0,147.7,0.95,Miami Hurricanes
-401811112,2025-12-13,South Dakota Coyotes,Prairie View A&M Panthers,81.6,59.5,22.2,141.1,0.95,South Dakota Coyotes
-401812266,2025-12-13,Alabama Crimson Tide,Arizona Wildcats,86.5,62.9,23.6,149.4,0.95,Alabama Crimson Tide
-401812361,2025-12-13,Long Island University Sharks,La Salle Explorers,89.3,64.5,24.8,153.8,0.95,Long Island University Sharks
-401812631,2025-12-13,Delaware Blue Hens,Cal State Northridge Matadors,90.3,64.8,25.5,155.1,0.95,Delaware Blue Hens
-401812651,2025-12-13,Binghamton Bearcats,Central Connecticut Blue Devils,88.1,63.3,24.8,151.4,0.95,Binghamton Bearcats
-401812924,2025-12-13,Clemson Tigers,Mercer Bears,89.2,64.2,25.0,153.4,0.95,Clemson Tigers
-401813261,2025-12-13,Illinois State Redbirds,Utah State Aggies,87.1,62.6,24.6,149.7,0.95,Illinois State Redbirds
-401813281,2025-12-13,Morgan State Bears,Niagara Purple Eagles,85.3,61.5,23.8,146.8,0.95,Morgan State Bears
-401813294,2025-12-13,Oklahoma Sooners,Oklahoma State Cowboys,85.4,62.2,23.2,147.7,0.95,Oklahoma Sooners
-401813325,2025-12-13,Bryant Bulldogs,Marist Red Foxes,88.8,63.8,24.9,152.6,0.95,Bryant Bulldogs
-401813355,2025-12-13,Maine Black Bears,Canisius Golden Griffins,87.4,62.7,24.7,150.1,0.95,Maine Black Bears
-401813404,2025-12-13,Loyola Maryland Greyhounds,Mount St. Mary's Mountaineers,89.4,63.4,26.0,152.8,0.95,Loyola Maryland Greyhounds
-401813442,2025-12-13,Dayton Flyers,North Florida Ospreys,90.1,63.7,26.4,153.9,0.95,Dayton Flyers
-401813454,2025-12-13,Nevada Wolf Pack,Duquesne Dukes,85.2,62.6,22.7,147.8,0.95,Nevada Wolf Pack
-401813763,2025-12-13,Gonzaga Bulldogs,UCLA Bruins,85.5,62.1,23.4,147.6,0.95,Gonzaga Bulldogs
-401817151,2025-12-13,Florida Gators,George Washington Revolutionaries,85.3,62.1,23.2,147.4,0.95,Florida Gators
-401817178,2025-12-13,Richmond Spiders,Southern Illinois Salukis,87.2,62.5,24.7,149.7,0.95,Richmond Spiders
-401817190,2025-12-13,Saint Louis Billikens,San Francisco Dons,86.7,63.3,23.4,150.0,0.95,Saint Louis Billikens
-401817204,2025-12-13,Ohio Bobcats,St. Bonaventure Bonnies,80.3,59.8,20.5,140.1,0.95,Ohio Bobcats
-401817226,2025-12-13,California Golden Bears,Northwestern State Demons,87.2,62.5,24.7,149.8,0.95,California Golden Bears
-401817247,2025-12-13,Louisville Cardinals,Memphis Tigers,92.4,65.5,26.9,157.9,0.95,Louisville Cardinals
-401817259,2025-12-13,NC State Wolfpack,Kansas Jayhawks,87.5,62.8,24.7,150.3,0.95,NC State Wolfpack
-401817269,2025-12-13,North Carolina Tar Heels,South Carolina Upstate Spartans,87.3,63.1,24.2,150.4,0.95,North Carolina Tar Heels
-401817439,2025-12-13,Notre Dame Fighting Irish,Evansville Purple Aces,85.5,62.5,23.0,148.1,0.95,Notre Dame Fighting Irish
-401817449,2025-12-13,Villanova Wildcats,Pittsburgh Panthers,87.2,63.8,23.4,151.0,0.95,Villanova Wildcats
-401817461,2025-12-13,LSU Tigers,SMU Mustangs,88.6,62.6,25.9,151.2,0.95,LSU Tigers
-401817472,2025-12-13,San José State Spartans,Stanford Cardinal,88.2,64.4,23.8,152.7,0.95,San José State Spartans
-401817483,2025-12-13,Syracuse Orange,Hofstra Pride,84.8,61.8,23.0,146.5,0.95,Syracuse Orange
-401819821,2025-12-13,Santa Clara Broncos,Arizona State Sun Devils,85.8,62.1,23.7,147.9,0.95,Santa Clara Broncos
-401819838,2025-12-13,BYU Cougars,UC Riverside Highlanders,87.4,63.4,23.9,150.8,0.95,BYU Cougars
-401819848,2025-12-13,Georgia Bulldogs,Cincinnati Bearcats,84.1,61.2,22.8,145.3,0.95,Georgia Bulldogs
-401819868,2025-12-13,Colorado Buffaloes,UTSA Roadrunners,86.9,62.5,24.3,149.4,0.95,Colorado Buffaloes
-401819896,2025-12-13,Creighton Bluejays,Kansas State Wildcats,86.4,63.0,23.3,149.4,0.95,Creighton Bluejays
-401819912,2025-12-13,Utah Utes,Mississippi State Bulldogs,83.2,60.3,22.9,143.5,0.95,Utah Utes
-401819921,2025-12-13,West Virginia Mountaineers,Ohio State Buckeyes,83.5,60.1,23.5,143.6,0.95,West Virginia Mountaineers
-401820215,2025-12-13,Davidson Wildcats,Mercyhurst Lakers,83.4,60.7,22.7,144.2,0.95,Davidson Wildcats
-401820401,2025-12-13,UNLV Rebels,Tennessee State Tigers,88.0,63.0,24.9,151.0,0.95,UNLV Rebels
-401820548,2025-12-13,Northern Iowa Panthers,Oakland Golden Grizzlies,84.8,62.1,22.7,146.8,0.95,Northern Iowa Panthers
-401820584,2025-12-13,Quinnipiac Bobcats,UMass Lowell River Hawks,90.9,64.0,26.9,155.0,0.95,Quinnipiac Bobcats
-401820602,2025-12-13,Akron Zips,Murray State Racers,82.9,61.0,21.9,143.9,0.95,Akron Zips
-401822170,2025-12-13,Fordham Rams,Manhattan Jaspers,89.2,63.6,25.6,152.7,0.95,Fordham Rams
-401822337,2025-12-13,Valparaiso Beacons,UNC Wilmington Seahawks,89.7,64.7,25.1,154.4,0.95,Valparaiso Beacons
-401822727,2025-12-13,Georgetown Hoyas,Saint Peter's Peacocks,84.6,61.8,22.8,146.4,0.95,Georgetown Hoyas
-401822867,2025-12-13,Butler Bulldogs,Providence Friars,84.5,62.2,22.3,146.7,0.95,Butler Bulldogs
-401823028,2025-12-13,Purdue Boilermakers,Marquette Golden Eagles,86.6,63.6,23.0,150.2,0.95,Purdue Boilermakers
-401823176,2025-12-13,Denver Pioneers,Cal State Fullerton Titans,83.6,62.0,21.7,145.6,0.95,Denver Pioneers
-401823221,2025-12-13,Bellarmine Knights,Northern Kentucky Norse,87.9,63.7,24.2,151.6,0.95,Bellarmine Knights
-401823406,2025-12-13,Robert Morris Colonials,Toledo Rockets,88.8,63.7,25.1,152.5,0.95,Robert Morris Colonials
-401823412,2025-12-13,Marshall Thundering Herd,Wright State Raiders,90.1,63.6,26.5,153.6,0.95,Marshall Thundering Herd
-401823457,2025-12-13,Stony Brook Seawolves,Central Michigan Chippewas,87.6,62.7,24.8,150.3,0.95,Stony Brook Seawolves
-401823466,2025-12-13,Elon Phoenix,Northern Illinois Huskies,88.3,63.2,25.1,151.5,0.95,Elon Phoenix
-401823481,2025-12-13,Auburn Tigers,Chattanooga Mocs,87.1,62.4,24.7,149.5,0.95,Auburn Tigers
-401823548,2025-12-13,Washington Huskies,Southern Utah Thunderbirds,84.6,62.1,22.5,146.7,0.95,Washington Huskies
-401823727,2025-12-13,NJIT Highlanders,Sacred Heart Pioneers,88.9,63.1,25.8,152.0,0.95,NJIT Highlanders
-401823739,2025-12-13,Cal State Bakersfield Roadrunners,Pepperdine Waves,91.7,65.6,26.1,157.4,0.95,Cal State Bakersfield Roadrunners
-401823790,2025-12-13,Grand Canyon Lopes,Coastal Carolina Chanticleers,87.0,62.8,24.2,149.9,0.95,Grand Canyon Lopes
-401824060,2025-12-13,Oregon State Beavers,Montana State Bobcats,86.7,62.6,24.1,149.3,0.95,Oregon State Beavers
-401824115,2025-12-13,San Diego Toreros,Northern Arizona Lumberjacks,91.8,64.8,27.0,156.6,0.95,San Diego Toreros
-401824309,2025-12-13,St. John's Red Storm,Iona Gaels,87.7,63.0,24.7,150.7,0.95,St. John's Red Storm
-401824362,2025-12-13,Dartmouth Big Green,Boston University Terriers,85.3,61.3,24.0,146.6,0.95,Dartmouth Big Green
-401824902,2025-12-13,Hawai'i Rainbow Warriors,UTEP Miners,86.1,62.1,24.0,148.2,0.95,Hawai'i Rainbow Warriors
-401824940,2025-12-13,Vanderbilt Commodores,Central Arkansas Bears,84.2,61.8,22.4,146.0,0.95,Vanderbilt Commodores
-401825389,2025-12-13,West Georgia Wolves,Georgia Southern Eagles,87.4,62.8,24.7,150.2,0.95,West Georgia Wolves
-401825407,2025-12-13,Illinois Fighting Illini,Nebraska Cornhuskers,86.6,62.8,23.9,149.4,0.95,Illinois Fighting Illini
-401825408,2025-12-13,Maryland Terrapins,Michigan Wolverines,86.4,63.1,23.2,149.5,0.95,Maryland Terrapins
-401825409,2025-12-13,Penn State Nittany Lions,Michigan State Spartans,84.9,63.0,21.9,147.9,0.95,Penn State Nittany Lions
-401825575,2025-12-13,Wichita State Shockers,DePaul Blue Demons,90.3,64.5,25.8,154.8,0.95,Wichita State Shockers
-401826090,2025-12-13,Oregon Ducks,UC Davis Aggies,85.9,62.7,23.2,148.5,0.95,Oregon Ducks
-401826704,2025-12-13,George Mason Patriots,Old Dominion Monarchs,86.0,63.6,22.4,149.5,0.95,George Mason Patriots
-401826711,2025-12-13,Florida State Seminoles,Massachusetts Minutemen,81.9,60.6,21.3,142.6,0.95,Florida State Seminoles
-401826789,2025-12-13,Texas Tech Red Raiders,Arkansas Razorbacks,83.9,61.6,22.3,145.4,0.95,Texas Tech Red Raiders
-401826795,2025-12-13,Florida Atlantic Owls,UAlbany Great Danes,86.4,62.7,23.7,149.2,0.95,Florida Atlantic Owls
-401826810,2025-12-13,Rice Owls,Arkansas State Red Wolves,89.0,64.0,25.1,153.0,0.95,Rice Owls
-401826847,2025-12-13,UC San Diego Tritons,Tulane Green Wave,83.8,61.4,22.4,145.2,0.95,UC San Diego Tritons
-401826894,2025-12-13,Seton Hall Pirates,Rutgers Scarlet Knights,89.4,64.0,25.4,153.3,0.95,Seton Hall Pirates
-401826903,2025-12-13,Louisiana Tech Bulldogs,Louisiana Ragin' Cajuns,85.9,62.6,23.3,148.4,0.95,Louisiana Tech Bulldogs
-401826935,2025-12-13,Northwestern Wildcats,Jackson State Tigers,86.5,62.0,24.6,148.5,0.95,Northwestern Wildcats
-401826952,2025-12-13,UC Santa Barbara Gauchos,Utah Valley Wolverines,86.2,62.1,24.0,148.3,0.95,UC Santa Barbara Gauchos
-401827055,2025-12-13,Longwood Lancers,Delaware State Hornets,88.9,63.9,25.1,152.8,0.95,Longwood Lancers
-401827208,2025-12-13,Kentucky Wildcats,Indiana Hoosiers,86.8,63.4,23.5,150.2,0.95,Kentucky Wildcats
-401827259,2025-12-13,Ole Miss Rebels,Southern Miss Golden Eagles,82.2,60.3,21.9,142.5,0.95,Ole Miss Rebels
-401827524,2025-12-13,Howard Bison,Hampton Pirates,83.9,61.3,22.6,145.2,0.95,Howard Bison
-401828286,2025-12-13,New Mexico State Aggies,Tulsa Golden Hurricane,84.6,60.5,24.1,145.1,0.95,New Mexico State Aggies
-401828313,2025-12-13,Georgia State Panthers,Jacksonville State Gamecocks,87.6,63.8,23.8,151.5,0.95,Georgia State Panthers
-401828548,2025-12-13,Eastern Kentucky Colonels,Miami (OH) RedHawks,93.8,64.9,28.9,158.7,0.95,Eastern Kentucky Colonels
-401828910,2025-12-13,Drake Bulldogs,North Dakota State Bison,92.6,65.6,27.0,158.2,0.95,Drake Bulldogs
-401829424,2025-12-13,South Carolina Gamecocks,The Citadel Bulldogs,84.9,62.0,22.9,146.9,0.95,South Carolina Gamecocks
-401829459,2025-12-13,North Dakota Fighting Hawks,Western Illinois Leathernecks,89.1,63.7,25.3,152.8,0.95,North Dakota Fighting Hawks
-401829480,2025-12-13,UNC Asheville Bulldogs,St. Thomas-Minnesota Tommies,89.3,63.1,26.2,152.5,0.95,UNC Asheville Bulldogs
-401830198,2025-12-13,Belmont Bruins,UIC Flames,86.2,62.8,23.4,149.0,0.95,Belmont Bruins
-401812386,2025-12-14,Temple Owls,Saint Francis Red Flash,87.7,62.8,24.9,150.5,0.95,Temple Owls
-401817161,2025-12-14,Loyola Chicago Ramblers,Chicago State Cougars,85.2,61.8,23.4,147.1,0.95,Loyola Chicago Ramblers
-401817512,2025-12-14,Purdue Fort Wayne Mastodons,Detroit Mercy Titans,80.4,60.5,19.9,140.8,0.95,Purdue Fort Wayne Mastodons
-401817525,2025-12-14,Virginia Tech Hokies,Maryland Eastern Shore Hawks,87.7,63.0,24.7,150.7,0.95,Virginia Tech Hokies
-401819879,2025-12-14,Iowa State Cyclones,Eastern Illinois Panthers,87.4,63.3,24.1,150.7,0.95,Iowa State Cyclones
-401820803,2025-12-14,Charleston Cougars,Charlotte 49ers,83.3,62.0,21.3,145.3,0.95,Charleston Cougars
-401820814,2025-12-14,East Carolina Pirates,Buffalo Bulls,87.5,62.8,24.8,150.3,0.95,East Carolina Pirates
-401822314,2025-12-14,Milwaukee Panthers,Indiana State Sycamores,88.1,62.8,25.3,150.9,0.95,Milwaukee Panthers
-401822327,2025-12-14,Campbell Fighting Camels,Ball State Cardinals,87.6,62.9,24.6,150.5,0.95,Campbell Fighting Camels
-401822764,2025-12-14,Radford Highlanders,Coppin State Eagles,86.9,62.7,24.2,149.6,0.95,Radford Highlanders
-401823018,2025-12-14,Portland Pilots,Kent State Golden Flashes,86.2,63.1,23.1,149.3,0.95,Portland Pilots
-401823234,2025-12-14,New Mexico Lobos,Florida Gulf Coast Eagles,89.5,64.0,25.5,153.5,0.95,New Mexico Lobos
-401823313,2025-12-14,Fairfield Stags,Monmouth Hawks,85.5,61.8,23.7,147.3,0.95,Fairfield Stags
-401823348,2025-12-14,Texas A&M Aggies,Jacksonville Dolphins,91.6,64.4,27.2,156.0,0.95,Texas A&M Aggies
-401823650,2025-12-14,Iowa Hawkeyes,Western Michigan Broncos,83.2,61.4,21.9,144.6,0.95,Iowa Hawkeyes
-401823819,2025-12-14,Boise State Broncos,Saint Mary's Gaels,86.4,63.2,23.2,149.6,0.95,Boise State Broncos
-401824140,2025-12-14,USC Trojans,Washington State Cougars,91.2,65.1,26.1,156.3,0.95,USC Trojans
-401826737,2025-12-14,High Point Panthers,App State Mountaineers,84.3,61.7,22.6,146.1,0.95,High Point Panthers
-401826769,2025-12-14,Vermont Catamounts,Merrimack Warriors,86.8,62.8,24.0,149.6,0.95,Vermont Catamounts
-401826876,2025-12-14,UAB Blazers,Troy Trojans,88.3,64.0,24.3,152.2,0.95,UAB Blazers
-401827008,2025-12-14,Minnesota Golden Gophers,Texas Southern Tigers,86.9,62.1,24.9,149.0,0.95,Minnesota Golden Gophers
-401827113,2025-12-14,Missouri Tigers,Bethune-Cookman Wildcats,86.5,62.7,23.8,149.2,0.95,Missouri Tigers
-401828279,2025-12-14,South Alabama Jaguars,North Texas Mean Green,86.3,63.1,23.2,149.4,0.95,South Alabama Jaguars
+401814507,2026-01-06T23:00Z,Ohio Bobcats,Massachusetts Minutemen,77.8,75.4,-2.4,153.2,0.5809999704360962,Ohio Bobcats
+401808153,2026-01-07T00:00Z,Florida Gators,Georgia Bulldogs,88.1,82.6,-5.4,170.7,0.6809999942779541,Florida Gators
+401808158,2026-01-07T00:00Z,LSU Tigers,South Carolina Gamecocks,81.1,71.3,-9.7,152.4,0.8240000009536743,LSU Tigers
+401814504,2026-01-07T00:00Z,Kent State Golden Flashes,Bowling Green Falcons,83.9,78.7,-5.2,162.6,0.6740000247955322,Kent State Golden Flashes
+401814505,2026-01-07T00:00Z,Akron Zips,Central Michigan Chippewas,90.1,69.7,-20.4,159.7,0.95,Akron Zips
+401814506,2026-01-07T00:00Z,Ball State Cardinals,Eastern Michigan Eagles,63.7,67.9,4.2,131.6,0.6389999985694885,Eastern Michigan Eagles
+401814509,2026-01-07T00:00Z,Miami (OH) RedHawks,Western Michigan Broncos,89.3,73.5,-15.8,162.7,0.95,Miami (OH) RedHawks
+401820650,2026-01-07T00:00Z,Louisville Cardinals,Duke Blue Devils,81.5,76.3,-5.2,157.8,0.6740000247955322,Louisville Cardinals
+401820653,2026-01-07T00:00Z,Georgia Tech Yellow Jackets,Syracuse Orange,70.8,72.0,1.1,142.8,0.5379999876022339,Syracuse Orange
+401822888,2026-01-07T00:00Z,Butler Bulldogs,St. John's Red Storm,81.7,81.5,-0.2,163.2,0.5049999952316284,Butler Bulldogs
+401825423,2026-01-07T00:00Z,Penn State Nittany Lions,Michigan Wolverines,76.7,85.4,8.7,162.1,0.7900000214576721,Michigan Wolverines
+401827603,2026-01-07T00:00Z,West Virginia Mountaineers,Cincinnati Bearcats,65.5,61.8,-3.6,127.3,0.621999979019165,West Virginia Mountaineers
+401814508,2026-01-07T01:00Z,Northern Illinois Huskies,Toledo Rockets,74.4,81.0,6.5,155.4,0.7179999947547913,Toledo Rockets
+401822887,2026-01-07T01:00Z,DePaul Blue Demons,Georgetown Hoyas,74.1,76.0,1.9,150.1,0.5619999766349792,Georgetown Hoyas
+401825422,2026-01-07T01:00Z,Minnesota Golden Gophers,Iowa Hawkeyes,63.2,66.6,3.3,129.8,0.6110000014305115,Iowa Hawkeyes
+401827602,2026-01-07T01:00Z,Oklahoma State Cowboys,UCF Knights,86.5,82.5,-3.9,169.0,0.6309999823570251,Oklahoma State Cowboys
+401828356,2026-01-07T01:00Z,Dayton Flyers,George Washington Revolutionaries,78.7,75.4,-3.3,154.1,0.609000027179718,Dayton Flyers
+401808156,2026-01-07T02:00Z,Auburn Tigers,Texas A&M Aggies,88.2,81.7,-6.5,169.9,0.7179999947547913,Auburn Tigers
+401808160,2026-01-07T02:00Z,Tennessee Volunteers,Texas Longhorns,82.2,69.6,-12.6,151.8,0.9200000166893005,Tennessee Volunteers
+401820560,2026-01-07T02:00Z,Air Force Falcons,Utah State Aggies,66.3,79.4,13.1,145.7,0.9350000023841858,Utah State Aggies
+401820651,2026-01-07T02:00Z,Boston College Eagles,NC State Wolfpack,69.2,76.5,7.3,145.7,0.7429999709129333,NC State Wolfpack
+401825424,2026-01-07T02:00Z,Wisconsin Badgers,UCLA Bruins,81.7,76.3,-5.3,158.0,0.6769999861717224,Wisconsin Badgers
+401827600,2026-01-07T02:00Z,Houston Cougars,Texas Tech Red Raiders,75.2,62.4,-12.7,137.6,0.9240000247955322,Houston Cougars
+401827601,2026-01-07T02:00Z,Kansas Jayhawks,TCU Horned Frogs,72.6,65.0,-7.5,137.6,0.7519999742507935,Kansas Jayhawks
+401830321,2026-01-07T02:00Z,Colorado State Rams,New Mexico Lobos,81.4,80.1,-1.3,161.6,0.5429999828338623,Colorado State Rams
+401828926,2026-01-07T03:00Z,San José State Spartans,Fresno State Bulldogs,70.3,72.7,2.4,143.1,0.5799999833106995,Fresno State Bulldogs
+401830822,2026-01-07T03:00Z,Wyoming Cowboys,UNLV Rebels,87.1,81.3,-5.9,168.4,0.6959999799728394,Wyoming Cowboys
+401823772,2026-01-07T04:00Z,Nevada Wolf Pack,San Diego State Aztecs,81.4,75.8,-5.6,157.2,0.6850000023841858,Nevada Wolf Pack

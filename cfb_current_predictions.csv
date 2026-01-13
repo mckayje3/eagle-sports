@@ -1,0 +1,18 @@
+game_id,date,week,postseason_type,home_team,away_team,pred_home_score,pred_away_score,pred_spread,pred_total,pred_home_MOE,pred_away_MOE,pred_spread_MOE,pred_total_MOE,vegas_spread,vegas_total,confidence,pred_home_win_prob,predicted_winner
+401778325,2025-12-30,18,,Louisiana Tech Bulldogs,Coastal Carolina Chanticleers,26.2,14.3,-11.9,40.5,7.3,4.67,7.15,9.95,0,0,0.628,0.96,Louisiana Tech Bulldogs
+401778326,2025-12-30,18,,Illinois Fighting Illini,Tennessee Volunteers,25.7,14.1,-11.7,39.8,8.37,4.73,7.53,11.33,0,0,0.611,0.97,Illinois Fighting Illini
+401778327,2025-12-30,18,,TCU Horned Frogs,USC Trojans,25.7,15.3,-10.4,41.0,7.64,5.21,7.38,10.8,0,0,0.618,0.93,TCU Horned Frogs
+401769070,2025-12-31,18,,Ohio State Buckeyes,TBD,27.6,14.6,-13.1,42.2,8.04,4.72,8.05,10.45,0,0,0.588,0.97,Ohio State Buckeyes
+401778328,2025-12-31,18,,Vanderbilt Commodores,Iowa Hawkeyes,25.7,14.2,-11.6,39.9,6.45,4.68,6.65,9.09,0,0,0.651,0.97,Vanderbilt Commodores
+401778329,2025-12-31,18,,Duke Blue Devils,Arizona State Sun Devils,25.2,16.4,-8.8,41.6,6.42,6.17,6.48,10.8,0,0,0.658,0.94,Duke Blue Devils
+401778330,2025-12-31,18,,Texas Longhorns,Michigan Wolverines,25.1,14.2,-10.9,39.3,8.26,5.58,7.83,11.72,0,0,0.597,0.95,Texas Longhorns
+401778331,2025-12-31,18,,Utah Utes,Nebraska Cornhuskers,24.4,14.7,-9.7,39.1,6.81,5.29,6.81,10.12,0,0,0.643,0.94,Utah Utes
+401769071,2026-01-01,18,,Texas Tech Red Raiders,TBD,30.6,15.0,-15.5,45.6,8.06,5.58,7.65,11.57,0,0,0.606,0.99,Texas Tech Red Raiders
+401769072,2026-01-01,18,,Indiana Hoosiers,TBD,28.6,14.6,-13.9,43.2,7.08,4.93,7.11,9.93,0,0,0.63,0.96,Indiana Hoosiers
+401769073,2026-01-01,18,,Georgia Bulldogs,TBD,28.2,16.2,-12.1,44.4,8.82,5.35,7.78,12.35,0,0,0.6,0.98,Georgia Bulldogs
+401778332,2026-01-02,18,,Texas State Bobcats,Rice Owls,28.3,18.1,-10.2,46.5,7.53,6.11,7.15,11.71,0,0,0.628,0.9,Texas State Bobcats
+401778333,2026-01-02,18,,Cincinnati Bearcats,Navy Midshipmen,25.5,15.8,-9.7,41.3,7.29,5.67,6.77,11.17,0,0,0.645,0.94,Cincinnati Bearcats
+401778334,2026-01-02,18,,Mississippi State Bulldogs,Wake Forest Demon Deacons,26.4,15.5,-11.0,41.9,6.76,5.1,6.86,9.82,0,0,0.641,0.96,Mississippi State Bulldogs
+401831583,2026-01-02,18,,SMU Mustangs,Arizona Wildcats,23.5,17.1,-6.4,40.6,6.72,5.73,6.33,10.77,0,0,0.665,0.85,SMU Mustangs
+401769074,2026-01-09,19,,TBD,TBD,29.8,13.9,-15.9,43.7,10.39,4.93,9.89,12.92,0,0,0.505,1.0,TBD
+401769076,2026-01-19,20,,TBD,TBD,28.4,13.5,-14.9,41.9,9.36,4.8,9.09,11.79,0,0,0.541,0.99,TBD

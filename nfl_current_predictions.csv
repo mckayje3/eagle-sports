@@ -1,46 +1,7 @@
-game_id,date,week,home_team,away_team,pred_home_score,pred_away_score,pred_spread,pred_total,pred_home_MOE,pred_away_MOE,pred_spread_MOE,pred_total_MOE,vegas_spread,vegas_total,confidence,pred_home_win_prob,predicted_winner
-401772801,2025-12-21,16,New Orleans Saints,New York Jets,17.1,13.9,3.2,30.9,4.35,3.67,5.68,5.71,-6.5,40.5,0.694,0.73,New Orleans Saints
-401772802,2025-12-21,16,Cleveland Browns,Buffalo Bills,18.5,25.8,-7.3,44.3,4.69,5.06,5.41,8.12,10.5,40.5,0.706,0.09,Buffalo Bills
-401772803,2025-12-21,16,Tennessee Titans,Kansas City Chiefs,18.4,20.6,-2.2,39.0,4.97,4.61,5.95,7.52,3.0,37.5,0.682,0.36,Kansas City Chiefs
-401772804,2025-12-21,16,Baltimore Ravens,New England Patriots,24.6,21.3,3.3,45.9,4.23,4.06,3.66,7.44,-3.0,48.5,0.785,0.85,Baltimore Ravens
-401772805,2025-12-21,16,Houston Texans,Las Vegas Raiders,25.3,9.1,16.1,34.4,5.75,3.41,6.81,6.55,-14.5,37.5,0.643,0.99,Houston Texans
-401772806,2025-12-21,16,Detroit Lions,Pittsburgh Steelers,29.8,17.2,12.6,47.0,5.56,3.13,4.92,7.56,-7.0,52.5,0.728,1.0,Detroit Lions
-401772910,2025-12-21,16,Dallas Cowboys,Los Angeles Chargers,27.3,20.1,7.2,47.4,4.96,3.54,4.29,7.48,-1.5,50.5,0.757,0.97,Dallas Cowboys
-401772911,2025-12-21,16,New York Giants,Minnesota Vikings,22.1,27.7,-5.6,49.8,4.13,4.36,4.78,7.02,2.5,42.5,0.735,0.13,Minnesota Vikings
-401772912,2025-12-21,16,Carolina Panthers,Tampa Bay Buccaneers,20.3,24.8,-4.5,45.1,4.16,3.77,4.56,6.51,3.0,45.5,0.745,0.14,Tampa Bay Buccaneers
-401772913,2025-12-21,16,Denver Broncos,Jacksonville Jaguars,24.3,17.9,6.4,42.2,5.23,3.77,4.2,8.09,-3.5,46.5,0.761,0.95,Denver Broncos
-401772914,2025-12-21,16,Arizona Cardinals,Atlanta Falcons,17.4,27.2,-9.8,44.6,4.63,5.4,6.79,7.42,3.0,48.5,0.645,0.09,Atlanta Falcons
-401772934,2025-12-21,16,Miami Dolphins,Cincinnati Bengals,15.4,23.9,-8.4,39.3,3.63,5.17,6.19,6.44,4.5,48.5,0.671,0.07,Cincinnati Bengals
-401772824,2025-12-22,16,Indianapolis Colts,San Francisco 49ers,23.5,22.6,1.0,46.1,3.77,4.38,4.84,6.6,5.5,46.5,0.732,0.54,Indianapolis Colts
-401772622,2025-12-25,17,Kansas City Chiefs,Denver Broncos,21.6,24.5,-2.9,46.1,4.15,4.26,3.92,7.44,6.0,39.5,0.773,0.2,Denver Broncos
-401772710,2025-12-25,17,Washington Commanders,Dallas Cowboys,18.4,26.5,-8.1,45.0,4.14,4.76,6.35,6.26,3.5,51.5,0.664,0.1,Dallas Cowboys
-401772711,2025-12-25,17,Minnesota Vikings,Detroit Lions,23.7,21.9,1.8,45.6,4.78,4.14,4.91,7.47,3.5,48.5,0.729,0.61,Minnesota Vikings
-401772951,2025-12-27,17,Los Angeles Chargers,Houston Texans,22.9,24.0,-1.1,46.9,4.69,5.03,3.97,8.88,1.5,39.5,0.771,0.35,Houston Texans
-401772953,2025-12-27,17,Green Bay Packers,Baltimore Ravens,22.3,22.2,0.2,44.5,3.86,3.61,4.0,6.32,-3.5,46.5,0.77,0.49,Green Bay Packers
-401772807,2025-12-28,17,Cleveland Browns,Pittsburgh Steelers,22.6,25.5,-2.9,48.1,4.21,4.52,4.65,7.4,3.5,34.5,0.741,0.26,Pittsburgh Steelers
-401772808,2025-12-28,17,New York Jets,New England Patriots,23.0,25.9,-2.9,48.8,4.58,4.26,4.29,7.74,9.5,43.5,0.757,0.24,New England Patriots
-401772809,2025-12-28,17,Tennessee Titans,New Orleans Saints,23.8,24.8,-1.1,48.6,4.64,4.19,5.06,7.25,2.5,38.5,0.722,0.38,New Orleans Saints
-401772915,2025-12-28,17,Indianapolis Colts,Jacksonville Jaguars,24.9,25.5,-0.6,50.4,5.22,4.28,4.41,8.46,5.5,44.5,0.752,0.45,Jacksonville Jaguars
-401772916,2025-12-28,17,Miami Dolphins,Tampa Bay Buccaneers,21.4,23.0,-1.6,44.4,4.09,4.01,4.38,6.81,3.0,47.5,0.753,0.38,Tampa Bay Buccaneers
-401772917,2025-12-28,17,Buffalo Bills,Philadelphia Eagles,24.8,22.2,2.6,47.1,4.68,4.29,4.14,7.97,-3.0,45.5,0.764,0.71,Buffalo Bills
-401772935,2025-12-28,17,San Francisco 49ers,Chicago Bears,24.3,23.5,0.7,47.8,4.27,4.05,3.18,7.69,-3.0,50.5,0.807,0.56,San Francisco 49ers
-401772950,2025-12-28,17,Las Vegas Raiders,New York Giants,21.8,24.2,-2.5,46.0,4.78,4.79,5.84,7.58,3.0,42.5,0.687,0.31,New York Giants
-401772952,2025-12-28,17,Carolina Panthers,Seattle Seahawks,24.4,26.0,-1.6,50.3,4.5,4.51,4.85,7.59,7.5,42.5,0.732,0.33,Seattle Seahawks
-401772954,2025-12-28,17,Cincinnati Bengals,Arizona Cardinals,26.6,21.1,5.4,47.7,4.46,3.66,5.01,6.44,-6.0,51.5,0.725,0.87,Cincinnati Bengals
-401772825,2025-12-29,17,Atlanta Falcons,Los Angeles Rams,22.5,22.3,0.2,44.8,4.09,4.02,3.98,7.07,7.5,48.5,0.771,0.51,Atlanta Falcons
-401772955,2026-01-04,18,Los Angeles Rams,Arizona Cardinals,23.0,19.1,3.9,42.1,4.42,3.89,3.71,7.46,-4.0,45.5,0.783,0.85,Los Angeles Rams
-401772956,2026-01-04,18,Denver Broncos,Los Angeles Chargers,22.3,23.2,-0.9,45.5,4.48,4.95,3.88,8.61,-2.5,42.5,0.775,0.43,Los Angeles Chargers
-401772957,2026-01-04,18,Las Vegas Raiders,Kansas City Chiefs,21.7,26.4,-4.7,48.1,4.51,4.31,5.11,7.2,6.0,45.0,0.72,0.14,Kansas City Chiefs
-401772958,2026-01-04,18,New England Patriots,Miami Dolphins,22.4,20.6,1.8,43.0,4.4,4.02,3.37,7.72,-2.5,45.0,0.798,0.7,New England Patriots
-401772959,2026-01-04,18,Philadelphia Eagles,Washington Commanders,23.9,20.8,3.0,44.7,4.77,4.18,4.8,7.58,-4.5,45.0,0.734,0.75,Philadelphia Eagles
-401772960,2026-01-04,18,Pittsburgh Steelers,Baltimore Ravens,23.8,24.7,-0.9,48.6,4.43,3.8,4.62,6.84,4.5,45.0,0.742,0.44,Baltimore Ravens
-401772961,2026-01-04,18,San Francisco 49ers,Seattle Seahawks,23.9,22.8,1.1,46.6,4.35,4.16,3.77,7.63,-4.5,44.5,0.78,0.59,San Francisco 49ers
-401772962,2026-01-04,18,Houston Texans,Indianapolis Colts,22.1,21.8,0.3,43.9,4.63,4.46,4.3,8.02,-4.5,45.0,0.756,0.58,Houston Texans
-401772963,2026-01-04,18,New York Giants,Dallas Cowboys,23.8,25.1,-1.3,48.9,4.36,4.6,4.38,7.83,1.5,45.0,0.753,0.35,Dallas Cowboys
-401772964,2026-01-04,18,Cincinnati Bengals,Cleveland Browns,26.2,20.0,6.2,46.2,5.33,3.71,5.17,7.59,-8.8,43.5,0.717,0.87,Cincinnati Bengals
-401772965,2026-01-04,18,Chicago Bears,Detroit Lions,22.1,21.5,0.6,43.6,4.74,4.15,4.15,7.88,1.5,45.0,0.763,0.55,Chicago Bears
-401772966,2026-01-04,18,Atlanta Falcons,New Orleans Saints,24.3,22.2,2.2,46.5,4.87,3.8,4.31,7.6,-4.5,45.0,0.756,0.69,Atlanta Falcons
-401772967,2026-01-04,18,Buffalo Bills,New York Jets,23.2,15.2,8.0,38.4,5.54,3.85,4.76,8.28,-9.5,45.0,0.736,0.95,Buffalo Bills
-401772968,2026-01-04,18,Minnesota Vikings,Green Bay Packers,22.3,25.0,-2.7,47.4,4.24,4.3,4.73,7.11,1.2,44.5,0.737,0.26,Green Bay Packers
-401772969,2026-01-04,18,Tampa Bay Buccaneers,Carolina Panthers,25.9,22.5,3.4,48.4,4.27,4.15,4.32,7.23,-7.0,46.5,0.755,0.8,Tampa Bay Buccaneers
-401772970,2026-01-04,18,Jacksonville Jaguars,Tennessee Titans,20.0,16.7,3.4,36.7,4.7,4.82,4.73,8.26,-4.5,43.5,0.737,0.76,Jacksonville Jaguars
+game_id,date,time_slot,week,home_team,away_team,pred_home_score,pred_away_score,pred_spread,pred_total,vegas_spread,vegas_total,edge,is_playoff,home_ppg,away_ppg,home_form,away_form
+0,2025-01-13,MON 8:00 PM,WC,Vikings,Rams,18.7,25.3,6.5,44.0,-2.5,44.0,9.0,True,20.177596013944342,30.81165947316048,9.25,5.0
+0,2025-01-12,SUN 4:30 PM,WC,Eagles,Packers,22.7,21.3,-1.3,44.0,-4.5,44.0,3.2,True,22.27804702229264,22.585010601800445,9.0,-11.0
+0,2025-01-12,SUN 8:00 PM,WC,Buccaneers,Commanders,23.3,20.7,-2.6,44.0,3.0,44.0,-5.6,True,22.212094613877284,21.00628655453369,-1.25,-0.75
+0,2025-01-12,SUN 1:00 PM,WC,Bills,Broncos,24.6,19.4,-5.2,44.0,-8.5,44.0,3.3,True,28.177822601437185,23.50843404806472,8.25,4.25
+0,2025-01-11,SAT 8:00 PM,WC,Ravens,Steelers,24.8,19.2,-5.6,44.0,-9.5,44.0,3.9,True,25.10696207900482,23.04824823150891,8.75,3.25
+0,2025-01-11,SAT 4:30 PM,WC,Texans,Chargers,23.3,20.7,-2.7,44.0,-3.0,44.0,0.3,True,24.370723059803314,21.3125579554064,8.5,0.0
