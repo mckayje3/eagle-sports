@@ -1569,15 +1569,16 @@ def display_prediction_freshness(predictions_df, game_dates=None, is_past_games=
         st.error(f"Predictions generated: **{created_str}** ({days_old:.0f} days ago) - Predictions are stale, please refresh!")
 
 
-def display_top_picks(predictions_df, sport_emoji="🏈", max_picks=5, min_disagreement=5.0):
+def display_top_picks(predictions_df, sport_emoji="🏈", max_picks=5, min_disagreement=5.0, sport="NFL"):
     """
-    Display top picks where model disagrees most with Vegas.
+    Display 3-star plays based on sport-specific thresholds.
 
     Args:
         predictions_df: DataFrame with predictions and Vegas lines
         sport_emoji: Emoji for the sport
         max_picks: Maximum number of picks to show
-        min_disagreement: Minimum disagreement threshold in points
+        min_disagreement: Fallback threshold (used for NFL/CFB/NHL)
+        sport: Sport code for applying correct thresholds (NBA, CBB, NFL, CFB, NHL)
     """
     # Get column names based on sport (CBB uses different column names)
     spread_col = 'pred_spread' if 'pred_spread' in predictions_df.columns else 'predicted_spread'
@@ -1590,69 +1591,94 @@ def display_top_picks(predictions_df, sport_emoji="🏈", max_picks=5, min_disag
     if df.empty:
         return
 
-    # Calculate disagreement
-    # Both model and Vegas use same convention: away - home
-    # Negative = home favored, Positive = away favored
-    df['spread_disagreement'] = abs(df[spread_col] - df['vegas_spread'])
-    df['total_disagreement'] = abs(df[total_col] - df['vegas_total'])
-    df['max_disagreement'] = df[['spread_disagreement', 'total_disagreement']].max(axis=1)
+    # Calculate edges
+    df['spread_edge'] = abs(df[spread_col] - df['vegas_spread'])
+    df['total_edge'] = abs(df[total_col] - df['vegas_total'])
 
-    # Filter by minimum threshold and sort
-    top_picks = df[df['max_disagreement'] >= min_disagreement].nlargest(max_picks, 'max_disagreement')
+    # Sport-specific 3-star thresholds (based on backtest profitability)
+    # NBA: Spreads 6+ pts (62.7% ATS), Totals 4-6 pts (58.8% - sweet spot after fade)
+    # CBB: Spreads 6+ pts (71.9% ATS), Totals not profitable (skip)
+    # NFL/CFB: Spreads 5+ pts, Totals 8+ pts
+    # NHL: Spreads 1+ pts (puck line different)
 
-    if top_picks.empty:
-        return
+    three_star_picks = []
 
-    st.markdown("### 🎯 Top Picks - Model vs Vegas Disagreements")
-    st.caption(f"Games where model disagrees with Vegas by {min_disagreement}+ points")
-
-    for idx, row in top_picks.iterrows():
-        home_team = row.get('home_team', 'Home')
-        away_team = row.get('away_team', 'Away')
+    for idx, row in df.iterrows():
+        spread_edge = row['spread_edge']
+        total_edge = row['total_edge']
         model_spread = row[spread_col]
         vegas_spread = row['vegas_spread']
         model_total = row[total_col]
         vegas_total = row['vegas_total']
-        spread_diff = row['spread_disagreement']
-        total_diff = row['total_disagreement']
 
-        # Determine which disagreement is larger
-        if spread_diff >= total_diff:
-            # Spread is the bigger disagreement
-            # Both model_spread and vegas_spread are in Vegas convention (away - home)
-            # Negative = home favored, Positive = away favored
-            # If model_spread < vegas_spread, model has home winning by MORE (more negative)
-            if model_spread < vegas_spread:
-                # Model favors HOME more than Vegas
-                pick_team = home_team
-                pick_desc = f"Model: {model_spread:+.1f} vs Vegas: {vegas_spread:+.1f}"
-            else:
-                # Model favors AWAY more than Vegas
-                pick_team = away_team
-                pick_desc = f"Model: {model_spread:+.1f} vs Vegas: {vegas_spread:+.1f}"
-            disagreement_type = "Spread"
-            disagreement_val = spread_diff
+        # Check if this is a 3-star spread play
+        is_3star_spread = False
+        is_3star_total = False
+
+        if sport in ['NBA', 'CBB']:
+            # NBA/CBB: 6+ pt spread edge = 3 stars
+            is_3star_spread = spread_edge >= 6
+            # NBA: 4-6 pt total edge = 3 stars (sweet spot)
+            # CBB: totals not profitable, skip
+            if sport == 'NBA':
+                is_3star_total = 4 <= total_edge <= 6
+        elif sport == 'NHL':
+            is_3star_spread = spread_edge >= 1
+            is_3star_total = total_edge >= 2
         else:
-            # Total is the bigger disagreement
-            if model_total > vegas_total:
-                pick_desc = f"OVER {vegas_total:.1f} (Model: {model_total:.1f})"
-            else:
-                pick_desc = f"UNDER {vegas_total:.1f} (Model: {model_total:.1f})"
-            pick_team = ""
-            disagreement_type = "Total"
-            disagreement_val = total_diff
+            # NFL/CFB
+            is_3star_spread = spread_edge >= 5
+            is_3star_total = total_edge >= 8
 
-        # Display the pick
+        if is_3star_spread:
+            # Determine pick direction
+            if model_spread < vegas_spread:
+                pick_team = row.get('home_team', 'Home')
+            else:
+                pick_team = row.get('away_team', 'Away')
+            three_star_picks.append({
+                'away_team': row.get('away_team', 'Away'),
+                'home_team': row.get('home_team', 'Home'),
+                'pick_type': 'Spread',
+                'pick_team': pick_team,
+                'model_val': model_spread,
+                'vegas_val': vegas_spread,
+                'edge': spread_edge
+            })
+
+        if is_3star_total:
+            direction = "OVER" if model_total > vegas_total else "UNDER"
+            three_star_picks.append({
+                'away_team': row.get('away_team', 'Away'),
+                'home_team': row.get('home_team', 'Home'),
+                'pick_type': 'Total',
+                'direction': direction,
+                'model_val': model_total,
+                'vegas_val': vegas_total,
+                'edge': total_edge
+            })
+
+    if not three_star_picks:
+        st.info("No 3-star plays for today's games")
+        return
+
+    # Sort by edge and limit
+    three_star_picks = sorted(three_star_picks, key=lambda x: x['edge'], reverse=True)[:max_picks]
+
+    st.markdown("### ⭐⭐⭐ 3-Star Plays")
+    st.caption("Highest confidence picks based on backtest profitability")
+
+    for pick in three_star_picks:
         col1, col2, col3 = st.columns([3, 3, 1])
         with col1:
-            st.write(f"{sport_emoji} **{away_team}** @ **{home_team}**")
+            st.write(f"{sport_emoji} **{pick['away_team']}** @ **{pick['home_team']}**")
         with col2:
-            if disagreement_type == "Spread":
-                st.write(f"Spread: {pick_desc}")
+            if pick['pick_type'] == 'Spread':
+                st.write(f"**{pick['pick_team']}** (Model: {pick['model_val']:+.1f} vs Vegas: {pick['vegas_val']:+.1f})")
             else:
-                st.write(f"{pick_desc}")
+                st.write(f"**{pick['direction']} {pick['vegas_val']:.1f}** (Model: {pick['model_val']:.1f})")
         with col3:
-            st.write(f"**{disagreement_val:.1f}** pts")
+            st.write(f"**{pick['edge']:.1f}** pts")
 
     st.markdown("---")
 
@@ -1832,8 +1858,8 @@ def show_nba_predictions_live():
 
     st.markdown("---")
 
-    # Top Picks - Model vs Vegas Disagreements
-    display_top_picks(predictions_df, sport_emoji="🏀", max_picks=5, min_disagreement=5.0)
+    # 3-Star Plays section
+    display_top_picks(predictions_df, sport_emoji="🏀", max_picks=5, sport="NBA")
 
     # Filters
     col1, col2, col3 = st.columns(3)
@@ -2197,8 +2223,8 @@ def show_cbb_predictions_live():
 
     st.markdown("---")
 
-    # Top Picks - Model vs Vegas Disagreements (CBB uses pred_spread/pred_total columns)
-    display_top_picks(predictions_df, sport_emoji="🏀", max_picks=5, min_disagreement=5.0)
+    # 3-Star Plays section (CBB uses pred_spread/pred_total columns)
+    display_top_picks(predictions_df, sport_emoji="🏀", max_picks=5, sport="CBB")
 
     # Filters
     col1, col2, col3 = st.columns(3)
@@ -2510,8 +2536,8 @@ def show_nhl_predictions_live():
 
     st.markdown("---")
 
-    # Top Picks - Model vs Vegas Disagreements (lower threshold for hockey)
-    display_top_picks(predictions_df, sport_emoji="🏒", max_picks=5, min_disagreement=1.0)
+    # 3-Star Plays section
+    display_top_picks(predictions_df, sport_emoji="🏒", max_picks=5, sport="NHL")
 
     # Filters
     col1, col2 = st.columns(2)
@@ -2649,9 +2675,9 @@ def show_sport_predictions(sport: str, max_week: int, default_week: int):
 
     st.markdown("---")
 
-    # Top Picks - Model vs Vegas Disagreements
+    # 3-Star Plays section
     sport_emoji_top = "🏈" if sport == "NFL" else "🏟️"
-    display_top_picks(predictions_df, sport_emoji=sport_emoji_top, max_picks=5, min_disagreement=5.0)
+    display_top_picks(predictions_df, sport_emoji=sport_emoji_top, max_picks=5, sport=sport)
 
     # High Confidence Picks Section - fill NaN confidence with 0.85
     if 'confidence' in predictions_df.columns:
