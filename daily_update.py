@@ -7,6 +7,7 @@ Usage:
     python daily_update.py              # Auto-detect in-season sports
     python daily_update.py --all        # Force update all sports
     python daily_update.py --nba --nfl  # Force specific sports
+    python daily_update.py --nhl        # Force NHL only
     python daily_update.py --no-push    # Skip git push
     python daily_update.py --dry-run    # Show what would run without running
 """
@@ -91,6 +92,20 @@ def is_cbb_in_season() -> tuple[bool, str]:
     return False, f"Offseason (resumes Nov)"
 
 
+def is_nhl_in_season() -> tuple[bool, str]:
+    """
+    NHL regular season: Early October through mid-April
+    Playoffs: April through June
+    """
+    today = datetime.now()
+    month = today.month
+
+    # Oct 1 - June 30 is NHL season (includes playoffs)
+    if month >= 10 or month <= 6:
+        return True, "Regular season/Playoffs"
+    return False, f"Offseason (resumes Oct)"
+
+
 def get_active_sports(force_all=False, force_sports=None) -> dict:
     """Determine which sports should be updated today"""
 
@@ -99,6 +114,7 @@ def get_active_sports(force_all=False, force_sports=None) -> dict:
         'cbb': {'check': is_cbb_in_season, 'db': 'cbb_games.db'},
         'nfl': {'check': is_nfl_in_season, 'db': 'nfl_games.db'},
         'cfb': {'check': is_cfb_in_season, 'db': 'cfb_games.db'},
+        'nhl': {'check': is_nhl_in_season, 'db': 'nhl_games.db'},
     }
 
     active = {}
@@ -128,16 +144,70 @@ def update_game_results(sport: str, dry_run=False) -> bool:
         return False
 
 
+def scrape_basketball_games(sport: str, days: int = 7) -> int:
+    """
+    Scrape and insert new basketball games from ESPN.
+    CBB and NBA need games scraped before odds/predictions can be added.
+
+    Args:
+        sport: 'nba' or 'cbb'
+        days: Number of days forward to scrape
+
+    Returns:
+        Number of games added
+    """
+    from datetime import timedelta
+    import time
+
+    if sport == 'cbb':
+        from cbb_espn_scraper import CBBESPNScraper
+        scraper = CBBESPNScraper()
+        season = 2025  # Current season (2024-25)
+    else:
+        from nba_espn_scraper import NBAESPNScraper
+        scraper = NBAESPNScraper()
+        season = 2025
+
+    scraper.db.connect()
+
+    total_games = 0
+    today = datetime.now()
+
+    # Scrape today and next N days
+    for i in range(days + 1):
+        current_date = today + timedelta(days=i)
+        date_str = current_date.strftime('%Y%m%d')
+
+        try:
+            games = scraper.fetch_scoreboard(date_str)
+            if games:
+                for game in games:
+                    game['season'] = season
+                    scraper.db.insert_game(game)
+                total_games += len(games)
+        except Exception as e:
+            logger.warning(f"  Error scraping {sport.upper()} games for {date_str}: {e}")
+
+        time.sleep(0.1)  # Rate limiting
+
+    scraper.db.close()
+    return total_games
+
+
 def update_basketball(sport: str, dry_run=False) -> bool:
     """Update NBA or CBB"""
     logger.info(f"Updating {sport.upper()}...")
 
     if dry_run:
-        logger.info(f"  [DRY RUN] Would fetch results, odds, and update predictions")
+        logger.info(f"  [DRY RUN] Would scrape games, fetch results, odds, and update predictions")
         return True
 
     try:
-        # Update results first (get final scores for completed games)
+        # Scrape new/upcoming games first (ensures games exist before adding odds)
+        games_scraped = scrape_basketball_games(sport, days=7)
+        logger.info(f"  Games: {games_scraped} scraped/updated")
+
+        # Update results (get final scores for completed games)
         update_game_results(sport, dry_run)
 
         # Fetch odds
@@ -158,6 +228,36 @@ def update_basketball(sport: str, dry_run=False) -> bool:
         return success
     except Exception as e:
         logger.error(f"  Error updating {sport.upper()}: {e}")
+        return False
+
+
+def update_hockey(dry_run=False) -> bool:
+    """Update NHL (daily sport like NBA/CBB)"""
+    logger.info("Updating NHL...")
+
+    if dry_run:
+        logger.info("  [DRY RUN] Would fetch results, odds, and update predictions")
+        return True
+
+    try:
+        # Update results first (get final scores for completed games)
+        update_game_results('nhl', dry_run)
+
+        # Fetch odds
+        from espn_unified_odds import ESPNOddsScraper
+        scraper = ESPNOddsScraper('nhl')
+        found, saved = scraper.scrape_recent(days=7)
+        logger.info(f"  Odds: {saved}/{found} games updated")
+
+        # Update predictions
+        from update_predictions_nhl import update_predictions
+        success, df = update_predictions(days=7)
+        count = len(df) if df is not None else 0
+        logger.info(f"  Predictions: {count} games updated")
+
+        return success
+    except Exception as e:
+        logger.error(f"  Error updating NHL: {e}")
         return False
 
 
@@ -205,8 +305,13 @@ def update_football(sport: str, dry_run=False) -> bool:
         return False
 
 
-def push_to_cloud(dry_run=False) -> bool:
-    """Commit and push databases to GitHub"""
+def push_to_cloud(dry_run=False, failed_sports: list[str] | None = None) -> bool:
+    """Commit and push databases to GitHub.
+
+    Args:
+        dry_run: If True, don't actually push
+        failed_sports: List of sports that failed (for commit message)
+    """
     logger.info("Pushing to cloud...")
 
     if dry_run:
@@ -214,10 +319,18 @@ def push_to_cloud(dry_run=False) -> bool:
         return True
 
     try:
+        # Set environment variable to pass failure info to push_databases.py
+        env = None
+        if failed_sports:
+            import os
+            env = os.environ.copy()
+            env['SPORTS_UPDATE_FAILURES'] = ','.join(failed_sports)
+
         result = subprocess.run(
             ['python', 'push_databases.py'],
             capture_output=True, text=True,
-            cwd=Path(__file__).parent
+            cwd=Path(__file__).parent,
+            env=env
         )
         if result.returncode == 0:
             logger.info("  Successfully pushed to GitHub")
@@ -244,7 +357,7 @@ def main():
     dry_run = '--dry-run' in args
 
     force_sports = set()
-    for sport in ['nba', 'cbb', 'nfl', 'cfb']:
+    for sport in ['nba', 'cbb', 'nfl', 'cfb', 'nhl']:
         if f'--{sport}' in args:
             force_sports.add(sport)
 
@@ -271,15 +384,24 @@ def main():
 
         if sport in ['nba', 'cbb']:
             results[sport] = update_basketball(sport, dry_run)
+        elif sport == 'nhl':
+            results[sport] = update_hockey(dry_run)
         else:
             results[sport] = update_football(sport, dry_run)
 
-    # Push to cloud
+    # Push to cloud - but warn about partial failures
+    failed_sports = [s.upper() for s, success in results.items() if not success]
+    succeeded_sports = [s.upper() for s, success in results.items() if success]
+
     if not no_push and any(results.values()):
         logger.info("-" * 40)
-        push_to_cloud(dry_run)
+        if failed_sports:
+            logger.warning(f"Pushing with partial failures: {', '.join(failed_sports)} FAILED")
+        push_to_cloud(dry_run, failed_sports=failed_sports)
     elif no_push:
         logger.info("\nSkipping git push (--no-push flag)")
+    elif not results or not any(results.values()):
+        logger.warning("All sports failed - skipping git push")
 
     # Summary
     logger.info("")
@@ -297,6 +419,14 @@ def main():
 
     logger.info("")
     logger.info("Update complete!")
+
+    # Send notification on failures
+    if not dry_run and results:
+        try:
+            from notifications import notify_daily_summary
+            notify_daily_summary({k.upper(): v for k, v in results.items()})
+        except Exception as e:
+            logger.warning(f"Failed to send notification: {e}")
 
     return 0 if all(results.values()) else 1
 

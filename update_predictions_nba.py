@@ -3,10 +3,14 @@ Update NBA Predictions Script
 Fetches latest odds from ESPN and regenerates predictions.
 Called by the dashboard "Update Predictions" button.
 
-Uses Enhanced Ridge model (16 features for spread, 12 for total).
-Switched from Deep Eagle NN on 2026-01-02 after comparison showed:
-- Spread: Nearly equal (Ridge 11.26 vs NN ~11.7 MAE)
-- Totals: Ridge significantly better (bias +0.83 vs +2.56)
+Uses Deep Eagle model with post-prediction adjustments:
+- Big underdog adjustment (+1.5 pts for 10+ pt underdogs)
+- Struggling home adjustment (+1.5 pts toward road favorite)
+- Fade middle-edge favorites (2-6pt edges toward favorite -> flip)
+- Fade middle-edge totals (4-6pt edges -> flip)
+
+These adjustments improved backtest by +41 games and are required
+for the star rating calibration (6+ pts = 3-star at 62.7% ATS).
 
 Usage:
     py update_predictions_nba.py              # Update with latest odds
@@ -107,17 +111,17 @@ def check_missing_vegas_lines(days=7):
 
 
 def generate_predictions(days=7):
-    """Generate predictions using Enhanced Ridge model"""
+    """Generate predictions using Deep Eagle model with fade adjustments"""
     logger.info(f"Generating NBA predictions for next {days} days...")
 
     try:
-        from nba_ridge_model import NBARidgePredictor
+        from nba_predictor import NBAPredictor
 
-        predictor = NBARidgePredictor()
+        predictor = NBAPredictor()
 
         if predictor.model is None:
-            logger.warning("NBA Ridge model not loaded - no predictions generated")
-            logger.warning("Train the model first: py nba_ridge_model.py")
+            logger.warning("NBA Deep Eagle model not loaded - no predictions generated")
+            logger.warning("Check that models/deep_eagle_nba_2025.pt exists")
             return None
 
         predictions_df = predictor.predict_upcoming(days=days)
@@ -150,15 +154,23 @@ def save_to_database(predictions_df):
     for _, row in predictions_df.iterrows():
         game_id = int(row['game_id'])
 
+        # Get predicted spread and total (model outputs these directly)
+        pred_spread = row.get('pred_spread')
+        pred_total = row.get('pred_total')
+
         # Update existing odds_and_predictions row or insert new one
+        # Store both derived scores AND direct spread/total predictions
         cursor.execute('''
             INSERT INTO odds_and_predictions (game_id, predicted_home_score, predicted_away_score,
+                avg_pred_spread, avg_pred_total,
                 predicted_home_MOE, predicted_away_MOE, predicted_spread_MOE, predicted_total_MOE,
                 home_win_probability, confidence, prediction_created)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(game_id) DO UPDATE SET
                 predicted_home_score = excluded.predicted_home_score,
                 predicted_away_score = excluded.predicted_away_score,
+                avg_pred_spread = excluded.avg_pred_spread,
+                avg_pred_total = excluded.avg_pred_total,
                 predicted_home_MOE = excluded.predicted_home_MOE,
                 predicted_away_MOE = excluded.predicted_away_MOE,
                 predicted_spread_MOE = excluded.predicted_spread_MOE,
@@ -170,6 +182,8 @@ def save_to_database(predictions_df):
             game_id,
             row.get('pred_home_score'),
             row.get('pred_away_score'),
+            pred_spread,
+            pred_total,
             row.get('pred_home_MOE'),
             row.get('pred_away_MOE'),
             row.get('pred_spread_MOE'),
