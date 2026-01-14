@@ -159,14 +159,20 @@ def scrape_basketball_games(sport: str, days: int = 7) -> int:
     from datetime import timedelta
     import time
 
+    # Determine season based on current date
+    # NBA/CBB use ending year: 2025-26 season = 2026
+    today = datetime.now()
+    if today.month >= 10:  # Oct-Dec = next year's season
+        season = today.year + 1
+    else:  # Jan-Sept = current year's season
+        season = today.year
+
     if sport == 'cbb':
         from cbb_espn_scraper import CBBESPNScraper
         scraper = CBBESPNScraper()
-        season = 2025  # Current season (2024-25)
     else:
         from nba_espn_scraper import NBAESPNScraper
         scraper = NBAESPNScraper()
-        season = 2025
 
     scraper.db.connect()
 
