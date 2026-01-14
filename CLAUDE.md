@@ -91,14 +91,23 @@ edge = model_spread - vegas_spread
 # Positive edge → bet AWAY
 ```
 
-### Model Confidence Thresholds
-| Edge | Confidence |
-|------|------------|
-| >= 4 pts | HIGH (***) |
-| >= 2 pts | MEDIUM (**) |
-| >= 1 pt | LOW (*) |
+### NBA Post-Prediction Adjustments
+The NBA predictor applies automatic adjustments after model prediction:
 
-Totals edges need ~1.5x magnitude for equivalent confidence.
+1. **Big underdog** (+1.5 pts): When team is 10+ point underdog
+2. **Struggling home** (+1.5 pts): Road favorite vs struggling home team
+3. **Fade middle-edge favorites**: Model has 2-6pt edge toward favorite → flip to underdog
+4. **Fade middle-edge totals**: Model has 4-6pt edge → flip direction
+
+These adjustments improved backtest by +41 games (spreads +23, totals +18).
+
+### CBB Post-Prediction Adjustments
+The CBB predictor applies automatic adjustments after model prediction:
+
+1. **Big underdog** (+1.5 pts): When team is 10+ point underdog
+2. **Fade close game edges**: 6-8pt edges in close games (Vegas < 5) → flip the bet
+
+These adjustments improved backtest by +39 games. 6+ pt edges hit 71.9% ATS.
 
 ### Feature Naming
 - `*_ppg` = points per game
@@ -109,15 +118,25 @@ Totals edges need ~1.5x magnitude for equivalent confidence.
 
 ## Dashboard Features
 
+### 3-Star Plays Section
+Each sport page shows a "⭐⭐⭐ 3-Star Plays" section at the top highlighting only profitable picks based on backtest thresholds:
+
+| Sport | Spread Threshold | Total Threshold |
+|-------|------------------|-----------------|
+| NBA | 6+ pts (62.7% ATS) | 4-6 pts (58.8% - sweet spot) |
+| CBB | 6+ pts (71.9% ATS) | None (totals not profitable) |
+| NFL/CFB | 5+ pts | 8+ pts |
+| NHL | 1+ pts | 2+ pts |
+
 ### Unified Game Card Format
 All sports (NFL, CFB, NBA, CBB) use a consistent 3-row game card:
 ```
-Row 1: Away @ Home          | Date/Time     | ✓ (if completed)
+Row 1: Away @ Home          | 🕐 7:00 PM ET | ✓ (if completed)
 Row 2: Spread | Vegas: +X.X | Model: +X.X | Edge: +X.X → Pick | ⭐⭐⭐
 Row 3: Total  | Vegas: X.X  | Model: X.X  | Edge: +X.X → OVER/UNDER | ⭐⭐
 ```
 
-Games are sorted by edge magnitude (best picks first).
+Games are sorted by game time (earliest first). NBA/CBB show Eastern times.
 
 ### System Health Banner
 The dashboard shows a color-coded health banner:
@@ -140,11 +159,40 @@ During playoffs (Jan-Feb), select the playoff round to see predictions.
 Playoff predictions come from `predict_nfl_playoffs.py` and `nfl_playoff_predictions.csv`.
 
 ### Confidence Stars
+
+**NFL/CFB (standard thresholds):**
 | Spread Edge | Stars | Total Edge | Stars |
 |-------------|-------|------------|-------|
 | >= 5 pts | ⭐⭐⭐ | >= 8 pts | ⭐⭐⭐ |
 | >= 3 pts | ⭐⭐ | >= 5 pts | ⭐⭐ |
 | < 3 pts | ⭐ | < 5 pts | ⭐ |
+
+**NBA (after fade adjustments - profitability-based):**
+
+*Spreads:*
+| Edge | Stars | Win % | Profitable? |
+|------|-------|-------|-------------|
+| >= 6 pts | ⭐⭐⭐ | 62.7% | Yes |
+| < 6 pts | ⭐ | 51-52% | No (below 53% breakeven) |
+
+*Totals:*
+| Edge | Stars | Win % | Profitable? |
+|------|-------|-------|-------------|
+| 4-6 pts | ⭐⭐⭐ | 58.8% | Yes (best after fade) |
+| >= 6 pts | ⭐⭐ | 55.0% | Yes |
+| < 4 pts | ⭐ | 52.1% | No (below breakeven) |
+
+**CBB (after adjustments - profitability-based):**
+
+*Spreads:*
+| Edge | Stars | Win % | Profitable? |
+|------|-------|-------|-------------|
+| >= 6 pts | ⭐⭐⭐ | 71.9% | Yes (very!) |
+| < 6 pts | ⭐ | 50-52% | No (below breakeven) |
+
+*Totals:* All 1 star (~50% ATS, not profitable)
+
+Note: Breakeven at -110 vig is ~52.4%. Only 3-star and 2-star picks are profitable.
 
 ## Cloud Sync
 
