@@ -12,7 +12,7 @@ import hashlib
 import subprocess
 import os
 import requests
-from timezone_utils import now_eastern, today_eastern
+from timezone_utils import now_eastern, today_eastern, EASTERN, UTC
 from betting_tracker import BettingTracker
 from system_health import check_system_health, get_health_banner_html
 
@@ -22,6 +22,44 @@ try:
     FEEDPARSER_AVAILABLE = True
 except ImportError:
     FEEDPARSER_AVAILABLE = False
+# Helper function for game time display
+def format_game_time_eastern(utc_datetime_str: str) -> str:
+    """
+    Convert UTC datetime string to Eastern time display format.
+
+    Args:
+        utc_datetime_str: DateTime string like "2026-01-15T00:00Z" or "2026-01-15T01:30Z"
+
+    Returns:
+        Formatted time string like "7:00 PM ET" or "8:30 PM ET"
+    """
+    if not utc_datetime_str or pd.isna(utc_datetime_str):
+        return ""
+
+    try:
+        # Parse UTC datetime
+        utc_str = str(utc_datetime_str).replace('Z', '+00:00')
+        if '+' not in utc_str and 'T' in utc_str:
+            utc_str = utc_str + '+00:00'
+
+        dt = datetime.fromisoformat(utc_str.replace('Z', '+00:00'))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+
+        # Convert to Eastern
+        eastern_dt = dt.astimezone(EASTERN)
+
+        # Format as time only (e.g., "7:00 PM ET")
+        # Use %I and strip leading zero for Windows compatibility
+        try:
+            return eastern_dt.strftime('%-I:%M %p ET')
+        except ValueError:
+            # Windows doesn't support %-I
+            return eastern_dt.strftime('%I:%M %p ET').lstrip('0')
+    except Exception:
+        return ""
+
+
 # Helper functions for calculating current sports weeks
 def get_current_nfl_week():
     """
@@ -583,7 +621,7 @@ def show_overview(user, db_stats):
 
 
 def show_predictions():
-    """Show predictions page with CFB, NFL, and NBA tabs"""
+    """Show predictions page with CFB, NFL, NBA, CBB, and NHL tabs"""
     st.markdown('<p class="main-header">View Predictions</p>', unsafe_allow_html=True)
 
     # Initialize sport selection in session state if not exists
@@ -591,7 +629,7 @@ def show_predictions():
         st.session_state.selected_sport = "College Football"
 
     # Sport selector that persists across reruns
-    sport_options = ["College Football", "NFL", "NBA", "College Basketball"]
+    sport_options = ["College Football", "NFL", "NBA", "College Basketball", "NHL"]
     selected_sport = st.radio(
         "Select Sport",
         sport_options,
@@ -612,6 +650,8 @@ def show_predictions():
         show_nfl_predictions()
     elif selected_sport == "NBA":
         show_nba_predictions_live()
+    elif selected_sport == "NHL":
+        show_nhl_predictions_live()
     else:
         show_cbb_predictions_live()
 
@@ -1042,6 +1082,34 @@ def run_cbb_predictions_update(days: int = 7):
             if upcoming == 0:
                 return False, "No upcoming CBB games in database - schedule may need updating"
             return False, "Failed to generate CBB predictions - check logs for details"
+    except ImportError as e:
+        return False, f"Import error: {str(e)}"
+    except Exception as e:
+        import traceback
+        return False, f"Error: {str(e)}\n{traceback.format_exc()[:200]}"
+
+
+def run_nhl_predictions_update(days: int = 7):
+    """Run the NHL predictions update - calls module directly"""
+    try:
+        from update_predictions_nhl import update_predictions
+        success, predictions_df = update_predictions(days=days)
+        if success:
+            count = len(predictions_df) if predictions_df is not None else 0
+            return True, f"NHL predictions updated! ({count} games)"
+        else:
+            # Check for no upcoming games
+            conn = sqlite3.connect('nhl_games.db')
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT COUNT(*) FROM games
+                WHERE completed = 0 AND game_date_eastern >= date('now')
+            """)
+            upcoming = cursor.fetchone()[0]
+            conn.close()
+            if upcoming == 0:
+                return False, "No upcoming NHL games in database - schedule may need updating"
+            return False, "Failed to generate NHL predictions - check logs for details"
     except ImportError as e:
         return False, f"Import error: {str(e)}"
     except Exception as e:
@@ -1831,14 +1899,14 @@ def show_nba_predictions_live():
         if pd.isna(pred_spread):
             pred_spread = 0
 
-        # Spread confidence stars (NBA uses 5/3 thresholds)
+        # Spread confidence stars (NBA - with fade adjustments applied)
+        # Backtest after fades: 6+pts = 62.7%, <6pts = 51-52% (below breakeven)
+        # Breakeven at -110 vig is ~52.4%, profitable threshold is 53%
         abs_edge = abs(edge)
-        if abs_edge >= 5:
-            conf_stars = "⭐⭐⭐"
-        elif abs_edge >= 3:
-            conf_stars = "⭐⭐"
+        if abs_edge >= 6:
+            conf_stars = "⭐⭐⭐"  # 62.7% - very profitable
         else:
-            conf_stars = "⭐"
+            conf_stars = "⭐"      # <53% - below breakeven
 
         # Pick direction
         if edge > 0:
@@ -1864,22 +1932,25 @@ def show_nba_predictions_live():
         total_edge = pred_total - vegas_total if vegas_total else 0
         total_pick = f"OVER {vegas_total:.1f}" if total_edge > 0 else f"UNDER {vegas_total:.1f}"
 
-        # Total confidence stars (NBA uses 8/5 thresholds for totals)
+        # Total confidence stars (NBA - with fade adjustments applied)
+        # Backtest after fades: 4-6pts = 58.8%, 6+pts = 55%, <4pts = 52.1%
+        # Breakeven at -110 vig is ~52.4%, profitable threshold is 53%
         abs_total_edge = abs(total_edge)
-        if abs_total_edge >= 8:
-            total_stars = "⭐⭐⭐"
-        elif abs_total_edge >= 5:
-            total_stars = "⭐⭐"
+        if 4 <= abs_total_edge < 6:
+            total_stars = "⭐⭐⭐"  # 58.8% - very profitable (faded middle)
+        elif abs_total_edge >= 6:
+            total_stars = "⭐⭐"    # 55% - profitable
         else:
-            total_stars = "⭐"
+            total_stars = "⭐"      # 52.1% - below breakeven
 
         # Check if game is completed
-        game_date = str(row.get('game_date', ''))[:10]
+        game_date_raw = row.get('game_date', '')
+        game_time = format_game_time_eastern(game_date_raw)
         is_completed = row.get('game_completed', 0) == 1
 
         # Game card - 3-row format
         with st.container():
-            # Row 1: Matchup | Date/Time | Result
+            # Row 1: Matchup | Time | Result
             cols1 = st.columns([3, 3, 2])
             with cols1[0]:
                 if is_completed:
@@ -1887,10 +1958,12 @@ def show_nba_predictions_live():
                 else:
                     st.markdown(f"**{row['away_team']} @ {row['home_team']}**")
             with cols1[1]:
-                st.caption(f"{game_date}")
-            with cols1[2]:
                 if is_completed:
                     st.caption("Final")
+                elif game_time:
+                    st.caption(f"🕐 {game_time}")
+            with cols1[2]:
+                pass  # Reserved for future use
 
             # Row 2: Spread | Vegas | Model | Edge | Pick | Stars
             cols2 = st.columns([1, 2, 2, 2, 1])
@@ -2005,8 +2078,8 @@ def show_cbb_predictions_live():
                 g.away_score as actual_away_score,
                 o.predicted_home_score as pred_home_score,
                 o.predicted_away_score as pred_away_score,
-                (o.predicted_away_score - o.predicted_home_score) as pred_spread,
-                (o.predicted_home_score + o.predicted_away_score) as pred_total,
+                COALESCE(o.avg_pred_spread, o.predicted_away_score - o.predicted_home_score) as pred_spread,
+                COALESCE(o.avg_pred_total, o.predicted_home_score + o.predicted_away_score) as pred_total,
                 o.confidence,
                 COALESCE(o.latest_spread, o.opening_spread) as vegas_spread,
                 COALESCE(o.latest_total, o.opening_total) as vegas_total
@@ -2188,14 +2261,13 @@ def show_cbb_predictions_live():
         if pd.isna(pred_spread):
             pred_spread = 0
 
-        # Spread confidence stars (CBB uses 5/3 thresholds)
+        # Spread confidence stars (CBB - with fade adjustments applied)
+        # Backtest: 6+ pt edges hit 55.7% (profitable), everything else ~51% (below breakeven)
         abs_edge = abs(edge)
-        if abs_edge >= 5:
-            conf_stars = "⭐⭐⭐"
-        elif abs_edge >= 3:
-            conf_stars = "⭐⭐"
+        if abs_edge >= 6:
+            conf_stars = "⭐⭐⭐"  # 55.7% - profitable
         else:
-            conf_stars = "⭐"
+            conf_stars = "⭐"      # ~51-52% - below breakeven
 
         # Pick direction
         if edge > 0:
@@ -2221,22 +2293,18 @@ def show_cbb_predictions_live():
         total_edge = pred_total - vegas_total if vegas_total else 0
         total_pick = f"OVER {vegas_total:.1f}" if total_edge > 0 else f"UNDER {vegas_total:.1f}"
 
-        # Total confidence stars (CBB uses 8/5 thresholds for totals)
-        abs_total_edge = abs(total_edge)
-        if abs_total_edge >= 8:
-            total_stars = "⭐⭐⭐"
-        elif abs_total_edge >= 5:
-            total_stars = "⭐⭐"
-        else:
-            total_stars = "⭐"
+        # Total confidence stars (CBB - totals not profitable, all 1 star)
+        # Backtest: 49.8% overall, no strong patterns - below breakeven
+        total_stars = "⭐"
 
         # Check if game is completed
-        game_date = str(row.get('game_date', ''))[:10]
+        game_date_raw = row.get('game_date', '')
+        game_time = format_game_time_eastern(game_date_raw)
         is_completed = row.get('completed', 0) == 1
 
         # Game card - 3-row format
         with st.container():
-            # Row 1: Matchup | Date/Time | Result
+            # Row 1: Matchup | Time | Result
             cols1 = st.columns([3, 3, 2])
             with cols1[0]:
                 if is_completed:
@@ -2244,10 +2312,12 @@ def show_cbb_predictions_live():
                 else:
                     st.markdown(f"**{row['away_team']} @ {row['home_team']}**")
             with cols1[1]:
-                st.caption(f"{game_date}")
-            with cols1[2]:
                 if is_completed:
                     st.caption("Final")
+                elif game_time:
+                    st.caption(f"🕐 {game_time}")
+            with cols1[2]:
+                pass  # Reserved for future use
 
             # Row 2: Spread | Vegas | Model | Edge | Pick | Stars
             cols2 = st.columns([1, 2, 2, 2, 1])
@@ -2276,6 +2346,196 @@ def show_cbb_predictions_live():
                 st.caption(total_stars)
 
             st.markdown("---")
+
+
+def show_nhl_predictions_live():
+    """Show live NHL predictions for 2024-25 season"""
+    st.markdown("### 🏒 NHL 2024-25 Predictions")
+
+    # NHL season = year it starts (2024 = Oct 2024 - Jun 2025)
+    season = 2024
+
+    from datetime import timedelta
+
+    # Calendar-style date picker (3 days before, today, 3 days after)
+    today = today_eastern()
+
+    st.markdown("**Select Date:**")
+    date_cols = st.columns(7)
+
+    if 'nhl_selected_date' not in st.session_state:
+        st.session_state.nhl_selected_date = today
+
+    for i, col in enumerate(date_cols):
+        date = today + timedelta(days=i - 3)
+        day_name = date.strftime('%a')
+        day_num = date.strftime('%d')
+        month = date.strftime('%b')
+
+        if date == today:
+            label = f"Today\n{month} {day_num}"
+        else:
+            label = f"{day_name}\n{month} {day_num}"
+
+        with col:
+            is_selected = st.session_state.nhl_selected_date == date
+            if st.button(label, key=f"nhl_date_{i}", use_container_width=True,
+                        type="primary" if is_selected else "secondary"):
+                st.session_state.nhl_selected_date = date
+                st.rerun()
+
+    selected_date = st.session_state.nhl_selected_date
+
+    st.caption(f"📅 Today (Eastern): {today} | Selected: {selected_date}")
+
+    col1, col2 = st.columns([1, 1])
+
+    with col1:
+        if st.button("🔄 Refresh", use_container_width=True, key="nhl_refresh"):
+            st.cache_data.clear()
+            st.rerun()
+
+    with col2:
+        if st.button("📊 Update Predictions", use_container_width=True, key="nhl_update"):
+            with st.spinner("Fetching latest odds and updating predictions..."):
+                success, msg = run_nhl_predictions_update(days=7)
+                if success:
+                    st.session_state['nhl_last_update'] = datetime.now().isoformat()
+                    st.success(msg)
+                    st.cache_data.clear()
+                    st.rerun()
+                else:
+                    st.error(msg)
+
+    date_str = selected_date.strftime('%Y-%m-%d')
+
+    # Fetch NHL games for the selected date
+    try:
+        conn = sqlite3.connect('nhl_games.db')
+        query = """
+            SELECT
+                g.game_id,
+                g.date as game_date,
+                g.season,
+                ht.display_name as home_team,
+                at.display_name as away_team,
+                g.completed as game_completed,
+                g.home_score as actual_home_score,
+                g.away_score as actual_away_score,
+                o.predicted_home_score,
+                o.predicted_away_score,
+                (o.predicted_away_score - o.predicted_home_score) as predicted_spread,
+                (o.predicted_home_score + o.predicted_away_score) as predicted_total,
+                o.confidence,
+                COALESCE(o.latest_spread, o.opening_spread) as vegas_spread,
+                COALESCE(o.latest_total, o.opening_total) as vegas_total
+            FROM games g
+            JOIN teams ht ON g.home_team_id = ht.team_id
+            JOIN teams at ON g.away_team_id = at.team_id
+            LEFT JOIN odds_and_predictions o ON g.game_id = o.game_id
+            WHERE g.season = ? AND g.game_date_eastern = ?
+            ORDER BY g.date
+        """
+        predictions_df = pd.read_sql_query(query, conn, params=(season, date_str))
+        conn.close()
+    except Exception as e:
+        st.error(f"Error loading games: {e}")
+        predictions_df = pd.DataFrame()
+
+    if predictions_df.empty:
+        st.info(f"No games scheduled for {selected_date.strftime('%B %d, %Y')}")
+
+        # Show games on other days
+        try:
+            conn = sqlite3.connect('nhl_games.db')
+            other_games_query = """
+                SELECT game_date_eastern as game_day, COUNT(*) as count
+                FROM games
+                WHERE season = ? AND game_date_eastern IS NOT NULL
+                GROUP BY game_date_eastern
+                ORDER BY game_day DESC
+                LIMIT 14
+            """
+            other_df = pd.read_sql_query(other_games_query, conn, params=(season,))
+            conn.close()
+
+            if not other_df.empty:
+                st.markdown("**Games available on other days:**")
+                for _, row in other_df.iterrows():
+                    game_day = pd.to_datetime(row['game_day']).strftime('%a %b %d')
+                    st.write(f"• {game_day}: {row['count']} games")
+        except Exception as e:
+            st.warning(f"Could not load other games: {e}")
+        return
+
+    st.markdown(f"### 🏒 Games for {selected_date.strftime('%A, %B %d, %Y')}")
+    st.info(f"**{len(predictions_df)} games** scheduled")
+
+    is_past_games = selected_date < today_eastern()
+
+    display_prediction_freshness(predictions_df, is_past_games=is_past_games, sport='NHL')
+
+    if 'confidence' not in predictions_df.columns:
+        predictions_df['confidence'] = 0.5
+    else:
+        predictions_df['confidence'] = predictions_df['confidence'].fillna(0.5)
+
+    # Summary stats
+    games_with_preds = predictions_df[predictions_df['predicted_spread'].notna()]
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        avg_total = games_with_preds['predicted_total'].mean() if len(games_with_preds) > 0 else 0
+        st.metric("Avg Total Goals", f"{avg_total:.1f}")
+
+    with col2:
+        avg_spread = games_with_preds['predicted_spread'].abs().mean() if len(games_with_preds) > 0 else 0
+        st.metric("Avg Puck Line", f"{avg_spread:.2f}")
+
+    with col3:
+        close_games = (games_with_preds['predicted_spread'].abs() < 1.5).sum() if len(games_with_preds) > 0 else 0
+        st.metric("Close Games (<1.5)", close_games)
+
+    with col4:
+        avg_conf = games_with_preds['confidence'].mean() if len(games_with_preds) > 0 else 0.5
+        st.metric("Avg Confidence", f"{avg_conf:.0%}")
+
+    st.markdown("---")
+
+    # Top Picks - Model vs Vegas Disagreements (lower threshold for hockey)
+    display_top_picks(predictions_df, sport_emoji="🏒", max_picks=5, min_disagreement=1.0)
+
+    # Filters
+    col1, col2 = st.columns(2)
+
+    with col1:
+        status_filter = st.selectbox("Status", ["All", "Pending", "Completed"], key="nhl_status")
+
+    with col2:
+        spread_filter = st.selectbox("Spread Size",
+                                     ["All", "Close (<1.5)", "Medium (1.5-3)", "Large (>3)"], key="nhl_spread_filter")
+
+    # Apply filters
+    filtered_df = predictions_df.copy()
+
+    if status_filter == "Pending":
+        filtered_df = filtered_df[filtered_df['game_completed'] == 0]
+    elif status_filter == "Completed":
+        filtered_df = filtered_df[filtered_df['game_completed'] == 1]
+
+    if spread_filter == "Close (<1.5)":
+        filtered_df = filtered_df[filtered_df['predicted_spread'].abs() < 1.5]
+    elif spread_filter == "Medium (1.5-3)":
+        filtered_df = filtered_df[(filtered_df['predicted_spread'].abs() >= 1.5) &
+                                  (filtered_df['predicted_spread'].abs() < 3)]
+    elif spread_filter == "Large (>3)":
+        filtered_df = filtered_df[filtered_df['predicted_spread'].abs() >= 3]
+
+    st.markdown(f"**Showing {len(filtered_df)} games**")
+
+    # Display game cards
+    for _, row in filtered_df.iterrows():
+        display_game_card(row, sport_emoji="🏒")
 
 
 def show_sport_predictions(sport: str, max_week: int, default_week: int):
