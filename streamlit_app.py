@@ -1875,13 +1875,16 @@ def show_nba_predictions_live():
 
     st.markdown(f"### Showing {len(filtered_df)} predictions")
 
-    # Calculate edge and sort by magnitude
+    # Calculate edge
     filtered_df = filtered_df.copy()
     if 'predicted_spread' in filtered_df.columns and 'vegas_spread' in filtered_df.columns:
         filtered_df['edge'] = filtered_df['predicted_spread'] - filtered_df['vegas_spread']
     else:
         filtered_df['edge'] = 0
-    filtered_df = filtered_df.sort_values('edge', key=abs, ascending=False)
+
+    # Sort by game time (earliest first)
+    if 'game_date' in filtered_df.columns:
+        filtered_df = filtered_df.sort_values('game_date')
 
     today_str = today_eastern().strftime('%Y-%m-%d')
 
@@ -2237,17 +2240,21 @@ def show_cbb_predictions_live():
 
     st.markdown(f"### Showing {len(filtered_df)} predictions")
 
-    # Calculate edge and sort by magnitude
+    # Calculate edge
     filtered_df = filtered_df.copy()
     if 'pred_spread' in filtered_df.columns and 'vegas_spread' in filtered_df.columns:
         filtered_df['edge'] = filtered_df['pred_spread'] - filtered_df['vegas_spread']
     else:
         filtered_df['edge'] = 0
-    filtered_df = filtered_df.sort_values('edge', key=abs, ascending=False)
+
+    # Sort by game time (earliest first)
+    # CBB uses 'date' column for full UTC datetime
+    if 'date' in filtered_df.columns:
+        filtered_df = filtered_df.sort_values('date')
 
     today_str = today_eastern().strftime('%Y-%m-%d')
 
-    # Display predictions using 3-row format
+    # Display predictions using 3-row format (CBB)
     for _, row in filtered_df.iterrows():
         edge = row.get('edge', 0)
         vegas_spread = row.get('vegas_spread', 0)
@@ -2298,7 +2305,8 @@ def show_cbb_predictions_live():
         total_stars = "⭐"
 
         # Check if game is completed
-        game_date_raw = row.get('game_date', '')
+        # CBB query uses 'date' column (not 'game_date') for the full UTC datetime
+        game_date_raw = row.get('date', '')
         game_time = format_game_time_eastern(game_date_raw)
         is_completed = row.get('completed', 0) == 1
 
