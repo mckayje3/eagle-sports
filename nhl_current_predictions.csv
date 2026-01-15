@@ -1,10 +1,11 @@
 game_id,date,home_team,away_team,pred_spread,pred_total,vegas_spread,vegas_total,edge,completed
-401803067,2026-01-12,Buffalo Sabres,Florida Panthers,0.17,6.54,-1.5,6.5,1.67,0
-401803069,2026-01-12,New York Rangers,Seattle Kraken,0.17,6.54,-1.5,5.5,1.67,0
-401803071,2026-01-12,Montreal Canadiens,Vancouver Canucks,0.17,6.54,-1.5,6.5,1.67,0
-401803074,2026-01-12,Colorado Avalanche,Toronto Maple Leafs,0.17,6.54,-1.5,6.5,1.67,0
-401803072,2026-01-12,Minnesota Wild,New Jersey Devils,0.17,6.54,-1.5,5.5,1.67,0
-401803070,2026-01-12,Philadelphia Flyers,Tampa Bay Lightning,0.17,6.54,1.5,6.5,-1.33,0
-401803068,2026-01-12,Detroit Red Wings,Carolina Hurricanes,0.17,6.54,1.5,6.5,-1.33,0
-401803073,2026-01-12,Chicago Blackhawks,Edmonton Oilers,0.17,6.54,1.5,6.5,-1.33,0
-401803075,2026-01-12,Los Angeles Kings,Dallas Stars,0.17,6.54,1.5,5.5,-1.33,0
+401803091,2026-01-15,Buffalo Sabres,Montreal Canadiens,0.32,6.54,1.5,6.5,-1.18,0
+401803092,2026-01-15,Pittsburgh Penguins,Philadelphia Flyers,0.32,6.54,-1.5,6.5,1.82,0
+401803093,2026-01-15,Washington Capitals,San Jose Sharks,0.32,6.54,-1.5,6.5,1.82,0
+401803094,2026-01-15,Columbus Blue Jackets,Vancouver Canucks,0.32,6.54,-1.5,6.5,1.82,0
+401803090,2026-01-15,Boston Bruins,Seattle Kraken,0.32,6.54,-1.5,5.5,1.82,0
+401803095,2026-01-15,Minnesota Wild,Winnipeg Jets,0.32,6.54,-1.5,5.5,1.82,0
+401803096,2026-01-15,Chicago Blackhawks,Calgary Flames,0.32,6.54,-1.5,6.5,1.82,0
+401803097,2026-01-15,Utah Mammoth,Dallas Stars,0.32,6.54,-1.5,5.5,1.82,0
+401803098,2026-01-15,Edmonton Oilers,New York Islanders,0.32,6.54,-1.5,6.5,1.82,0
+401803099,2026-01-15,Vegas Golden Knights,Toronto Maple Leafs,0.32,6.54,-1.5,6.5,1.82,0
