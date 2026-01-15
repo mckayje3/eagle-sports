@@ -2408,8 +2408,8 @@ def show_nhl_predictions_live():
     """Show live NHL predictions for 2024-25 season"""
     st.markdown("### 🏒 NHL 2024-25 Predictions")
 
-    # NHL season = year it starts (2024 = Oct 2024 - Jun 2025)
-    season = 2024
+    # NHL season = year it ends (2025 = Oct 2024 - Jun 2025)
+    season = 2025
 
     from datetime import timedelta
 
