@@ -361,7 +361,7 @@ def get_predictions_from_db(week: int, sport: str = 'CFB', season: int = 2025):
 
         # NFL and CFB have slightly different schemas
         if sport.upper() == 'NFL':
-            # NFL doesn't have confidence column
+            # NFL: Use avg_pred_spread/total which include post-prediction adjustments
             query = """
                 SELECT
                     g.game_id,
@@ -375,8 +375,8 @@ def get_predictions_from_db(week: int, sport: str = 'CFB', season: int = 2025):
                     g.away_score as actual_away_score,
                     o.predicted_home_score,
                     o.predicted_away_score,
-                    (o.predicted_away_score - o.predicted_home_score) as predicted_spread,
-                    (o.predicted_home_score + o.predicted_away_score) as predicted_total,
+                    COALESCE(o.avg_pred_spread, o.predicted_away_score - o.predicted_home_score) as predicted_spread,
+                    COALESCE(o.avg_pred_total, o.predicted_home_score + o.predicted_away_score) as predicted_total,
                     NULL as confidence,
                     COALESCE(o.latest_spread, o.opening_spread) as vegas_spread,
                     COALESCE(o.latest_total, o.opening_total) as vegas_total,
@@ -736,6 +736,22 @@ def show_nfl_predictions():
             st.warning("No playoff predictions available.")
             return
 
+        # Map round name to CSV week code
+        round_to_week = {
+            "Wild Card": "WC",
+            "Divisional": "DIV",
+            "Conference": "CONF",
+            "Super Bowl": "SB"
+        }
+        week_code = round_to_week.get(selected, "")
+
+        # Filter by the selected round
+        predictions_df = predictions_df[predictions_df['week'] == week_code]
+
+        if predictions_df.empty:
+            st.info(f"No {selected} predictions available yet. Games for this round haven't been added.")
+            return
+
         # Show all games in the round (don't filter by date - playoffs span multiple days)
         today_str = today_eastern().strftime('%Y-%m-%d')
         upcoming = predictions_df[predictions_df['date'] >= today_str]
@@ -755,14 +771,14 @@ def show_nfl_predictions():
             vegas_spread = row.get('vegas_spread', 0)
             pred_spread = row.get('pred_spread', 0)
 
-            # Confidence stars
+            # Spread confidence stars (NFL - with Deep Eagle adjustments)
+            # Backtest: 5+ pt edges hit 58.4% ATS (profitable), <5 pts = ~52% (below breakeven)
+            # Breakeven at -110 vig is ~52.4%
             abs_edge = abs(edge)
-            if abs_edge >= 4:
-                conf_stars = "⭐⭐⭐"
-            elif abs_edge >= 2:
-                conf_stars = "⭐⭐"
+            if abs_edge >= 5:
+                conf_stars = "⭐⭐⭐"  # 58.4% - profitable
             else:
-                conf_stars = "⭐"
+                conf_stars = "⭐"      # <53% - below breakeven
 
             # Pick direction
             if edge > 0:
@@ -788,11 +804,12 @@ def show_nfl_predictions():
             total_edge = pred_total - vegas_total if vegas_total else 0
             total_pick = f"OVER {vegas_total:.1f}" if total_edge > 0 else f"UNDER {vegas_total:.1f}"
 
-            # Total confidence stars
+            # Total confidence stars (NFL - Deep Eagle totals less reliable)
+            # Keep higher thresholds for totals
             abs_total_edge = abs(total_edge)
-            if abs_total_edge >= 5:
+            if abs_total_edge >= 7:
                 total_stars = "⭐⭐⭐"
-            elif abs_total_edge >= 3:
+            elif abs_total_edge >= 4:
                 total_stars = "⭐⭐"
             else:
                 total_stars = "⭐"
@@ -903,14 +920,14 @@ def _display_nfl_regular_season(predictions_df, week: int):
         if pd.isna(pred_spread):
             pred_spread = 0
 
-        # Confidence stars
+        # Spread confidence stars (NFL - with Deep Eagle adjustments)
+        # Backtest: 5+ pt edges hit 58.4% ATS (profitable), <5 pts = ~52% (below breakeven)
+        # Breakeven at -110 vig is ~52.4%
         abs_edge = abs(edge)
-        if abs_edge >= 4:
-            conf_stars = "⭐⭐⭐"
-        elif abs_edge >= 2:
-            conf_stars = "⭐⭐"
+        if abs_edge >= 5:
+            conf_stars = "⭐⭐⭐"  # 58.4% - profitable
         else:
-            conf_stars = "⭐"
+            conf_stars = "⭐"      # <53% - below breakeven
 
         # Pick direction
         if edge > 0:
@@ -936,11 +953,12 @@ def _display_nfl_regular_season(predictions_df, week: int):
         total_edge = pred_total - vegas_total if vegas_total else 0
         total_pick = f"OVER {vegas_total:.1f}" if total_edge > 0 else f"UNDER {vegas_total:.1f}"
 
-        # Total confidence stars
+        # Total confidence stars (NFL - Deep Eagle totals less reliable)
+        # Keep higher thresholds for totals
         abs_total_edge = abs(total_edge)
-        if abs_total_edge >= 5:
+        if abs_total_edge >= 7:
             total_stars = "⭐⭐⭐"
-        elif abs_total_edge >= 3:
+        elif abs_total_edge >= 4:
             total_stars = "⭐⭐"
         else:
             total_stars = "⭐"
@@ -1121,6 +1139,7 @@ def sync_nfl_predictions_to_cache():
     """Sync NFL predictions from nfl_games.db to users.db prediction_cache"""
     try:
         # Read from nfl_games.db odds_and_predictions table (authoritative source)
+        # Use avg_pred_spread/total which include post-prediction adjustments
         nfl_conn = sqlite3.connect('nfl_games.db')
         predictions_query = '''
             SELECT
@@ -1130,8 +1149,8 @@ def sync_nfl_predictions_to_cache():
                 g.date as game_date,
                 ht.display_name as home_team,
                 at.display_name as away_team,
-                (o.predicted_away_score - o.predicted_home_score) as predicted_spread,
-                (o.predicted_home_score + o.predicted_away_score) as predicted_total,
+                COALESCE(o.avg_pred_spread, o.predicted_away_score - o.predicted_home_score) as predicted_spread,
+                COALESCE(o.avg_pred_total, o.predicted_home_score + o.predicted_away_score) as predicted_total,
                 o.predicted_home_score,
                 o.predicted_away_score,
                 0.5 as home_win_probability,
@@ -1623,8 +1642,10 @@ def display_top_picks(predictions_df, sport_emoji="🏈", max_picks=5, min_disag
             if sport == 'NBA':
                 is_3star_total = 4 <= total_edge <= 6
         elif sport == 'NHL':
-            is_3star_spread = spread_edge >= 1
-            is_3star_total = total_edge >= 2
+            # NHL backtest (720 games): 1+ goal edge = 65% ATS (+24% ROI)
+            # Totals only 53.5% (not profitable) - skip total 3-star plays
+            is_3star_spread = spread_edge >= 1.0
+            is_3star_total = False  # NHL totals not profitable
         else:
             # NFL/CFB
             is_3star_spread = spread_edge >= 5
@@ -1757,6 +1778,7 @@ def show_nba_predictions_live():
     date_str = selected_date.strftime('%Y-%m-%d')
 
     # Fetch ALL NBA games for the selected date (with predictions if available)
+    # Use avg_pred_spread/total which include post-prediction adjustments (big underdog, fade, etc.)
     try:
         conn = sqlite3.connect('nba_games.db')
         query = """
@@ -1771,8 +1793,8 @@ def show_nba_predictions_live():
                 g.away_score as actual_away_score,
                 o.predicted_home_score,
                 o.predicted_away_score,
-                (o.predicted_away_score - o.predicted_home_score) as predicted_spread,
-                (o.predicted_home_score + o.predicted_away_score) as predicted_total,
+                COALESCE(o.avg_pred_spread, o.predicted_away_score - o.predicted_home_score) as predicted_spread,
+                COALESCE(o.avg_pred_total, o.predicted_home_score + o.predicted_away_score) as predicted_total,
                 o.confidence,
                 COALESCE(o.latest_spread, o.opening_spread) as vegas_spread,
                 COALESCE(o.latest_total, o.opening_total) as vegas_total
@@ -2567,9 +2589,102 @@ def show_nhl_predictions_live():
 
     st.markdown(f"**Showing {len(filtered_df)} games**")
 
-    # Display game cards
+    # Display NHL game cards with star ratings
     for _, row in filtered_df.iterrows():
-        display_game_card(row, sport_emoji="🏒")
+        # Spreads
+        pred_spread = row.get('predicted_spread', 0)
+        vegas_spread = row.get('vegas_spread', 0)
+        edge = pred_spread - vegas_spread if vegas_spread else 0
+        if pd.isna(edge):
+            edge = 0
+        if pd.isna(vegas_spread):
+            vegas_spread = 0
+        if pd.isna(pred_spread):
+            pred_spread = 0
+
+        # Spread confidence stars (NHL backtest: 1+ goal edge = 65% ATS, else ~52%)
+        abs_edge = abs(edge)
+        if abs_edge >= 1.0:
+            conf_stars = "⭐⭐⭐"  # 65% ATS - very profitable
+        else:
+            conf_stars = "⭐"      # ~52% - below breakeven
+
+        # Pick direction
+        if edge > 0:
+            pick_team = row['away_team']
+            if vegas_spread > 0:
+                pick = f"{pick_team} -{abs(vegas_spread):.1f}"
+            else:
+                pick = f"{pick_team} +{abs(vegas_spread):.1f}"
+        else:
+            pick_team = row['home_team']
+            if vegas_spread > 0:
+                pick = f"{pick_team} +{vegas_spread:.1f}"
+            else:
+                pick = f"{pick_team} {vegas_spread:.1f}"
+
+        # Totals
+        pred_total = row.get('predicted_total', 0)
+        vegas_total = row.get('vegas_total', 0)
+        if pd.isna(pred_total):
+            pred_total = 0
+        if pd.isna(vegas_total):
+            vegas_total = 0
+        total_edge = pred_total - vegas_total if vegas_total else 0
+        total_pick = f"OVER {vegas_total:.1f}" if total_edge > 0 else f"UNDER {vegas_total:.1f}"
+
+        # Total confidence stars (NHL backtest: 53.5% - not profitable, all 1 star)
+        total_stars = "⭐"  # NHL totals not profitable
+
+        # Check if game is completed
+        game_date_raw = row.get('game_date', '')
+        game_time = format_game_time_eastern(game_date_raw)
+        is_completed = row.get('game_completed', 0) == 1
+
+        # Game card - 3-row format (same as NBA)
+        with st.container():
+            # Row 1: Matchup | Time | Result
+            cols1 = st.columns([3, 3, 2])
+            with cols1[0]:
+                if is_completed:
+                    st.markdown(f"**🏒 {row['away_team']} @ {row['home_team']}** ✓")
+                else:
+                    st.markdown(f"**🏒 {row['away_team']} @ {row['home_team']}**")
+            with cols1[1]:
+                if is_completed:
+                    st.caption("Final")
+                elif game_time:
+                    st.caption(f"🕐 {game_time}")
+            with cols1[2]:
+                pass  # Reserved for future use
+
+            # Row 2: Spread | Vegas | Model | Edge | Pick | Stars
+            cols2 = st.columns([1, 2, 2, 2, 1])
+            with cols2[0]:
+                st.caption("Puck Line")
+            with cols2[1]:
+                st.caption(f"Vegas: {vegas_spread:+.1f}")
+            with cols2[2]:
+                st.caption(f"Model: {pred_spread:+.1f}")
+            with cols2[3]:
+                st.caption(f"Edge: {edge:+.1f} → **{pick}**")
+            with cols2[4]:
+                st.caption(conf_stars)
+
+            # Row 3: Total | Vegas | Model | Edge | Pick | Stars
+            cols3 = st.columns([1, 2, 2, 2, 1])
+            with cols3[0]:
+                st.caption("Total")
+            with cols3[1]:
+                st.caption(f"Vegas: {vegas_total:.1f}")
+            with cols3[2]:
+                st.caption(f"Model: {pred_total:.1f}")
+            with cols3[3]:
+                st.caption(f"Edge: {total_edge:+.1f} → **{total_pick}**")
+            with cols3[4]:
+                st.caption(total_stars)
+
+            st.markdown("---")
 
 
 def show_sport_predictions(sport: str, max_week: int, default_week: int):
