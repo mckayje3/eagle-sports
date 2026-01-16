@@ -1165,7 +1165,7 @@ def sync_nfl_predictions_to_cache():
             JOIN games g ON o.game_id = g.game_id
             JOIN teams ht ON g.home_team_id = ht.team_id
             JOIN teams at ON g.away_team_id = at.team_id
-            WHERE g.date >= date('now', '-7 days')
+            WHERE g.game_date_eastern >= date('now', '-7 days')
             AND o.predicted_home_score IS NOT NULL
             ORDER BY g.week, g.date
         '''
@@ -1614,11 +1614,13 @@ def display_top_picks(predictions_df, sport_emoji="🏈", max_picks=5, min_disag
     df['spread_edge'] = abs(df[spread_col] - df['vegas_spread'])
     df['total_edge'] = abs(df[total_col] - df['vegas_total'])
 
-    # Sport-specific 3-star thresholds (based on backtest profitability)
-    # NBA: Spreads 6+ pts (62.7% ATS), Totals 4-6 pts (58.8% - sweet spot after fade)
-    # CBB: Spreads 6+ pts (71.9% ATS), Totals not profitable (skip)
-    # NFL/CFB: Spreads 5+ pts, Totals 8+ pts
-    # NHL: Spreads 1+ pts (puck line different)
+    # Sport-specific 3-star thresholds
+    # ACTUAL 2026 PERFORMANCE vs backtest claims:
+    # NBA: Spreads 6+ pts - backtest claimed 62.7%, actual 58.1% (declining)
+    # NBA: Totals 4-6 pts - backtest claimed 58.8%, actual 42.5% (NOT profitable)
+    # CBB: Spreads 6+ pts - backtest claimed 71.9%, actual 49.7% (FAILED)
+    # NFL/CFB: Spreads 5+ pts, Totals 8+ pts (TBD)
+    # NHL: Spreads 1+ pts = 65% ATS (CONFIRMED profitable)
 
     three_star_picks = []
 
@@ -1634,13 +1636,20 @@ def display_top_picks(predictions_df, sport_emoji="🏈", max_picks=5, min_disag
         is_3star_spread = False
         is_3star_total = False
 
-        if sport in ['NBA', 'CBB']:
-            # NBA/CBB: 6+ pt spread edge = 3 stars
-            is_3star_spread = spread_edge >= 6
-            # NBA: 4-6 pt total edge = 3 stars (sweet spot)
-            # CBB: totals not profitable, skip
-            if sport == 'NBA':
-                is_3star_total = 4 <= total_edge <= 6
+        if sport == 'NBA':
+            # NBA Enhanced Ridge walk-forward (2026 YTD, 512 games):
+            # 5+ pt edges: 56.1% ATS (37/66), +7% ROI - PROFITABLE
+            # 6+ pt edges: 56.8% ATS (21/37), +8% ROI - PROFITABLE
+            # Totals: ~50% at all thresholds - not profitable
+            is_3star_spread = spread_edge >= 5
+            is_3star_total = False  # NBA totals not profitable
+        elif sport == 'CBB':
+            # CBB walk-forward (2026 YTD, 353 games): SWEET SPOT at 2-4 pt edges
+            # 2-4 pt edges: 62.9% ATS (44/70), +20% ROI - VERY PROFITABLE
+            # 5+ pt edges: only 52.1% - degrades at high edges (opposite of other sports)
+            # Totals: ~50% at all thresholds - not profitable
+            is_3star_spread = (spread_edge >= 2) and (spread_edge < 5)
+            is_3star_total = False  # CBB totals not profitable
         elif sport == 'NHL':
             # NHL backtest (720 games): 1+ goal edge = 65% ATS (+24% ROI)
             # Totals only 53.5% (not profitable) - skip total 3-star plays
@@ -1687,7 +1696,14 @@ def display_top_picks(predictions_df, sport_emoji="🏈", max_picks=5, min_disag
     three_star_picks = sorted(three_star_picks, key=lambda x: x['edge'], reverse=True)[:max_picks]
 
     st.markdown("### ⭐⭐⭐ 3-Star Plays")
-    st.caption("Highest confidence picks based on backtest profitability")
+
+    # Sport-specific warnings based on walk-forward validation
+    if sport == 'NBA':
+        st.success("✅ NBA 5+ pt edges: 56.1% ATS (+7% ROI) on 512 games. Spreads only - totals not profitable.")
+    elif sport == 'CBB':
+        st.warning("⚠️ CBB 2-4 pt edges: 62.9% ATS (44/70) - promising but small sample. High edges (5+) degrade.")
+    else:
+        st.caption("Highest confidence picks based on historical profitability")
 
     for pick in three_star_picks:
         col1, col2, col3 = st.columns([3, 3, 1])
@@ -1950,14 +1966,17 @@ def show_nba_predictions_live():
         if pd.isna(pred_spread):
             pred_spread = 0
 
-        # Spread confidence stars (NBA - with fade adjustments applied)
-        # Backtest after fades: 6+pts = 62.7%, <6pts = 51-52% (below breakeven)
-        # Breakeven at -110 vig is ~52.4%, profitable threshold is 53%
+        # Spread confidence stars (NBA - Enhanced Ridge walk-forward 2026 YTD, 512 games)
+        # 5+ pt edges: 56.1% ATS (37/66), +7% ROI - PROFITABLE
+        # 3-4 pt edges: 53.2% ATS (92/173), +1.5% ROI - marginally profitable
+        # <3 pt edges: ~50% ATS - not profitable
         abs_edge = abs(edge)
-        if abs_edge >= 6:
-            conf_stars = "⭐⭐⭐"  # 62.7% - very profitable
+        if abs_edge >= 5:
+            conf_stars = "⭐⭐⭐"  # 56.1% - profitable
+        elif abs_edge >= 3:
+            conf_stars = "⭐⭐"    # 53.2% - marginally profitable
         else:
-            conf_stars = "⭐"      # <53% - below breakeven
+            conf_stars = "⭐"      # ~50% ATS - not profitable
 
         # Pick direction
         if edge > 0:
@@ -1983,16 +2002,10 @@ def show_nba_predictions_live():
         total_edge = pred_total - vegas_total if vegas_total else 0
         total_pick = f"OVER {vegas_total:.1f}" if total_edge > 0 else f"UNDER {vegas_total:.1f}"
 
-        # Total confidence stars (NBA - with fade adjustments applied)
-        # Backtest after fades: 4-6pts = 58.8%, 6+pts = 55%, <4pts = 52.1%
-        # Breakeven at -110 vig is ~52.4%, profitable threshold is 53%
-        abs_total_edge = abs(total_edge)
-        if 4 <= abs_total_edge < 6:
-            total_stars = "⭐⭐⭐"  # 58.8% - very profitable (faded middle)
-        elif abs_total_edge >= 6:
-            total_stars = "⭐⭐"    # 55% - profitable
-        else:
-            total_stars = "⭐"      # 52.1% - below breakeven
+        # Total confidence stars (NBA - totals not validated in walk-forward)
+        # Walk-forward only validated spread model. Totals need separate analysis.
+        # For now, all totals are 1 star until we have walk-forward data
+        total_stars = "⭐"
 
         # Check if game is completed
         game_date_raw = row.get('game_date', '')
@@ -2316,13 +2329,16 @@ def show_cbb_predictions_live():
         if pd.isna(pred_spread):
             pred_spread = 0
 
-        # Spread confidence stars (CBB - with fade adjustments applied)
-        # Backtest: 6+ pt edges hit 55.7% (profitable), everything else ~51% (below breakeven)
+        # Spread confidence stars (CBB - Enhanced Ridge walk-forward 2026 YTD, 353 games)
+        # 2-4 pt edges: 62.9% ATS (44/70) - promising but small sample (p=0.02)
+        # High edges (5+) degrade to 52% - opposite pattern of other sports
         abs_edge = abs(edge)
-        if abs_edge >= 6:
-            conf_stars = "⭐⭐⭐"  # 55.7% - profitable
+        if abs_edge >= 2 and abs_edge < 5:
+            conf_stars = "⭐⭐⭐"  # 62.9% - promising (needs more data)
+        elif abs_edge >= 5:
+            conf_stars = "⭐"      # 52% - degrades at high edges
         else:
-            conf_stars = "⭐"      # ~51-52% - below breakeven
+            conf_stars = "⭐"      # <2 pt - noise
 
         # Pick direction
         if edge > 0:

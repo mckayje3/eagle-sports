@@ -1,6 +1,6 @@
 # Sports Betting Edge Prediction System
 
-Spread and total predictions for NFL, CFB, NBA, and CBB using Ridge regression and neural network models. Finds edges vs Vegas lines.
+Spread and total predictions for NFL, CFB, NBA, CBB, and NHL using Ridge regression and neural network models. Finds edges vs Vegas lines.
 
 ## Key Commands
 
@@ -13,6 +13,7 @@ python predict_nfl_playoffs.py      # NFL playoff predictions (updates CSV)
 python cfb_predictor.py             # CFB predictions
 python nba_predictor.py             # NBA predictions
 python cbb_predictor.py             # CBB predictions
+python nhl_predictor.py             # NHL predictions
 
 # Retrain models (after significant data updates)
 python nfl_simple_model.py          # Retrain NFL simple model
@@ -31,7 +32,7 @@ streamlit run streamlit_app.py      # Local: http://localhost:8501
 ## Architecture
 
 ```
-├── *_games.db              # Per-sport SQLite databases (nfl, cfb, nba, cbb)
+├── *_games.db              # Per-sport SQLite databases (nfl, cfb, nba, cbb, nhl)
 ├── *_predictor.py          # Main prediction scripts per sport
 ├── *_simple_model.py       # Ridge regression models (primary)
 ├── *_enhanced_ridge.py     # Ridge + form/HCA/drive features
@@ -53,7 +54,7 @@ Each sport has identical structure in `{sport}_games.db`:
 | Table | Purpose |
 |-------|---------|
 | `teams` | Team metadata (team_id, name, abbreviation) |
-| `games` | Game results (game_id, date, week, home/away_team_id, scores) |
+| `games` | Game results (game_id, date, game_date_eastern, week, home/away_team_id, scores) |
 | `team_game_stats` | Per-team box scores (yards, turnovers, etc.) |
 | `odds_and_predictions` | Vegas lines + model predictions per game |
 | `drives` | Drive-level data (NFL/CFB only) |
@@ -73,6 +74,74 @@ LEFT JOIN odds_and_predictions o ON g.game_id = o.game_id
 - Team IDs are also ESPN IDs, not sequential
 - `completed = 1` means game has final score
 - NBA has player availability tables; others don't
+- **All sports have `game_date_eastern` column** - use this for date filtering/grouping
+- The `date` column stores UTC timestamps (e.g., `2026-01-14T23:00Z`), but `game_date_eastern` gives the correct Eastern date (`2026-01-13` for late games)
+- CFB `date` column is date-only format (no timestamps)
+
+### Prediction Columns (CRITICAL)
+
+The `odds_and_predictions` table has multiple prediction columns. **Always use the ADJUSTED values:**
+
+| Column | Contains | Use? |
+|--------|----------|------|
+| `avg_pred_spread` | **ADJUSTED** spread (with post-prediction adjustments) | ✅ YES |
+| `avg_pred_total` | **ADJUSTED** total (with post-prediction adjustments) | ✅ YES |
+| `predicted_home_score` | Raw model score prediction | ❌ Only for display |
+| `predicted_away_score` | Raw model score prediction | ❌ Only for display |
+
+**Correct query pattern:**
+```sql
+-- Use COALESCE to fall back to raw calculation if adjusted not available
+COALESCE(o.avg_pred_spread, o.predicted_away_score - o.predicted_home_score) as predicted_spread,
+COALESCE(o.avg_pred_total, o.predicted_home_score + o.predicted_away_score) as predicted_total
+```
+
+**Column availability by sport:**
+| Sport | Has `avg_pred_spread`? | Has adjustments? |
+|-------|------------------------|------------------|
+| NFL | ✅ Yes | Big underdog, rest, bye |
+| NBA | ✅ Yes | Big underdog, fade, struggling home |
+| CBB | ✅ Yes | Big underdog, fade close games |
+| CFB | ❌ No | Use raw calculation |
+| NHL | ✅ Yes | Underdog bias (+0.15 goals) - **Strategy: always bet underdog +1.5** |
+
+### Schema Change Protocol (MANDATORY)
+
+**When changing database schema or prediction logic:**
+1. Update the predictor script (`*_predictor.py`)
+2. Update the database saver (`update_predictions_*.py`)
+3. **ALWAYS update `streamlit_app.py` queries** - there are multiple queries per sport!
+4. Search for all occurrences: `grep -n "predicted_spread\|predicted_total" streamlit_app.py`
+5. Test the dashboard shows correct values before committing
+
+**Why this matters:** The app queries raw scores and calculates spread/total directly. If adjustments are stored in `avg_pred_spread` but the app uses `predicted_away_score - predicted_home_score`, the displayed values will be WRONG by up to 8 points!
+
+### Backtest/Threshold Update Protocol (MANDATORY)
+
+**When updating backtest results or star rating thresholds:**
+1. Update the predictor script (`*_predictor.py`) with new adjustments
+2. Update `streamlit_app.py` - specifically:
+   - `display_top_picks()` function thresholds for 3-star plays
+   - Sport-specific game card display (star rating logic)
+3. Update `CLAUDE.md` documentation:
+   - Confidence Stars tables (per sport)
+   - 3-Star Plays Section table
+   - Post-Prediction Adjustments section (if applicable)
+4. Update `MODEL_IMPROVEMENTS.md` with new backtest findings
+
+**Files to update (checklist):**
+- [ ] `*_predictor.py` - adjustment constants and logic
+- [ ] `streamlit_app.py` - `display_top_picks()` thresholds + game card star ratings
+- [ ] `CLAUDE.md` - Confidence Stars tables + 3-Star Plays table
+- [ ] `MODEL_IMPROVEMENTS.md` - backtest results and recommendations
+
+**Why this matters:** Star ratings drive betting decisions. If backtest shows 65% ATS at 1+ goal edge but the app still shows 2 stars, users miss profitable plays. Always keep predictor, app, and docs in sync!
+
+### ESPN API Gotchas
+
+**CBB Scoreboard Limitation:** ESPN's scoreboard API (`/scoreboard?dates=YYYYMMDD`) only returns ~12 featured games per day, NOT all games. The `update_game_results.py` script handles this by also querying incomplete games directly via the event summary API.
+
+**Supported Sports:** `update_game_results.py` supports all 5 sports: `nba`, `nfl`, `cfb`, `cbb`, `nhl`
 
 ## Conventions
 
@@ -91,23 +160,50 @@ edge = model_spread - vegas_spread
 # Positive edge → bet AWAY
 ```
 
-### NBA Post-Prediction Adjustments
-The NBA predictor applies automatic adjustments after model prediction:
+### NBA Model (Enhanced Ridge - Profitable at 5+ pt edges)
+The NBA predictor uses an Enhanced Ridge model with dynamic HCA, injuries, momentum, and streaks:
 
-1. **Big underdog** (+1.5 pts): When team is 10+ point underdog
-2. **Struggling home** (+1.5 pts): Road favorite vs struggling home team
-3. **Fade middle-edge favorites**: Model has 2-6pt edge toward favorite → flip to underdog
-4. **Fade middle-edge totals**: Model has 4-6pt edge → flip direction
+- Walk-forward validation: Train on 2024+2025, test on 2026 YTD (512 games)
+- **5+ pt edges: 56.1% ATS (37/66), +7% ROI** - PROFITABLE
+- **6+ pt edges: 56.8% ATS (21/37), +8% ROI** - PROFITABLE
+- 3-4 pt edges: 53.2% ATS - marginally profitable
+- Totals: ~50% at all thresholds - NOT profitable (skip totals)
+- Model files: `models/nba_ridge_enhanced.pkl`
 
-These adjustments improved backtest by +41 games (spreads +23, totals +18).
+### CBB Model (Enhanced Ridge - Promising at 2-4 pt edges)
+The CBB predictor uses an Enhanced Ridge model with an unusual pattern:
 
-### CBB Post-Prediction Adjustments
-The CBB predictor applies automatic adjustments after model prediction:
+- Walk-forward validation: Train on 2024+2025, test on 2026 YTD (353 games)
+- **2-4 pt edges: 62.9% ATS (44/70)** - promising but small sample (p=0.02, doesn't survive multiple testing)
+- Pattern held in both time splits: 69% (first half) and 58.5% (second half)
+- 5+ pt edges: 50.3% - consistently degrades at high edges
+- Totals: ~50% at all thresholds - NOT profitable
+- Model files: `models/cbb_enhanced_model.pkl`
 
-1. **Big underdog** (+1.5 pts): When team is 10+ point underdog
-2. **Fade close game edges**: 6-8pt edges in close games (Vegas < 5) → flip the bet
+**Caution:** CBB shows opposite pattern of other sports (medium edges > high edges) but sample is small. Monitor as more games accumulate.
 
-These adjustments improved backtest by +39 games. 6+ pt edges hit 71.9% ATS.
+### NFL Post-Prediction Adjustments
+The NFL predictor (Deep Eagle) applies automatic adjustments after model prediction:
+
+1. **Big underdog** (+1.0 pts): When team is 7+ point underdog
+2. **Rest advantage** (+0.5 pts): When team has 3+ days extra rest
+3. **Post-bye boost** (+1.0 pts): When team is coming off bye week
+
+NFL Deep Eagle backtest: 58.4% ATS at 5+ pt edges, 63.0% at 7+ pt edges.
+
+### NHL Post-Prediction Adjustments
+The NHL predictor applies a small adjustment after model prediction:
+
+1. **Underdog bias** (+0.15 goals): Small adjustment toward underdog
+
+NHL edge analysis backtest (720 games - 3+ seasons):
+- **Model edges >= 1.0 goal: 65.0% ATS** (+24.1% ROI) - Best strategy
+- **Underdog +1.5 (all games): 60.7% ATS** (+15.9% ROI) - Simple strategy
+- Overs hit 53.5% (marginal)
+
+**Strategies:**
+1. **Best:** Use 3-star picks (model edge >= 1.0 goal) for 65% ATS
+2. **Simple:** Bet underdog +1.5 on every game for 60.7% ATS
 
 ### Feature Naming
 - `*_ppg` = points per game
@@ -119,14 +215,19 @@ These adjustments improved backtest by +39 games. 6+ pt edges hit 71.9% ATS.
 ## Dashboard Features
 
 ### 3-Star Plays Section
-Each sport page shows a "⭐⭐⭐ 3-Star Plays" section at the top highlighting only profitable picks based on backtest thresholds:
+Each sport page shows a "⭐⭐⭐ 3-Star Plays" section at the top highlighting profitable picks based on **walk-forward validation**:
 
-| Sport | Spread Threshold | Total Threshold |
-|-------|------------------|-----------------|
-| NBA | 6+ pts (62.7% ATS) | 4-6 pts (58.8% - sweet spot) |
-| CBB | 6+ pts (71.9% ATS) | None (totals not profitable) |
-| NFL/CFB | 5+ pts | 8+ pts |
-| NHL | 1+ pts | 2+ pts |
+| Sport | Spread Threshold | Walk-Forward ATS | Sample | Status |
+|-------|------------------|------------------|--------|--------|
+| NHL | 1+ goal | 65.0% ATS | 720 | **CONFIRMED** (+24% ROI) |
+| CBB | 2-4 pts | 62.9% ATS | 70 | **Promising** (small sample) |
+| CFB | 5+ pts | 57.1% ATS (2025) | - | **PROFITABLE** |
+| NBA | 5+ pts | 56.1% ATS | 66 | **PROFITABLE** (+7% ROI) |
+| NFL | 5+ pts | 55.3% ATS (2025) | - | **PROFITABLE** |
+
+**Totals:** Not profitable for any sport - all show 1 star for totals.
+
+**Walk-forward validation** = train on season N, test on season N+1 (simulates real deployment).
 
 ### Unified Game Card Format
 All sports (NFL, CFB, NBA, CBB) use a consistent 3-row game card:
@@ -160,37 +261,70 @@ Playoff predictions come from `predict_nfl_playoffs.py` and `nfl_playoff_predict
 
 ### Confidence Stars
 
-**NFL/CFB (standard thresholds):**
+**NFL (Deep Eagle - profitability-based):**
+
+*Spreads:*
+| Edge | Stars | Win % | Profitable? |
+|------|-------|-------|-------------|
+| >= 5 pts | ⭐⭐⭐ | 58.4% | Yes |
+| < 5 pts | ⭐ | ~52% | No (below breakeven) |
+
+*Totals:*
+| Edge | Stars | Win % | Profitable? |
+|------|-------|-------|-------------|
+| >= 7 pts | ⭐⭐⭐ | TBD | Needs analysis |
+| >= 4 pts | ⭐⭐ | TBD | Needs analysis |
+| < 4 pts | ⭐ | TBD | Needs analysis |
+
+**CFB (not currently profitable):**
 | Spread Edge | Stars | Total Edge | Stars |
 |-------------|-------|------------|-------|
 | >= 5 pts | ⭐⭐⭐ | >= 8 pts | ⭐⭐⭐ |
 | >= 3 pts | ⭐⭐ | >= 5 pts | ⭐⭐ |
 | < 3 pts | ⭐ | < 5 pts | ⭐ |
 
-**NBA (after fade adjustments - profitability-based):**
+Note: CFB models show ~50% ATS at all thresholds - not currently profitable.
 
-*Spreads:*
+**NBA (Enhanced Ridge - PROFITABLE at 5+ pt edges):**
+
+*Spreads (512 games, 2026 YTD):*
+| Edge | Stars | Win % | Sample | ROI |
+|------|-------|-------|--------|-----|
+| >= 5 pts | ⭐⭐⭐ | 56.1% | 66 | +7.0% |
+| >= 3 pts | ⭐⭐ | 53.2% | 173 | +1.5% |
+| < 3 pts | ⭐ | ~50% | 339 | Negative |
+
+*Totals:* All 1 star (~50% at all thresholds - not profitable)
+
+**CBB (Enhanced Ridge - Promising at 2-4 pt edges):**
+
+*Spreads (353 games, 2026 YTD):*
+| Edge | Stars | Win % | Sample | Notes |
+|------|-------|-------|--------|-------|
+| 2-4 pts | ⭐⭐⭐ | 62.9% | 70 | Promising but small sample (p=0.02) |
+| 5+ pts | ⭐ | 50.3% | 171 | Consistently poor |
+| < 2 pts | ⭐ | 50.0% | 112 | Noise |
+
+**Note:** CBB shows opposite pattern - high edges degrade. Pattern held in both time splits (69% early, 58.5% late). Monitor as sample grows.
+
+*Totals:* All 1 star (~50% ATS, not profitable)
+
+**NHL (720 games - 3+ seasons, CONFIRMED PROFITABLE):**
+
+*Puck Line (±1.5):*
 | Edge | Stars | Win % | Profitable? |
 |------|-------|-------|-------------|
-| >= 6 pts | ⭐⭐⭐ | 62.7% | Yes |
-| < 6 pts | ⭐ | 51-52% | No (below 53% breakeven) |
+| >= 1.0 goal | ⭐⭐⭐ | 65.0% | Yes (+24.1% ROI) |
+| < 1.0 goal | ⭐ | ~52% | No (below breakeven) |
 
 *Totals:*
 | Edge | Stars | Win % | Profitable? |
 |------|-------|-------|-------------|
-| 4-6 pts | ⭐⭐⭐ | 58.8% | Yes (best after fade) |
-| >= 6 pts | ⭐⭐ | 55.0% | Yes |
-| < 4 pts | ⭐ | 52.1% | No (below breakeven) |
+| All | ⭐ | 53.5% | No (marginal) |
 
-**CBB (after adjustments - profitability-based):**
+**Simple NHL Strategy:** Bet underdog +1.5 on every game = 60.7% ATS (+15.9% ROI)
 
-*Spreads:*
-| Edge | Stars | Win % | Profitable? |
-|------|-------|-------|-------------|
-| >= 6 pts | ⭐⭐⭐ | 71.9% | Yes (very!) |
-| < 6 pts | ⭐ | 50-52% | No (below breakeven) |
-
-*Totals:* All 1 star (~50% ATS, not profitable)
+---
 
 Note: Breakeven at -110 vig is ~52.4%. Only 3-star and 2-star picks are profitable.
 
@@ -199,14 +333,15 @@ Note: Breakeven at -110 vig is ~52.4%. Only 3-star and 2-star picks are profitab
 The daily update automatically syncs local and cloud apps:
 
 **What gets committed:**
-- Databases: `*_games.db`
+- Databases: `nfl_games.db`, `cfb_games.db`, `nba_games.db`, `cbb_games.db`, `nhl_games.db`
 - Predictions: `*_predictions.csv`, `*_current_predictions.csv`
 
 **How it works:**
 1. `daily_update.py` runs at 9am (scheduled task)
-2. Updates results, odds, predictions for in-season sports
-3. Calls `push_databases.py` which commits DBs + CSVs
-4. Cloud app auto-deploys from GitHub
+2. Auto-detects in-season sports (all 5: NFL, CFB, NBA, CBB, NHL)
+3. For each sport: scrapes games, updates results, fetches odds, generates predictions
+4. Calls `push_databases.py` which commits DBs + CSVs
+5. Cloud app auto-deploys from GitHub
 
 **Manual sync:**
 ```bash
@@ -224,9 +359,9 @@ python push_databases.py  # Commit and push all DBs + CSVs
 
 ### Find Edges for Upcoming Games
 ```bash
-python predict_nfl_playoffs.py   # Or cfb/nba/cbb_predictor.py
+python predict_nfl_playoffs.py   # Or cfb/nba/cbb/nhl_predictor.py
 ```
-Look for 3+ point edges on spreads, 5+ on totals.
+Look for 3+ point edges on spreads, 5+ on totals. For NHL, 1+ goal edge = 3-star play.
 
 ### Update NFL Playoff Lines
 Edit `PLAYOFF_GAMES` in `predict_nfl_playoffs.py`:
