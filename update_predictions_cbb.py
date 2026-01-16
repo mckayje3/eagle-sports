@@ -105,13 +105,25 @@ def check_missing_vegas_lines(days=7):
     return len(missing_lines), len(games)
 
 def generate_predictions(days=7):
-    """Generate predictions using Deep Eagle model"""
+    """Generate predictions using Robust Ridge model (preferred) or Deep Eagle"""
     logger.info(f"Generating CBB predictions for next {days} days...")
 
     try:
         from cbb_predictor import CBBPredictor
 
         predictor = CBBPredictor()
+
+        # Check if any model is available
+        if predictor.enhanced_model is None:
+            logger.warning("No CBB model loaded - no predictions generated")
+            logger.warning("Train: python train_cbb_robust.py train")
+            return None
+
+        if predictor.using_enhanced:
+            logger.info("Using Enhanced Ridge model")
+        else:
+            logger.info("Using fallback model")
+
         predictions_df = predictor.predict_upcoming(days=days)
 
         if predictions_df is not None and len(predictions_df) > 0:
@@ -167,12 +179,18 @@ def save_to_database(predictions_df):
     for _, row in predictions_df.iterrows():
         game_id = int(row['game_id'])
 
+        # Get adjusted spread and total from predictor output
+        # pred_spread includes post-prediction adjustments (big dog, fade)
+        pred_spread = row.get('pred_spread')
+        pred_total = row.get('pred_total')
+
         # Update existing odds_and_predictions row or insert new one
         cursor.execute('''
             INSERT INTO odds_and_predictions (game_id, predicted_home_score, predicted_away_score,
                 predicted_home_MOE, predicted_away_MOE, predicted_spread_MOE, predicted_total_MOE,
-                home_win_probability, confidence, prediction_created)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                home_win_probability, confidence, prediction_created,
+                avg_pred_spread, avg_pred_total)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(game_id) DO UPDATE SET
                 predicted_home_score = excluded.predicted_home_score,
                 predicted_away_score = excluded.predicted_away_score,
@@ -182,7 +200,9 @@ def save_to_database(predictions_df):
                 predicted_total_MOE = excluded.predicted_total_MOE,
                 home_win_probability = excluded.home_win_probability,
                 confidence = excluded.confidence,
-                prediction_created = excluded.prediction_created
+                prediction_created = excluded.prediction_created,
+                avg_pred_spread = excluded.avg_pred_spread,
+                avg_pred_total = excluded.avg_pred_total
         ''', (
             game_id,
             row.get('pred_home_score'),
@@ -193,7 +213,9 @@ def save_to_database(predictions_df):
             row.get('pred_total_MOE'),
             row.get('pred_home_win_prob', row.get('confidence', 0.5)),
             row.get('confidence', 0.5),
-            datetime.now().isoformat()
+            datetime.now().isoformat(),
+            pred_spread,
+            pred_total
         ))
 
     conn.commit()
@@ -207,14 +229,15 @@ def sync_to_cache():
         users_conn = sqlite3.connect('users.db')
 
         # Get predictions with game info and odds from odds_and_predictions table
+        # Use avg_pred_spread (includes post-prediction adjustments) instead of recalculating
         query = '''
             SELECT
                 op.game_id, g.date, g.season,
                 ht.name as home_team, at.name as away_team,
                 op.predicted_home_score as pred_home_score,
                 op.predicted_away_score as pred_away_score,
-                (op.predicted_away_score - op.predicted_home_score) as pred_spread,
-                (op.predicted_home_score + op.predicted_away_score) as pred_total,
+                COALESCE(op.avg_pred_spread, op.predicted_away_score - op.predicted_home_score) as pred_spread,
+                COALESCE(op.avg_pred_total, op.predicted_home_score + op.predicted_away_score) as pred_total,
                 op.confidence,
                 op.prediction_created as prediction_date,
                 COALESCE(op.latest_spread, op.opening_spread) as vegas_spread,

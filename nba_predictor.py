@@ -1,6 +1,8 @@
 """
-NBA Deep Eagle Predictor
-Makes predictions for upcoming NBA games using Deep Eagle model
+NBA Predictor - Supports both Enhanced Ridge model and Deep Eagle neural net
+
+PREFERRED MODEL: Enhanced Ridge (dynamic HCA, injuries, momentum, streaks)
+FALLBACK: Deep Eagle neural net (legacy, known to overfit)
 
 SPREAD CONVENTION (Vegas standard):
     spread = away_score - home_score
@@ -15,6 +17,7 @@ import numpy as np
 import pandas as pd
 import pickle
 import sqlite3
+import os
 from datetime import datetime, timedelta
 from spread_utils import validate_prediction_spread, get_predicted_winner
 
@@ -97,25 +100,68 @@ def infer_model_architecture(state_dict):
 
 
 class NBAPredictor:
-    """Predict NBA game outcomes using Deep Eagle model"""
+    """Predict NBA game outcomes using Enhanced Ridge model (preferred) or Deep Eagle (fallback).
+
+    Model priority:
+    1. Enhanced Ridge (models/nba_ridge_enhanced.pkl) - Dynamic HCA, injuries, momentum
+    2. Deep Eagle neural net - Legacy model, known to overfit
+
+    The Enhanced Ridge model includes dynamic per-team HCA, injury adjustments,
+    momentum, and win/loss streaks. Walk-forward tested at 52.3% overall ATS,
+    59.4% at 2+ pt edges (small sample).
+    """
+
+    # Legacy adjustment constants (used only with Deep Eagle model)
+    BIG_FAVORITE_THRESHOLD = 10.0
+    UNDERDOG_ADJUSTMENT = 1.5
+    STRUGGLING_HOME_MARGIN = -3.0
+    STRUGGLING_HOME_ADJUSTMENT = 1.5
+    MIDDLE_SPREAD_EDGE_MIN = 2.0
+    MIDDLE_SPREAD_EDGE_MAX = 6.0
+    MIDDLE_TOTAL_EDGE_MIN = 4.0
+    MIDDLE_TOTAL_EDGE_MAX = 6.0
 
     def __init__(self, model_path='models/deep_eagle_nba_2025.pt',
                  scaler_path='models/deep_eagle_nba_2025_scaler.pkl',
-                 db_path='nba_games.db'):
+                 db_path='nba_games.db',
+                 use_enhanced=True):
         self.db_path = db_path
         self.model_path = model_path
         self.scaler_path = scaler_path
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.model = None
+        self.enhanced_model = None  # Enhanced Ridge model
         self.scaler = None
         self.feature_cols = None
-        self._load_model()
+        self.using_enhanced = False  # Track which model is active
+        self._load_model(use_enhanced=use_enhanced)
 
-    def _load_model(self):
-        """Load trained model and scaler"""
-        import os
+    def _load_model(self, use_enhanced=True):
+        """Load trained model and scaler. Prefers Enhanced Ridge, falls back to Deep Eagle."""
 
-        # Try primary model, fall back to 2024 if not found
+        # Try Enhanced Ridge model first (preferred)
+        if use_enhanced:
+            try:
+                from nba_enhanced_ridge import NBAEnhancedModel
+                enhanced_path = 'models/nba_ridge_enhanced.pkl'
+
+                if os.path.exists(enhanced_path):
+                    self.enhanced_model = NBAEnhancedModel.load()
+                    self.using_enhanced = True
+                    print(f"Loaded NBA Enhanced Ridge model")
+                    print(f"  Features: dynamic HCA, injuries, momentum, streaks")
+                    print(f"  Walk-forward: 52.3% overall, 59.4% at 2+ pt edges")
+                    return
+                else:
+                    print(f"Enhanced model not found at {enhanced_path}")
+                    print(f"  Train with: python nba_enhanced_ridge.py")
+
+            except ImportError as e:
+                print(f"Could not import NBAEnhancedModel: {e}")
+            except Exception as e:
+                print(f"Error loading Enhanced model: {e}")
+
+        # Fall back to Deep Eagle neural net
         model_paths = [
             (self.model_path, self.scaler_path),
             ('models/deep_eagle_nba_2024.pt', 'models/deep_eagle_nba_2024_scaler.pkl'),
@@ -143,30 +189,36 @@ class NBAPredictor:
                     with open(scaler_path, 'rb') as f:
                         self.scaler = pickle.load(f)
 
+                    self.using_enhanced = False
                     arch_type = "old" if use_old_names else "new"
                     print(f"Loaded NBA Deep Eagle model from {model_path}")
                     print(f"  Features: {input_dim}, Hidden: {hidden_dims}, Architecture: {arch_type}")
+                    print(f"  WARNING: Deep Eagle model known to overfit.")
                     return
 
                 except Exception as e:
                     print(f"Error loading {model_path}: {e}")
                     continue
 
-        print("No NBA model found. Train a model first: py train_deep_eagle_nba.py 2025 nba_2025_deep_eagle_features.csv")
+        print("No NBA model found. Train: python nba_enhanced_ridge.py")
         self.model = None
+        self.enhanced_model = None
 
     def get_upcoming_games(self, days=7):
         """Get upcoming NBA games from database"""
         from datetime import datetime, timedelta
+        import pytz
 
         conn = sqlite3.connect(self.db_path)
 
-        # NBA games are stored with ISO timestamps (e.g., 2025-12-18T01:00Z)
-        # Generate date range strings that match the database format
-        now = datetime.utcnow()
-        start_date = (now - timedelta(hours=12)).strftime('%Y-%m-%d')
-        end_date = (now + timedelta(days=days)).strftime('%Y-%m-%d')
+        # Use Eastern time for date filtering since game_date_eastern is in ET
+        eastern = pytz.timezone('US/Eastern')
+        now_eastern = datetime.now(eastern)
+        today = now_eastern.strftime('%Y-%m-%d')
+        end_date = (now_eastern + timedelta(days=days)).strftime('%Y-%m-%d')
 
+        # Use game_date_eastern for accurate date filtering
+        # This ensures evening games (stored as next day UTC) are correctly included
         query = '''
             SELECT
                 g.game_id,
@@ -180,12 +232,12 @@ class NBAPredictor:
             JOIN teams ht ON g.home_team_id = ht.team_id
             JOIN teams at ON g.away_team_id = at.team_id
             WHERE g.completed = 0
-                AND g.date >= ?
-                AND g.date <= ?
-            ORDER BY g.date
+                AND g.game_date_eastern >= ?
+                AND g.game_date_eastern <= ?
+            ORDER BY g.game_date_eastern, g.date
         '''
 
-        games = pd.read_sql_query(query, conn, params=(start_date, end_date + 'Z'))
+        games = pd.read_sql_query(query, conn, params=(today, end_date))
         conn.close()
 
         return games
@@ -567,74 +619,264 @@ class NBAPredictor:
             'total_movement_sig_direction': total_movement if total_significant else 0,
         }
 
+    def _get_recent_margin(self, conn, team_id: int, current_date: str, n_games: int = 5) -> float:
+        """Get team's average margin over last N games"""
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT AVG(
+                CASE WHEN home_team_id = ? THEN home_score - away_score
+                     ELSE away_score - home_score END
+            ) as avg_margin
+            FROM (
+                SELECT home_team_id, home_score, away_score
+                FROM games
+                WHERE completed = 1
+                    AND (home_team_id = ? OR away_team_id = ?)
+                    AND date < ?
+                ORDER BY date DESC
+                LIMIT ?
+            )
+        ''', (team_id, team_id, team_id, current_date, n_games))
+        result = cursor.fetchone()
+        return result[0] if result and result[0] is not None else 0.0
+
+    def _apply_spread_adjustments(
+        self,
+        model_spread: float,
+        vegas_spread: float | None,
+        home_team_id: int,
+        away_team_id: int,
+        game_date: str,
+        conn: sqlite3.Connection
+    ) -> tuple[float, list[str]]:
+        """
+        Apply post-prediction adjustments to the model spread.
+
+        Adjustments applied:
+        1. Big underdog: +1.5 pts toward teams that are 10+ point underdogs
+        2. Struggling home: +1.5 pts toward road favorite when home team is struggling
+
+        Returns:
+            (adjusted_spread, list_of_adjustments_applied)
+        """
+        adjustments = []
+        adjusted_spread = model_spread
+
+        # 1. BIG UNDERDOG ADJUSTMENT
+        # If Vegas has a team as 10+ point underdog, add points toward the underdog
+        # vegas_spread > 10 means away is big favorite (home is big dog)
+        # vegas_spread < -10 means home is big favorite (away is big dog)
+        if vegas_spread is not None:
+            if vegas_spread < -self.BIG_FAVORITE_THRESHOLD:
+                # Home is big favorite, away is big underdog - add toward away
+                adjusted_spread += self.UNDERDOG_ADJUSTMENT
+                adjustments.append(f"big_underdog_away:+{self.UNDERDOG_ADJUSTMENT}")
+            elif vegas_spread > self.BIG_FAVORITE_THRESHOLD:
+                # Away is big favorite, home is big underdog - add toward home
+                adjusted_spread -= self.UNDERDOG_ADJUSTMENT
+                adjustments.append(f"big_underdog_home:-{self.UNDERDOG_ADJUSTMENT}")
+
+        # 2. ROAD FAVORITE VS STRUGGLING HOME TEAM ADJUSTMENT
+        # If road team is favored (vegas_spread > 0) and home team is struggling,
+        # adjust toward the road team because model tends to overvalue struggling home teams
+        if vegas_spread is not None and vegas_spread > 0:  # Road team is favored
+            home_recent_margin = self._get_recent_margin(conn, home_team_id, game_date, n_games=5)
+            if home_recent_margin < self.STRUGGLING_HOME_MARGIN:
+                adjusted_spread += self.STRUGGLING_HOME_ADJUSTMENT
+                adjustments.append(f"struggling_home_vs_road_fav:+{self.STRUGGLING_HOME_ADJUSTMENT}")
+
+        # 3. FADE MIDDLE-EDGE FAVORITES
+        # Backtest shows model is 35% ATS when it has 2-6pt edge toward the Vegas favorite
+        # When this happens, flip the edge to bet the underdog instead (65% ATS when faded)
+        if vegas_spread is not None:
+            spread_edge = adjusted_spread - vegas_spread
+            abs_edge = abs(spread_edge)
+
+            if self.MIDDLE_SPREAD_EDGE_MIN <= abs_edge < self.MIDDLE_SPREAD_EDGE_MAX:
+                # Determine if we're betting the favorite
+                # vegas_spread < 0 means home is favorite
+                # spread_edge < 0 means betting home
+                betting_home = spread_edge < 0
+                home_is_favorite = vegas_spread < 0
+                betting_favorite = (betting_home and home_is_favorite) or (not betting_home and not home_is_favorite)
+
+                if betting_favorite:
+                    # Flip the edge by subtracting 2 * edge from adjusted_spread
+                    fade_adjustment = -2 * spread_edge
+                    adjusted_spread = adjusted_spread + fade_adjustment
+                    adjustments.append(f"fade_middle_fav:{fade_adjustment:+.1f}")
+
+        return adjusted_spread, adjustments
+
+    def _apply_total_adjustments(
+        self,
+        pred_total: float,
+        vegas_total: float | None
+    ) -> tuple[float, list[str]]:
+        """
+        Apply post-prediction adjustments to the predicted total.
+
+        Adjustments applied:
+        1. Fade middle-edge overs: When model has 4-6pt edge toward OVER, flip to UNDER
+
+        Returns:
+            (adjusted_total, list_of_adjustments_applied)
+        """
+        adjustments = []
+        adjusted_total = pred_total
+
+        if vegas_total is not None and vegas_total > 0:
+            total_edge = pred_total - vegas_total
+            abs_edge = abs(total_edge)
+
+            # FADE MIDDLE-EDGE TOTALS
+            # Backtest: 4-6pt OVER edges hit 34% (fade to 66%), UNDER edges hit 44% (fade to 56%)
+            # Flip both directions in this range
+            if self.MIDDLE_TOTAL_EDGE_MIN <= abs_edge < self.MIDDLE_TOTAL_EDGE_MAX:
+                # Flip the edge by subtracting 2 * edge
+                fade_adjustment = -2 * total_edge
+                adjusted_total = pred_total + fade_adjustment
+                if total_edge > 0:
+                    adjustments.append(f"fade_middle_over:{fade_adjustment:+.1f}")
+                else:
+                    adjustments.append(f"fade_middle_under:{fade_adjustment:+.1f}")
+
+        return adjusted_total, adjustments
+
     def predict(self, games_df):
-        """Generate predictions for games"""
-        if self.model is None:
+        """Generate predictions for games using Enhanced Ridge (preferred) or Deep Eagle model."""
+        if self.enhanced_model is None and self.model is None:
             print("No model loaded")
             return None
 
         predictions = []
+        conn = sqlite3.connect(self.db_path)  # Open connection once for all games
 
-        for idx, game in games_df.iterrows():
-            try:
-                features = self.extract_features(game)
+        try:
+            for idx, game in games_df.iterrows():
+                try:
+                    # Use enhanced model if available (preferred)
+                    if self.using_enhanced and self.enhanced_model is not None:
+                        # Enhanced model has its own predict method
+                        season = int(game.get('season', 2026))
+                        home_id = int(game['home_team_id'])
+                        away_id = int(game['away_team_id'])
+                        game_date = game['date']
+                        game_id = int(game['game_id'])
 
-                # Build feature vector in correct order
-                feature_vector = []
-                for col in self.feature_cols:
-                    feature_vector.append(features.get(col, 0))
+                        # Get Vegas odds for the prediction
+                        odds = self._get_odds(conn, game_id)
+                        vegas_spread = odds.get('latest_spread')
+                        vegas_total = odds.get('latest_total', 220)
 
-                feature_vector = np.array([feature_vector])
-                feature_vector = np.nan_to_num(feature_vector, nan=0.0, posinf=0.0, neginf=0.0)
-                feature_vector = self.scaler.transform(feature_vector)
+                        # Use enhanced model's predict method (returns dict)
+                        result = self.enhanced_model.predict(
+                            home_id=home_id,
+                            away_id=away_id,
+                            season=season,
+                            game_date=game_date,
+                            game_id=game_id,
+                            vegas_spread=vegas_spread,
+                            vegas_total=vegas_total
+                        )
 
-                # Predict
-                with torch.no_grad():
-                    X = torch.FloatTensor(feature_vector).to(self.device)
-                    pred = self.model(X).cpu().numpy()[0]
+                        # Extract values from result dict
+                        raw_spread = result['predicted_spread']
+                        raw_total = result['predicted_total']
+                        home_score = result['home_score']
+                        away_score = result['away_score']
+                        total = raw_total
 
-                home_score = max(0, pred[0])
-                away_score = max(0, pred[1])
-                # VEGAS CONVENTION: spread = away - home
-                # Negative spread (-7) = HOME favored by 7
-                # Positive spread (+7) = AWAY favored by 7
-                spread = away_score - home_score
-                total = home_score + away_score
+                    else:
+                        # Fall back to Deep Eagle neural net
+                        features = self.extract_features(game)
 
-                # Calculate confidence
-                score_diff = abs(spread)
-                confidence = min(0.95, 0.5 + score_diff / 25)
+                        # Build feature vector in correct order
+                        feature_vector = []
+                        for col in self.feature_cols:
+                            feature_vector.append(features.get(col, 0))
 
-                # Get vegas odds for comparison
-                conn = sqlite3.connect(self.db_path)
-                odds = self._get_odds(conn, int(game['game_id']))
-                conn.close()
+                        feature_vector = np.array([feature_vector])
+                        feature_vector = np.nan_to_num(feature_vector, nan=0.0, posinf=0.0, neginf=0.0)
+                        feature_vector = self.scaler.transform(feature_vector)
 
-                # Validate spread convention before saving
-                validate_prediction_spread(
-                    round(spread, 1), round(home_score, 1), round(away_score, 1),
-                    context=f"game_id={game['game_id']}"
-                )
+                        # Predict
+                        with torch.no_grad():
+                            X = torch.FloatTensor(feature_vector).to(self.device)
+                            pred = self.model(X).cpu().numpy()[0]
 
-                predictions.append({
-                    'game_id': game['game_id'],
-                    'date': game['date'],
-                    'home_team': game['home_team'],
-                    'away_team': game['away_team'],
-                    'pred_home_score': round(home_score, 1),
-                    'pred_away_score': round(away_score, 1),
-                    'pred_spread': round(spread, 1),
-                    'pred_total': round(total, 1),
-                    'vegas_spread': odds['latest_spread'],
-                    'vegas_total': odds['latest_total'],
-                    'confidence': round(confidence, 3),
-                    # Use spread_utils for consistent convention enforcement
-                    'predicted_winner': get_predicted_winner(spread, game['home_team'], game['away_team'])
-                })
+                        home_score = max(0, pred[0])
+                        away_score = max(0, pred[1])
+                        raw_spread = away_score - home_score
+                        total = home_score + away_score
 
-            except Exception as e:
-                print(f"Error predicting game {game['game_id']}: {e}")
-                continue
+                    # Get vegas odds for comparison (may already have from enhanced model)
+                    if not self.using_enhanced:
+                        odds = self._get_odds(conn, int(game['game_id']))
+
+                    # For Enhanced model: NO adjustments needed (they're built in)
+                    # For Deep Eagle: Apply legacy post-prediction adjustments
+                    if self.using_enhanced:
+                        # Enhanced model doesn't need post-prediction adjustments
+                        spread = raw_spread
+                        raw_total = total
+                        adjustment_notes = ['enhanced_model']
+                    else:
+                        # Apply post-prediction spread adjustments (Deep Eagle only)
+                        adjusted_spread, spread_adj_notes = self._apply_spread_adjustments(
+                            model_spread=raw_spread,
+                            vegas_spread=odds['latest_spread'],
+                            home_team_id=int(game['home_team_id']),
+                            away_team_id=int(game['away_team_id']),
+                            game_date=game['date'],
+                            conn=conn
+                        )
+
+                        # Apply post-prediction total adjustments
+                        raw_total = total
+                        adjusted_total, total_adj_notes = self._apply_total_adjustments(
+                            pred_total=total,
+                            vegas_total=odds['latest_total']
+                        )
+
+                        adjustment_notes = spread_adj_notes + total_adj_notes
+                        spread = adjusted_spread
+                        total = adjusted_total
+
+                    # Calculate confidence based on adjusted spread
+                    score_diff = abs(spread)
+                    confidence = min(0.95, 0.5 + score_diff / 25)
+
+                    # Validate spread convention before saving (use raw spread, not adjusted)
+                    validate_prediction_spread(
+                        round(raw_spread, 1), round(home_score, 1), round(away_score, 1),
+                        context=f"game_id={game['game_id']}"
+                    )
+
+                    predictions.append({
+                        'game_id': game['game_id'],
+                        'date': game['date'],
+                        'home_team': game['home_team'],
+                        'away_team': game['away_team'],
+                        'pred_home_score': round(home_score, 1),
+                        'pred_away_score': round(away_score, 1),
+                        'pred_spread': round(spread, 1),
+                        'pred_spread_base': round(raw_spread, 1),  # Raw model spread before adjustments
+                        'pred_total': round(total, 1),
+                        'pred_total_base': round(raw_total, 1),  # Raw model total before adjustments
+                        'adjustment_notes': '; '.join(adjustment_notes) if adjustment_notes else '',
+                        'vegas_spread': odds['latest_spread'],
+                        'vegas_total': odds['latest_total'],
+                        'confidence': round(confidence, 3),
+                        # Use spread_utils for consistent convention enforcement
+                        'predicted_winner': get_predicted_winner(spread, game['home_team'], game['away_team'])
+                    })
+
+                except Exception as e:
+                    print(f"Error predicting game {game['game_id']}: {e}")
+                    continue
+        finally:
+            conn.close()  # Always close connection
 
         return pd.DataFrame(predictions)
 
@@ -660,8 +902,8 @@ if __name__ == '__main__':
 
     predictor = NBAPredictor()
 
-    if predictor.model is None:
-        print("\nNo model available. Train a model first.")
+    if predictor.enhanced_model is None and predictor.model is None:
+        print("\nNo model available. Train with: python nba_enhanced_ridge.py")
         sys.exit(1)
 
     # Get upcoming games

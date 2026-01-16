@@ -111,7 +111,7 @@ def check_missing_vegas_lines(days=7):
 
 
 def generate_predictions(days=7):
-    """Generate predictions using Deep Eagle model with fade adjustments"""
+    """Generate predictions using Robust Ridge model (preferred) or Deep Eagle"""
     logger.info(f"Generating NBA predictions for next {days} days...")
 
     try:
@@ -119,9 +119,10 @@ def generate_predictions(days=7):
 
         predictor = NBAPredictor()
 
-        if predictor.model is None:
-            logger.warning("NBA Deep Eagle model not loaded - no predictions generated")
-            logger.warning("Check that models/deep_eagle_nba_2025.pt exists")
+        # Check if any model is available (enhanced ridge or deep eagle)
+        if predictor.enhanced_model is None and predictor.model is None:
+            logger.warning("No NBA model loaded - no predictions generated")
+            logger.warning("Train: python train_nba_robust.py train")
             return None
 
         predictions_df = predictor.predict_upcoming(days=days)

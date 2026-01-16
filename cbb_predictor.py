@@ -1,6 +1,8 @@
 """
-CBB Deep Eagle Predictor
-Makes predictions for upcoming Men's College Basketball games using Deep Eagle model
+CBB Predictor - Supports Enhanced Ridge model and Deep Eagle neural net
+
+PREFERRED MODEL: Enhanced Ridge (dynamic HCA, momentum, form)
+FALLBACK: Deep Eagle neural net (legacy, known to overfit)
 
 SPREAD CONVENTION (Vegas standard):
     spread = away_score - home_score
@@ -57,22 +59,59 @@ class DeepEagleModel(nn.Module):
 
 
 class CBBPredictor:
-    """Predict CBB game outcomes using Deep Eagle model"""
+    """Predict CBB game outcomes using Enhanced Ridge model (preferred) or Deep Eagle.
+
+    Walk-forward validation (2026 YTD) shows ~49-51% ATS (essentially coin flip).
+    Underdog baseline (53.2%) beats all models. Neither model beats Vegas consistently.
+
+    Treat all predictions as entertainment only.
+    """
 
     def __init__(self, model_path='models/deep_eagle_cbb_2025.pt',
                  scaler_path='models/deep_eagle_cbb_2025_scaler.pkl',
-                 db_path='cbb_games.db'):
+                 db_path='cbb_games.db',
+                 use_enhanced=True):
         self.db_path = db_path
         self.model_path = model_path
         self.scaler_path = scaler_path
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.model = None
+        self.model = None  # Deep Eagle model (fallback)
         self.scaler = None
         self.feature_cols = None
-        self._load_model()
 
-    def _load_model(self):
-        """Load trained model and scaler"""
+        # Enhanced model support
+        self.enhanced_model = None
+        self.using_enhanced = False
+
+        self._load_model(use_enhanced=use_enhanced)
+
+    def _load_model(self, use_enhanced=True):
+        """Load trained model and scaler, preferring enhanced model if available"""
+        import os
+
+        # Try loading enhanced model first (preferred)
+        if use_enhanced:
+            try:
+                from cbb_enhanced_ridge import CBBEnhancedModel
+                enhanced_path = 'models/cbb_enhanced_model.pkl'
+
+                if os.path.exists(enhanced_path):
+                    self.enhanced_model = CBBEnhancedModel.load()
+                    self.using_enhanced = True
+                    print(f"Loaded CBB Enhanced Ridge model")
+                    print(f"  Features: dynamic HCA, momentum, form")
+                    print(f"  Walk-forward: ~50% ATS (not profitable)")
+                    return
+                else:
+                    print(f"Enhanced model not found at {enhanced_path}")
+                    print(f"  Train with: python cbb_enhanced_ridge.py")
+
+            except ImportError as e:
+                print(f"Could not import CBBEnhancedModel: {e}")
+            except Exception as e:
+                print(f"Failed to load enhanced model: {e}")
+
+        # Fall back to Deep Eagle model
         try:
             checkpoint = torch.load(self.model_path, map_location=self.device)
             self.feature_cols = checkpoint.get('feature_cols', [])
@@ -89,24 +128,28 @@ class CBBPredictor:
 
             print(f"Loaded CBB Deep Eagle model from {self.model_path}")
             print(f"  Features: {len(self.feature_cols)}")
+            print(f"  WARNING: Deep Eagle model known to overfit.")
 
         except FileNotFoundError:
             print(f"Model not found at {self.model_path}")
-            print("Train a model first: py train_cbb_model.py")
+            print("Train a model first: python cbb_enhanced_ridge.py")
             self.model = None
 
     def get_upcoming_games(self, days=7):
         """Get upcoming CBB games from database"""
         from datetime import datetime, timedelta
+        import pytz
 
         conn = sqlite3.connect(self.db_path)
 
-        # CBB games are stored with ISO timestamps (e.g., 2025-12-18T01:00Z)
-        # Generate date range strings that match the database format
-        now = datetime.utcnow()
-        start_date = (now - timedelta(hours=12)).strftime('%Y-%m-%d')
-        end_date = (now + timedelta(days=days)).strftime('%Y-%m-%d')
+        # Use Eastern time for date filtering since game_date_eastern is in ET
+        eastern = pytz.timezone('US/Eastern')
+        now_eastern = datetime.now(eastern)
+        today = now_eastern.strftime('%Y-%m-%d')
+        end_date = (now_eastern + timedelta(days=days)).strftime('%Y-%m-%d')
 
+        # Use game_date_eastern for accurate date filtering
+        # This ensures evening games (stored as next day UTC) are correctly included
         query = '''
             SELECT
                 g.game_id,
@@ -121,12 +164,12 @@ class CBBPredictor:
             JOIN teams ht ON g.home_team_id = ht.team_id
             JOIN teams at ON g.away_team_id = at.team_id
             WHERE g.completed = 0
-                AND g.date >= ?
-                AND g.date <= ?
-            ORDER BY g.date
+                AND g.game_date_eastern >= ?
+                AND g.game_date_eastern <= ?
+            ORDER BY g.game_date_eastern, g.date
         '''
 
-        games = pd.read_sql_query(query, conn, params=(start_date, end_date + 'Z'))
+        games = pd.read_sql_query(query, conn, params=(today, end_date))
         conn.close()
 
         return games
@@ -365,68 +408,185 @@ class CBBPredictor:
             '_missing_odds': not (has_spread and has_total)
         }
 
+    def _apply_spread_adjustments(
+        self, pred_spread: float, vegas_spread: float | None
+    ) -> tuple[float, list[str]]:
+        """Apply post-prediction adjustments to spread based on backtest findings.
+
+        Adjustments applied in order:
+        1. Big underdog: +1.5 pts toward teams getting 10+ points
+        2. Fade 6-8 pt edges in close games (Vegas < 5)
+
+        Returns:
+            Tuple of (adjusted_spread, list of adjustment descriptions)
+        """
+        adjustments = []
+        adjusted_spread = pred_spread
+
+        if vegas_spread is None:
+            return adjusted_spread, adjustments
+
+        abs_vegas = abs(vegas_spread)
+
+        # 1. Big underdog adjustment: shift toward 10+ pt underdogs
+        if abs_vegas >= self.BIG_DOG_THRESHOLD:
+            if vegas_spread > 0:
+                # Home is underdog, add negative adjustment (toward home)
+                adjusted_spread = adjusted_spread - self.BIG_DOG_ADJUSTMENT
+                adjustments.append(f"big_dog_home:{-self.BIG_DOG_ADJUSTMENT:+.1f}")
+            else:
+                # Away is underdog, add positive adjustment (toward away)
+                adjusted_spread = adjusted_spread + self.BIG_DOG_ADJUSTMENT
+                adjustments.append(f"big_dog_away:{+self.BIG_DOG_ADJUSTMENT:+.1f}")
+
+        # 2. Fade 6-8 pt edges in close games (Vegas spread < 5)
+        spread_edge = adjusted_spread - vegas_spread
+        abs_edge = abs(spread_edge)
+
+        if self.FADE_EDGE_MIN <= abs_edge < self.FADE_EDGE_MAX:
+            if abs_vegas < self.CLOSE_GAME_THRESHOLD:
+                # Flip the bet: multiply edge by -2 to reverse direction
+                fade_adjustment = -2 * spread_edge
+                adjusted_spread = adjusted_spread + fade_adjustment
+                adjustments.append(f"fade_close_game:{fade_adjustment:+.1f}")
+
+        return adjusted_spread, adjustments
+
     def predict(self, games_df):
-        """Generate predictions for games"""
-        if self.model is None:
+        """Generate predictions for games using enhanced model (preferred) or Deep Eagle"""
+        if self.enhanced_model is None and self.model is None:
             print("No model loaded")
             return None
 
         predictions = []
+        conn = sqlite3.connect(self.db_path)
 
         for idx, game in games_df.iterrows():
             try:
-                features = self.extract_features(game)
+                # Use enhanced model if available
+                if self.using_enhanced and self.enhanced_model is not None:
+                    season = int(game.get('season', 2026))
+                    home_id = int(game['home_team_id'])
+                    away_id = int(game['away_team_id'])
+                    game_date = game['date']
+                    game_id = int(game['game_id'])
 
-                # Build feature vector in correct order
-                feature_vector = []
-                for col in self.feature_cols:
-                    feature_vector.append(features.get(col, 0))
+                    # Get Vegas odds
+                    cursor = conn.cursor()
+                    cursor.execute('''
+                        SELECT COALESCE(latest_spread, opening_spread) as spread,
+                               COALESCE(latest_total, opening_total) as total
+                        FROM odds_and_predictions WHERE game_id = ?
+                    ''', (game_id,))
+                    odds_row = cursor.fetchone()
+                    vegas_spread = odds_row[0] if odds_row else None
+                    vegas_total = odds_row[1] if odds_row else 143.0
 
-                feature_vector = np.array([feature_vector])
-                feature_vector = np.nan_to_num(feature_vector, nan=0.0, posinf=0.0, neginf=0.0)
-                feature_vector = self.scaler.transform(feature_vector)
+                    # Use enhanced model's predict method (returns dict)
+                    result = self.enhanced_model.predict(
+                        home_id, away_id, season, game_date
+                    )
 
-                # Predict
-                with torch.no_grad():
-                    X = torch.FloatTensor(feature_vector).to(self.device)
-                    pred = self.model(X).cpu().numpy()[0]
+                    # Extract values from result dict
+                    pred_spread = result['spread']
+                    pred_total = result['total']
 
-                home_score = max(0, pred[0])
-                away_score = max(0, pred[1])
-                # VEGAS CONVENTION: spread = away - home
-                # Negative spread (-7) = HOME favored by 7
-                # Positive spread (+7) = AWAY favored by 7
-                spread = away_score - home_score
-                total = home_score + away_score
+                    # Skip games where model couldn't make predictions
+                    if pred_spread is None or pred_total is None:
+                        print(f"Skipping game {game_id}: model returned None")
+                        continue
 
-                # Calculate confidence
-                score_diff = abs(spread)
-                confidence = min(0.95, 0.5 + score_diff / 30)
+                    # Derive scores from spread and total
+                    home_score = (pred_total - pred_spread) / 2
+                    away_score = (pred_total + pred_spread) / 2
 
-                # Validate spread convention before saving
-                validate_prediction_spread(
-                    round(spread, 1), round(home_score, 1), round(away_score, 1),
-                    context=f"game_id={game['game_id']}"
-                )
+                    # Calculate confidence based on edge
+                    edge = abs(pred_spread - (vegas_spread or 0))
+                    confidence = min(0.95, 0.5 + edge / 20)
 
-                predictions.append({
-                    'game_id': game['game_id'],
-                    'date': game['date'],
-                    'home_team': game['home_team'],
-                    'away_team': game['away_team'],
-                    'pred_home_score': round(home_score, 1),
-                    'pred_away_score': round(away_score, 1),
-                    'pred_spread': round(spread, 1),
-                    'pred_total': round(total, 1),
-                    'confidence': round(confidence, 3),
-                    # Use spread_utils for consistent convention enforcement
-                    'predicted_winner': get_predicted_winner(spread, game['home_team'], game['away_team'])
-                })
+                    predictions.append({
+                        'game_id': game['game_id'],
+                        'date': game['date'],
+                        'home_team': game['home_team'],
+                        'away_team': game['away_team'],
+                        'pred_home_score': round(home_score, 1),
+                        'pred_away_score': round(away_score, 1),
+                        'pred_spread': round(pred_spread, 1),
+                        'pred_spread_base': round(pred_spread, 1),
+                        'pred_total': round(pred_total, 1),
+                        'vegas_spread': vegas_spread,
+                        'confidence': round(confidence, 3),
+                        'adjustments': 'enhanced_model',
+                        'predicted_winner': get_predicted_winner(pred_spread, game['home_team'], game['away_team'])
+                    })
+
+                else:
+                    # Fall back to Deep Eagle model with adjustments
+                    features = self.extract_features(game)
+
+                    # Build feature vector in correct order
+                    feature_vector = []
+                    for col in self.feature_cols:
+                        feature_vector.append(features.get(col, 0))
+
+                    feature_vector = np.array([feature_vector])
+                    feature_vector = np.nan_to_num(feature_vector, nan=0.0, posinf=0.0, neginf=0.0)
+                    feature_vector = self.scaler.transform(feature_vector)
+
+                    # Predict
+                    with torch.no_grad():
+                        X = torch.FloatTensor(feature_vector).to(self.device)
+                        pred = self.model(X).cpu().numpy()[0]
+
+                    home_score = max(0, pred[0])
+                    away_score = max(0, pred[1])
+                    # VEGAS CONVENTION: spread = away - home
+                    base_spread = away_score - home_score
+                    total = home_score + away_score
+
+                    # Get Vegas spread for adjustment logic
+                    vegas_spread = features.get('odds_closing_spread')
+                    if vegas_spread == 0:
+                        vegas_spread = features.get('odds_opening_spread')
+                    if vegas_spread == 0:
+                        vegas_spread = None
+
+                    # Apply fade adjustments (6-8 pt edges in close games)
+                    adjusted_spread, spread_adjustments = self._apply_spread_adjustments(
+                        base_spread, vegas_spread
+                    )
+
+                    # Calculate confidence based on adjusted spread
+                    score_diff = abs(adjusted_spread)
+                    confidence = min(0.95, 0.5 + score_diff / 30)
+
+                    # Validate spread convention before saving
+                    validate_prediction_spread(
+                        round(adjusted_spread, 1), round(home_score, 1), round(away_score, 1),
+                        context=f"game_id={game['game_id']}"
+                    )
+
+                    predictions.append({
+                        'game_id': game['game_id'],
+                        'date': game['date'],
+                        'home_team': game['home_team'],
+                        'away_team': game['away_team'],
+                        'pred_home_score': round(home_score, 1),
+                        'pred_away_score': round(away_score, 1),
+                        'pred_spread': round(adjusted_spread, 1),
+                        'pred_spread_base': round(base_spread, 1),
+                        'pred_total': round(total, 1),
+                        'vegas_spread': vegas_spread,
+                        'confidence': round(confidence, 3),
+                        'adjustments': ','.join(spread_adjustments) if spread_adjustments else '',
+                        'predicted_winner': get_predicted_winner(adjusted_spread, game['home_team'], game['away_team'])
+                    })
 
             except Exception as e:
                 print(f"Error predicting game {game['game_id']}: {e}")
                 continue
 
+        conn.close()
         return pd.DataFrame(predictions)
 
     def predict_upcoming(self, days=7):
@@ -451,10 +611,9 @@ if __name__ == '__main__':
 
     predictor = CBBPredictor()
 
-    if predictor.model is None:
+    if predictor.enhanced_model is None and predictor.model is None:
         print("\nNo model available. Train a model first:")
-        print("  1. Extract features: py cbb_feature_extractor.py 2024")
-        print("  2. Train model: py train_deep_eagle_cbb.py 2025 cbb_2025_deep_eagle_features.csv")
+        print("  python cbb_enhanced_ridge.py")
         sys.exit(1)
 
     # Get upcoming games
