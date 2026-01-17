@@ -1620,7 +1620,7 @@ def display_top_picks(predictions_df, sport_emoji="🏈", max_picks=5, min_disag
     # NBA: Totals 4-6 pts - backtest claimed 58.8%, actual 42.5% (NOT profitable)
     # CBB: Spreads 6+ pts - backtest claimed 71.9%, actual 49.7% (FAILED)
     # NFL/CFB: Spreads 5+ pts, Totals 8+ pts (TBD)
-    # NHL: Spreads 1+ pts = 65% ATS (CONFIRMED profitable)
+    # NHL: MONEYLINE - Home underdogs +100-120 = 59.6% win rate (CONFIRMED profitable)
 
     three_star_picks = []
 
@@ -1651,9 +1651,22 @@ def display_top_picks(predictions_df, sport_emoji="🏈", max_picks=5, min_disag
             is_3star_spread = (spread_edge >= 2) and (spread_edge < 5)
             is_3star_total = False  # CBB totals not profitable
         elif sport == 'NHL':
-            # NHL backtest (720 games): 1+ goal edge = 65% ATS (+24% ROI)
-            # Totals only 53.5% (not profitable) - skip total 3-star plays
-            is_3star_spread = spread_edge >= 1.0
+            # NHL: Use MONEYLINE strategy, not puck line!
+            # Puck lines have lopsided juice (+200/-200), not -110 like other sports.
+            # HOME UNDERDOGS on moneyline: 52% win rate, +17.5% ROI (p=0.009)
+            # Best range: +100 to +120 = 59.6% win rate
+            # Check if we have moneyline data and home is underdog
+            ml_home = row.get('ml_home')
+            if pd.notna(ml_home) and ml_home > 0:
+                # Home underdog - this is a play!
+                if 100 <= ml_home <= 120:
+                    is_3star_spread = True  # Premium range
+                elif ml_home <= 180:
+                    is_3star_spread = True  # Good range (2-star but still worth showing)
+                else:
+                    is_3star_spread = False  # Larger underdogs have smaller sample
+            else:
+                is_3star_spread = False  # Not a home underdog
             is_3star_total = False  # NHL totals not profitable
         else:
             # NFL/CFB
@@ -1661,20 +1674,39 @@ def display_top_picks(predictions_df, sport_emoji="🏈", max_picks=5, min_disag
             is_3star_total = total_edge >= 8
 
         if is_3star_spread:
-            # Determine pick direction
-            if model_spread < vegas_spread:
+            if sport == 'NHL':
+                # NHL: Show MONEYLINE play (home underdog)
+                ml_home = row.get('ml_home', 0)
                 pick_team = row.get('home_team', 'Home')
+                # For sorting: premium range (+100-120) gets edge 3, +121-180 gets edge 2
+                if 100 <= ml_home <= 120:
+                    edge_val = 3.0  # Premium
+                else:
+                    edge_val = 2.0  # Good
+                three_star_picks.append({
+                    'away_team': row.get('away_team', 'Away'),
+                    'home_team': row.get('home_team', 'Home'),
+                    'pick_type': 'Moneyline',
+                    'pick_team': pick_team,
+                    'ml_home': ml_home,
+                    'edge': edge_val
+                })
             else:
-                pick_team = row.get('away_team', 'Away')
-            three_star_picks.append({
-                'away_team': row.get('away_team', 'Away'),
-                'home_team': row.get('home_team', 'Home'),
-                'pick_type': 'Spread',
-                'pick_team': pick_team,
-                'model_val': model_spread,
-                'vegas_val': vegas_spread,
-                'edge': spread_edge
-            })
+                # Other sports: Show spread play
+                # Determine pick direction
+                if model_spread < vegas_spread:
+                    pick_team = row.get('home_team', 'Home')
+                else:
+                    pick_team = row.get('away_team', 'Away')
+                three_star_picks.append({
+                    'away_team': row.get('away_team', 'Away'),
+                    'home_team': row.get('home_team', 'Home'),
+                    'pick_type': 'Spread',
+                    'pick_team': pick_team,
+                    'model_val': model_spread,
+                    'vegas_val': vegas_spread,
+                    'edge': spread_edge
+                })
 
         if is_3star_total:
             direction = "OVER" if model_total > vegas_total else "UNDER"
@@ -1702,6 +1734,8 @@ def display_top_picks(predictions_df, sport_emoji="🏈", max_picks=5, min_disag
         st.success("✅ NBA 5+ pt edges: 56.1% ATS (+7% ROI) on 512 games. Spreads only - totals not profitable.")
     elif sport == 'CBB':
         st.warning("⚠️ CBB 2-4 pt edges: 62.9% ATS (44/70) - promising but small sample. High edges (5+) degrade.")
+    elif sport == 'NHL':
+        st.success("✅ NHL Home Underdogs: 52% win rate, +17.5% ROI (707 games, p=0.009). Best: +100-120 range.")
     else:
         st.caption("Highest confidence picks based on historical profitability")
 
@@ -1710,12 +1744,24 @@ def display_top_picks(predictions_df, sport_emoji="🏈", max_picks=5, min_disag
         with col1:
             st.write(f"{sport_emoji} **{pick['away_team']}** @ **{pick['home_team']}**")
         with col2:
-            if pick['pick_type'] == 'Spread':
+            if pick['pick_type'] == 'Moneyline':
+                # NHL moneyline display
+                ml = pick.get('ml_home', 0)
+                stars = "⭐⭐⭐" if 100 <= ml <= 120 else "⭐⭐"
+                st.write(f"**{pick['pick_team']} ML +{int(ml)}** {stars}")
+            elif pick['pick_type'] == 'Spread':
                 st.write(f"**{pick['pick_team']}** (Model: {pick['model_val']:+.1f} vs Vegas: {pick['vegas_val']:+.1f})")
             else:
                 st.write(f"**{pick['direction']} {pick['vegas_val']:.1f}** (Model: {pick['model_val']:.1f})")
         with col3:
-            st.write(f"**{pick['edge']:.1f}** pts")
+            if pick['pick_type'] == 'Moneyline':
+                ml = pick.get('ml_home', 0)
+                if 100 <= ml <= 120:
+                    st.write("**59.6%** win")
+                else:
+                    st.write("**~55%** win")
+            else:
+                st.write(f"**{pick['edge']:.1f}** pts")
 
     st.markdown("---")
 
@@ -2500,7 +2546,9 @@ def show_nhl_predictions_live():
                 (o.predicted_home_score + o.predicted_away_score) as predicted_total,
                 o.confidence,
                 COALESCE(o.latest_spread, o.opening_spread) as vegas_spread,
-                COALESCE(o.latest_total, o.opening_total) as vegas_total
+                COALESCE(o.latest_total, o.opening_total) as vegas_total,
+                o.latest_moneyline_home as ml_home,
+                o.latest_moneyline_away as ml_away
             FROM games g
             JOIN teams ht ON g.home_team_id = ht.team_id
             JOIN teams at ON g.away_team_id = at.team_id
@@ -2605,9 +2653,38 @@ def show_nhl_predictions_live():
 
     st.markdown(f"**Showing {len(filtered_df)} games**")
 
-    # Display NHL game cards with star ratings
+    # Display NHL game cards with MONEYLINE focus
+    # NHL Strategy: Bet HOME UNDERDOGS on MONEYLINE (52% win, +17.5% ROI)
     for _, row in filtered_df.iterrows():
-        # Spreads
+        # Get moneyline data
+        ml_home = row.get('ml_home')
+        ml_away = row.get('ml_away')
+        if pd.isna(ml_home):
+            ml_home = None
+        else:
+            ml_home = int(ml_home)
+        if pd.isna(ml_away):
+            ml_away = None
+        else:
+            ml_away = int(ml_away)
+
+        # Moneyline play: HOME UNDERDOGS are profitable
+        ml_play = None
+        ml_stars = ""
+        if ml_home is not None and ml_home > 0:  # Home is underdog
+            ml_play = f"{row['home_team']} ML +{ml_home}"
+            # Star ratings based on backtest:
+            # +100 to +120: 59.6% win rate, 26.1% ROI = 3 stars
+            # +121 to +180: ~55% win rate, 20%+ ROI = 2 stars
+            # +181+: smaller sample = 1 star
+            if 100 <= ml_home <= 120:
+                ml_stars = "⭐⭐⭐"
+            elif ml_home <= 180:
+                ml_stars = "⭐⭐"
+            else:
+                ml_stars = "⭐"
+
+        # Spreads (puck line - for reference only, NOT recommended)
         pred_spread = row.get('predicted_spread', 0)
         vegas_spread = row.get('vegas_spread', 0)
         edge = pred_spread - vegas_spread if vegas_spread else 0
@@ -2618,14 +2695,7 @@ def show_nhl_predictions_live():
         if pd.isna(pred_spread):
             pred_spread = 0
 
-        # Spread confidence stars (NHL backtest: 1+ goal edge = 65% ATS, else ~52%)
-        abs_edge = abs(edge)
-        if abs_edge >= 1.0:
-            conf_stars = "⭐⭐⭐"  # 65% ATS - very profitable
-        else:
-            conf_stars = "⭐"      # ~52% - below breakeven
-
-        # Pick direction
+        # Puck line pick (for display only - not profitable due to juice)
         if edge > 0:
             pick_team = row['away_team']
             if vegas_spread > 0:
@@ -2649,18 +2719,15 @@ def show_nhl_predictions_live():
         total_edge = pred_total - vegas_total if vegas_total else 0
         total_pick = f"OVER {vegas_total:.1f}" if total_edge > 0 else f"UNDER {vegas_total:.1f}"
 
-        # Total confidence stars (NHL backtest: 53.5% - not profitable, all 1 star)
-        total_stars = "⭐"  # NHL totals not profitable
-
         # Check if game is completed
         game_date_raw = row.get('game_date', '')
         game_time = format_game_time_eastern(game_date_raw)
         is_completed = row.get('game_completed', 0) == 1
 
-        # Game card - 3-row format (same as NBA)
+        # Game card - 3-row format with MONEYLINE focus
         with st.container():
-            # Row 1: Matchup | Time | Result
-            cols1 = st.columns([3, 3, 2])
+            # Row 1: Matchup | Time | ML Play (if home underdog)
+            cols1 = st.columns([3, 2, 3])
             with cols1[0]:
                 if is_completed:
                     st.markdown(f"**🏒 {row['away_team']} @ {row['home_team']}** ✓")
@@ -2672,33 +2739,51 @@ def show_nhl_predictions_live():
                 elif game_time:
                     st.caption(f"🕐 {game_time}")
             with cols1[2]:
-                pass  # Reserved for future use
+                if ml_play and not is_completed:
+                    st.markdown(f"**{ml_stars} {ml_play}**")
 
-            # Row 2: Spread | Vegas | Model | Edge | Pick | Stars
-            cols2 = st.columns([1, 2, 2, 2, 1])
-            with cols2[0]:
-                st.caption("Puck Line")
-            with cols2[1]:
-                st.caption(f"Vegas: {vegas_spread:+.1f}")
-            with cols2[2]:
-                st.caption(f"Model: {pred_spread:+.1f}")
-            with cols2[3]:
-                st.caption(f"Edge: {edge:+.1f} → **{pick}**")
-            with cols2[4]:
-                st.caption(conf_stars)
+            # Row 2: Moneyline info
+            if ml_home is not None and ml_away is not None:
+                cols2 = st.columns([1, 2, 2, 3])
+                with cols2[0]:
+                    st.caption("ML")
+                with cols2[1]:
+                    home_ml_str = f"+{ml_home}" if ml_home > 0 else str(ml_home)
+                    st.caption(f"Home: {home_ml_str}")
+                with cols2[2]:
+                    away_ml_str = f"+{ml_away}" if ml_away > 0 else str(ml_away)
+                    st.caption(f"Away: {away_ml_str}")
+                with cols2[3]:
+                    if ml_home > 0:
+                        st.caption("← **HOME UNDERDOG** (52% win, +17.5% ROI)")
+                    else:
+                        st.caption("Home favorite")
 
-            # Row 3: Total | Vegas | Model | Edge | Pick | Stars
+            # Row 3: Puck Line (for reference - note about juice)
             cols3 = st.columns([1, 2, 2, 2, 1])
             with cols3[0]:
-                st.caption("Total")
+                st.caption("Puck")
             with cols3[1]:
-                st.caption(f"Vegas: {vegas_total:.1f}")
+                st.caption(f"Vegas: {vegas_spread:+.1f}")
             with cols3[2]:
-                st.caption(f"Model: {pred_total:.1f}")
+                st.caption(f"Model: {pred_spread:+.1f}")
             with cols3[3]:
-                st.caption(f"Edge: {total_edge:+.1f} → **{total_pick}**")
+                st.caption(f"Edge: {edge:+.1f} → {pick}")
             with cols3[4]:
-                st.caption(total_stars)
+                st.caption("⚠️")  # Warning - puck line has lopsided juice
+
+            # Row 4: Total (not profitable - ~53% hit rate)
+            cols4 = st.columns([1, 2, 2, 2, 1])
+            with cols4[0]:
+                st.caption("Total")
+            with cols4[1]:
+                st.caption(f"Vegas: {vegas_total:.1f}")
+            with cols4[2]:
+                st.caption(f"Model: {pred_total:.1f}")
+            with cols4[3]:
+                st.caption(f"Edge: {total_edge:+.1f} → {total_pick}")
+            with cols4[4]:
+                st.caption("⭐")  # NHL totals not profitable
 
             st.markdown("---")
 

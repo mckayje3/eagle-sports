@@ -34,15 +34,24 @@ LEAGUE_AVG_GOALS = 3.0  # NHL average ~3 goals per team
 class NHLPredictor:
     """Simple predictor for NHL spread and total predictions.
 
-    Post-prediction adjustments based on edge analysis backtest (54 games):
-    - Underdog +1.5 covers 57.4% (profitable)
-    - Model edges of 1+ goal show 68.2% ATS
+    IMPORTANT: NHL Betting Strategy (based on 707 games with moneylines):
 
-    Note: Sample size is limited - need more historical odds data for reliable analysis.
+    1. MONEYLINE (Recommended):
+       - HOME UNDERDOGS: 52.0% win rate, +17.5% ROI (p=0.009, significant!)
+       - Best range: +100 to +120 (59.6% win rate, +26.1% ROI)
+       - Away underdogs: 39.5% win rate, -7.2% ROI (avoid)
+
+    2. PUCK LINE (±1.5):
+       - Puck lines have lopsided juice (+200/-200 range), NOT -110 like NFL/NBA
+       - The underdog +1.5 often has +200 odds (breaks even at 33%)
+       - The favorite +1.5 often has -250 odds (breaks even at 71%)
+       - Our puck line analysis was misleading - use moneyline instead
+
+    Strategy: BET HOME UNDERDOGS ON THE MONEYLINE
     """
 
     # Post-prediction adjustment constants
-    UNDERDOG_ADJUSTMENT = 0.15  # Small adjustment toward underdog (puck line is only ±1.5)
+    UNDERDOG_ADJUSTMENT = 0.15  # Small adjustment toward underdog
 
     def __init__(self):
         self.team_stats = defaultdict(lambda: defaultdict(lambda: {
@@ -340,7 +349,9 @@ class NHLPredictor:
                 at.display_name as away_team,
                 g.completed,
                 o.latest_spread as vegas_spread,
-                o.latest_total as vegas_total
+                o.latest_total as vegas_total,
+                o.latest_moneyline_home as ml_home,
+                o.latest_moneyline_away as ml_away
             FROM games g
             JOIN teams ht ON g.home_team_id = ht.team_id
             JOIN teams at ON g.away_team_id = at.team_id
@@ -366,8 +377,24 @@ class NHLPredictor:
             if spread is not None:
                 vegas_spread_val = vegas_spread if vegas_spread is not None else 0
                 vegas_total = row['vegas_total'] if pd.notna(row['vegas_total']) else 5.5
+                ml_home = int(row['ml_home']) if pd.notna(row['ml_home']) else None
+                ml_away = int(row['ml_away']) if pd.notna(row['ml_away']) else None
 
                 edge = spread - vegas_spread_val
+
+                # Moneyline recommendation: HOME UNDERDOGS are profitable
+                # 52% win rate, 17.5% ROI, p=0.009
+                ml_play = None
+                ml_stars = 0
+                if ml_home is not None and ml_home > 0:  # Home is underdog
+                    ml_play = f"{row['home_team']} ML +{ml_home}"
+                    # Best range: +100 to +120 (59.6% win rate, 26.1% ROI)
+                    if 100 <= ml_home <= 120:
+                        ml_stars = 3  # Premium play
+                    elif ml_home <= 180:
+                        ml_stars = 2  # Good play
+                    else:
+                        ml_stars = 1  # Playable but lower volume
 
                 predictions.append({
                     'game_id': row['game_id'],
@@ -379,6 +406,10 @@ class NHLPredictor:
                     'vegas_spread': vegas_spread_val,
                     'vegas_total': vegas_total,
                     'edge': round(edge, 2),
+                    'ml_home': ml_home,
+                    'ml_away': ml_away,
+                    'ml_play': ml_play,
+                    'ml_stars': ml_stars,
                     'completed': row['completed'],
                 })
 
@@ -436,13 +467,29 @@ def main():
         print("NHL PREDICTIONS")
         print(f"{'='*80}\n")
 
-        # Sort by edge
+        # Show moneyline plays first (HOME UNDERDOGS)
+        ml_plays = predictions[predictions['ml_stars'] > 0].sort_values('ml_stars', ascending=False)
+        if not ml_plays.empty:
+            print("MONEYLINE PLAYS (Home Underdogs - 52% win rate, 17.5% ROI)")
+            print("-" * 60)
+            for _, row in ml_plays.iterrows():
+                stars = "*" * row['ml_stars']
+                print(f"[{stars}] {row['ml_play']}")
+                print(f"   {row['away_team']} @ {row['home_team']} ({row['date']})")
+            print()
+
+        # Sort by edge for spread display
         predictions = predictions.sort_values('edge', key=abs, ascending=False)
 
+        print("SPREAD/TOTAL PREDICTIONS")
+        print("-" * 60)
         for _, row in predictions.iterrows():
+            ml_info = ""
+            if pd.notna(row['ml_home']):
+                ml_info = f" | ML: Home {int(row['ml_home']):+d} / Away {int(row['ml_away']):+d}"
             print(f"{row['away_team']} @ {row['home_team']} ({row['date']})")
             print(f"  Spread: Model {row['pred_spread']:+.2f} | Vegas {row['vegas_spread']:+.1f} | Edge {row['edge']:+.2f}")
-            print(f"  Total:  Model {row['pred_total']:.1f} | Vegas {row['vegas_total']:.1f}")
+            print(f"  Total:  Model {row['pred_total']:.1f} | Vegas {row['vegas_total']:.1f}{ml_info}")
             print()
 
         # Save to CSV

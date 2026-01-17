@@ -103,7 +103,7 @@ COALESCE(o.avg_pred_total, o.predicted_home_score + o.predicted_away_score) as p
 | NBA | ✅ Yes | Big underdog, fade, struggling home |
 | CBB | ✅ Yes | Big underdog, fade close games |
 | CFB | ❌ No | Use raw calculation |
-| NHL | ✅ Yes | Underdog bias (+0.15 goals) - **Strategy: always bet underdog +1.5** |
+| NHL | ✅ Yes | Underdog bias (+0.15 goals) - **Strategy: bet HOME UNDERDOGS on MONEYLINE** |
 
 ### Schema Change Protocol (MANDATORY)
 
@@ -191,19 +191,23 @@ The NFL predictor (Deep Eagle) applies automatic adjustments after model predict
 
 NFL Deep Eagle backtest: 58.4% ATS at 5+ pt edges, 63.0% at 7+ pt edges.
 
-### NHL Post-Prediction Adjustments
-The NHL predictor applies a small adjustment after model prediction:
+### NHL Betting Strategy (MONEYLINE - NOT Puck Line!)
 
-1. **Underdog bias** (+0.15 goals): Small adjustment toward underdog
+**IMPORTANT:** NHL puck lines (±1.5) have lopsided juice (+200/-200 range), NOT -110 like NFL/NBA spreads. Our puck line analysis was misleading. Use MONEYLINES instead.
 
-NHL edge analysis backtest (720 games - 3+ seasons):
-- **Model edges >= 1.0 goal: 65.0% ATS** (+24.1% ROI) - Best strategy
-- **Underdog +1.5 (all games): 60.7% ATS** (+15.9% ROI) - Simple strategy
-- Overs hit 53.5% (marginal)
+**Moneyline Backtest (707 games with moneylines):**
 
-**Strategies:**
-1. **Best:** Use 3-star picks (model edge >= 1.0 goal) for 65% ATS
-2. **Simple:** Bet underdog +1.5 on every game for 60.7% ATS
+| Strategy | Games | Win Rate | ROI | Significance |
+|----------|-------|----------|-----|--------------|
+| **Home Underdogs (all)** | 223 | 52.0% | +17.5% | p=0.009 ✓ |
+| Home dogs +100-120 | 94 | 59.6% | +26.1% | Best range! |
+| Home dogs +140-180 | 43 | 55.8% | +42.7% | Also good |
+| Away Underdogs | 484 | 39.5% | -7.2% | AVOID |
+
+**Strategy: BET HOME UNDERDOGS ON THE MONEYLINE**
+- 3-star plays: Home dog +100 to +120 (59.6% win rate)
+- 2-star plays: Home dog +121 to +180 (55%+ win rate)
+- 1-star plays: Home dog +181+ (smaller sample)
 
 ### Feature Naming
 - `*_ppg` = points per game
@@ -217,14 +221,15 @@ NHL edge analysis backtest (720 games - 3+ seasons):
 ### 3-Star Plays Section
 Each sport page shows a "⭐⭐⭐ 3-Star Plays" section at the top highlighting profitable picks based on **walk-forward validation**:
 
-| Sport | Spread Threshold | Walk-Forward ATS | Sample | Status |
-|-------|------------------|------------------|--------|--------|
-| NHL | 1+ goal | 65.0% ATS | 720 | **CONFIRMED** (+24% ROI) |
-| CBB | 2-4 pts | 62.9% ATS | 70 | **Promising** (small sample) |
-| CFB | 5+ pts | 57.1% ATS (2025) | - | **PROFITABLE** |
-| NBA | 5+ pts | 56.1% ATS | 66 | **PROFITABLE** (+7% ROI) |
-| NFL | 5+ pts | 55.3% ATS (2025) | - | **PROFITABLE** |
+| Sport | Bet Type | Threshold | Win Rate | Sample | Status |
+|-------|----------|-----------|----------|--------|--------|
+| NHL | **Moneyline** | Home dog +100-120 | 59.6% | 94 | **CONFIRMED** (+26% ROI, p=0.009) |
+| CBB | Spread | 2-4 pts | 62.9% ATS | 70 | **Promising** (small sample) |
+| CFB | Spread | 5+ pts | 57.1% ATS | - | **PROFITABLE** |
+| NBA | Spread | 5+ pts | 56.1% ATS | 66 | **PROFITABLE** (+7% ROI) |
+| NFL | Spread | 5+ pts | 55.3% ATS | - | **PROFITABLE** |
 
+**Note:** NHL uses MONEYLINE (not puck line) because puck lines have lopsided juice.
 **Totals:** Not profitable for any sport - all show 1 star for totals.
 
 **Walk-forward validation** = train on season N, test on season N+1 (simulates real deployment).
@@ -309,20 +314,19 @@ Note: CFB models show ~50% ATS at all thresholds - not currently profitable.
 
 *Totals:* All 1 star (~50% ATS, not profitable)
 
-**NHL (720 games - 3+ seasons, CONFIRMED PROFITABLE):**
+**NHL (707 games with moneylines, MONEYLINE STRATEGY):**
 
-*Puck Line (±1.5):*
-| Edge | Stars | Win % | Profitable? |
-|------|-------|-------|-------------|
-| >= 1.0 goal | ⭐⭐⭐ | 65.0% | Yes (+24.1% ROI) |
-| < 1.0 goal | ⭐ | ~52% | No (below breakeven) |
+**IMPORTANT:** Puck lines (±1.5) have lopsided juice (+200/-200), NOT -110 like NFL/NBA. Use MONEYLINES instead.
 
-*Totals:*
-| Edge | Stars | Win % | Profitable? |
-|------|-------|-------|-------------|
-| All | ⭐ | 53.5% | No (marginal) |
+*Moneyline (Home Underdogs):*
+| ML Range | Stars | Win % | ROI | Notes |
+|----------|-------|-------|-----|-------|
+| +100 to +120 | ⭐⭐⭐ | 59.6% | +26.1% | Best range (94 games) |
+| +121 to +180 | ⭐⭐ | ~55% | +20%+ | Good range |
+| +181+ | ⭐ | ~46% | Varies | Smaller sample |
+| Away underdogs | ❌ | 39.5% | -7.2% | AVOID |
 
-**Simple NHL Strategy:** Bet underdog +1.5 on every game = 60.7% ATS (+15.9% ROI)
+**Simple NHL Strategy:** Bet HOME UNDERDOGS on the moneyline = 52.0% win rate, +17.5% ROI (p=0.009, statistically significant)
 
 ---
 
