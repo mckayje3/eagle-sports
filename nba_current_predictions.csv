@@ -1,19 +1,13 @@
 game_id,date,home_team,away_team,pred_home_score,pred_away_score,pred_spread,pred_spread_base,pred_total,pred_total_base,adjustment_notes,vegas_spread,vegas_total,confidence,predicted_winner
-401810443,2026-01-17T00:00Z,Indiana Pacers,New Orleans Pelicans,119.1,118.4,-0.7,-0.7,237.5,237.5,enhanced_model,-4.5,240.5,0.53,Indiana Pacers
-401810444,2026-01-17T00:00Z,Philadelphia 76ers,Cleveland Cavaliers,118.8,118.5,-0.3,-0.3,237.3,237.3,enhanced_model,-2.5,232.5,0.511,Philadelphia 76ers
-401810442,2026-01-17T00:30Z,Brooklyn Nets,Chicago Bulls,114.2,113.1,-1.1,-1.1,227.2,227.2,enhanced_model,-1.5,225.5,0.543,Brooklyn Nets
-401810445,2026-01-17T00:30Z,Toronto Raptors,LA Clippers,110.1,108.5,-1.6,-1.6,218.5,218.5,enhanced_model,-1.5,212.5,0.563,Toronto Raptors
-401810446,2026-01-17T02:30Z,Houston Rockets,Minnesota Timberwolves,112.8,112.8,0.0,0.0,225.5,225.5,enhanced_model,-4.5,221.5,0.501,Minnesota Timberwolves
-401810447,2026-01-17T03:00Z,Sacramento Kings,Washington Wizards,116.9,115.6,-1.3,-1.3,232.4,232.4,enhanced_model,-7.5,233.5,0.552,Sacramento Kings
-401810448,2026-01-17T22:00Z,Dallas Mavericks,Utah Jazz,121.1,114.5,-6.6,-6.6,235.7,235.7,enhanced_model,0.0,223.0,0.763,Dallas Mavericks
-401810449,2026-01-18T00:30Z,Atlanta Hawks,Boston Celtics,112.1,118.2,6.1,6.1,230.3,230.3,enhanced_model,0.0,223.0,0.742,Boston Celtics
-401810450,2026-01-18T00:30Z,Detroit Pistons,Indiana Pacers,117.9,107.1,-10.8,-10.8,225.0,225.0,enhanced_model,0.0,223.0,0.933,Detroit Pistons
-401810451,2026-01-18T00:30Z,New York Knicks,Phoenix Suns,114.5,113.0,-1.6,-1.6,227.5,227.5,enhanced_model,0.0,223.0,0.562,New York Knicks
-401810452,2026-01-18T01:00Z,Miami Heat,Oklahoma City Thunder,111.5,116.7,5.2,5.2,228.2,228.2,enhanced_model,0.0,223.0,0.71,Oklahoma City Thunder
-401810453,2026-01-18T01:00Z,San Antonio Spurs,Minnesota Timberwolves,114.5,113.5,-1.0,-1.0,228.0,228.0,enhanced_model,0.0,223.0,0.539,San Antonio Spurs
-401810454,2026-01-18T01:30Z,Golden State Warriors,Charlotte Hornets,115.7,113.5,-2.2,-2.2,229.2,229.2,enhanced_model,0.0,223.0,0.587,Golden State Warriors
-401810455,2026-01-18T02:00Z,Denver Nuggets,Washington Wizards,120.9,110.7,-10.2,-10.2,231.7,231.7,enhanced_model,0.0,223.0,0.907,Denver Nuggets
-401810456,2026-01-18T03:00Z,Portland Trail Blazers,Los Angeles Lakers,114.9,115.1,0.2,0.2,230.1,230.1,enhanced_model,0.0,223.0,0.507,Los Angeles Lakers
+401810448,2026-01-17T22:00Z,Dallas Mavericks,Utah Jazz,125.0,118.1,-6.9,-6.9,243.1,243.1,enhanced_model,-3.5,241.5,0.777,Dallas Mavericks
+401810449,2026-01-18T00:30Z,Atlanta Hawks,Boston Celtics,113.3,119.7,6.4,6.4,232.9,232.9,enhanced_model,3.5,229.5,0.756,Boston Celtics
+401810450,2026-01-18T00:30Z,Detroit Pistons,Indiana Pacers,119.3,107.2,-12.1,-12.1,226.4,226.4,enhanced_model,-12.5,226.5,0.95,Detroit Pistons
+401810451,2026-01-18T00:30Z,New York Knicks,Phoenix Suns,115.2,113.3,-1.9,-1.9,228.5,228.5,enhanced_model,-3.5,225.5,0.576,New York Knicks
+401810452,2026-01-18T01:00Z,Miami Heat,Oklahoma City Thunder,113.1,119.4,6.3,6.3,232.4,232.4,enhanced_model,10.5,233.5,0.752,Oklahoma City Thunder
+401810453,2026-01-18T01:00Z,San Antonio Spurs,Minnesota Timberwolves,115.7,114.1,-1.6,-1.6,229.8,229.8,enhanced_model,-6.5,227.5,0.565,San Antonio Spurs
+401810454,2026-01-18T01:30Z,Golden State Warriors,Charlotte Hornets,118.4,115.4,-2.9,-2.9,233.8,233.8,enhanced_model,-7.5,234.5,0.617,Golden State Warriors
+401810455,2026-01-18T02:00Z,Denver Nuggets,Washington Wizards,123.4,112.0,-11.4,-11.4,235.5,235.5,enhanced_model,-12.5,232.5,0.95,Denver Nuggets
+401810456,2026-01-18T03:00Z,Portland Trail Blazers,Los Angeles Lakers,115.4,115.3,-0.2,-0.2,230.7,230.7,enhanced_model,-3.5,224.5,0.507,Portland Trail Blazers
 401810457,2026-01-18T17:00Z,Memphis Grizzlies,Orlando Magic,115.4,115.9,0.6,0.6,231.3,231.3,enhanced_model,5.5,227.5,0.523,Orlando Magic
 401810458,2026-01-19T00:00Z,Chicago Bulls,Brooklyn Nets,114.9,113.2,-1.6,-1.6,228.1,228.1,enhanced_model,0.0,223.0,0.565,Chicago Bulls
 401810459,2026-01-19T00:00Z,Houston Rockets,New Orleans Pelicans,118.4,109.6,-8.8,-8.8,228.0,228.0,enhanced_model,0.0,223.0,0.853,Houston Rockets
@@ -59,3 +53,10 @@ game_id,date,home_team,away_team,pred_home_score,pred_away_score,pred_spread,pre
 401810496,2026-01-24T01:00Z,Oklahoma City Thunder,Indiana Pacers,120.8,104.6,-16.2,-16.2,225.5,225.5,enhanced_model,0.0,223.0,0.95,Oklahoma City Thunder
 401810495,2026-01-24T02:30Z,Milwaukee Bucks,Denver Nuggets,112.1,114.9,2.9,2.9,227.0,227.0,enhanced_model,0.0,223.0,0.614,Denver Nuggets
 401810497,2026-01-24T03:00Z,Portland Trail Blazers,Toronto Raptors,112.8,114.8,1.9,1.9,227.6,227.6,enhanced_model,0.0,223.0,0.578,Toronto Raptors
+401810498,2026-01-24T20:00Z,Philadelphia 76ers,New York Knicks,116.0,114.9,-1.1,-1.1,231.0,231.0,enhanced_model,0.0,223.0,0.543,Philadelphia 76ers
+401810499,2026-01-24T22:30Z,Minnesota Timberwolves,Golden State Warriors,118.7,112.2,-6.5,-6.5,230.9,230.9,enhanced_model,0.0,223.0,0.758,Minnesota Timberwolves
+401810500,2026-01-24T23:00Z,Charlotte Hornets,Washington Wizards,119.1,110.9,-8.2,-8.2,229.9,229.9,enhanced_model,0.0,223.0,0.829,Charlotte Hornets
+401810501,2026-01-25T00:00Z,Orlando Magic,Cleveland Cavaliers,116.9,115.2,-1.7,-1.7,232.1,232.1,enhanced_model,0.0,223.0,0.569,Orlando Magic
+401810502,2026-01-25T01:00Z,Chicago Bulls,Boston Celtics,112.1,118.1,6.0,6.0,230.2,230.2,enhanced_model,0.0,223.0,0.742,Boston Celtics
+401810503,2026-01-25T01:30Z,Dallas Mavericks,Los Angeles Lakers,116.1,114.4,-1.6,-1.6,230.5,230.5,enhanced_model,0.0,223.0,0.566,Dallas Mavericks
+401810504,2026-01-25T02:30Z,Utah Jazz,Miami Heat,116.5,122.0,5.5,5.5,238.4,238.4,enhanced_model,0.0,223.0,0.719,Miami Heat
