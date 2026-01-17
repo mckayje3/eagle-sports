@@ -17,14 +17,12 @@ DB_PATH = Path(__file__).parent / 'nfl_games.db'
 # Format: (away_team, home_team, vegas_spread, vegas_total, game_date, time_slot)
 # Convention: spread = away_score - home_score (positive = away favored)
 PLAYOFF_GAMES = [
-    # 2025 Season Wild Card Weekend - Jan 10-13, 2026
-    # Lines as of Jan 11, 2026 (source: CBS Sports)
-    ('Rams', 'Panthers', +10.0, 46.5, '2026-01-10', 'FRI 8:00 PM'),      # Rams (away) favored by 10
-    ('Bills', 'Jaguars', +1.5, 52.5, '2026-01-11', 'SAT 1:00 PM'),       # Bills (away) favored by 1.5
-    ('Packers', 'Bears', +1.5, 45.5, '2026-01-11', 'SAT 4:30 PM'),       # Packers (away) favored by 1.5
-    ('49ers', 'Eagles', -4.5, 44.5, '2026-01-11', 'SAT 8:00 PM'),        # Eagles (home) favored by 4.5
-    ('Chargers', 'Patriots', -3.5, 46.5, '2026-01-12', 'SUN 1:00 PM'),   # Patriots (home) favored by 3.5
-    ('Texans', 'Steelers', +3.0, 39.5, '2026-01-13', 'MON 8:00 PM'),     # Texans (away) favored by 3
+    # 2025 Season Divisional Round - Jan 17-18, 2026
+    # Lines as of Jan 16, 2026 (source: Covers.com, CBS Sports)
+    ('Bills', 'Broncos', -1.5, 46.5, '2026-01-17', 'SAT 4:30 PM'),       # Broncos (home) favored by 1.5
+    ('49ers', 'Seahawks', -7.0, 44.5, '2026-01-17', 'SAT 8:00 PM'),      # Seahawks (home) favored by 7
+    ('Texans', 'Patriots', -3.5, 40.5, '2026-01-18', 'SUN 3:00 PM'),     # Patriots (home) favored by 3.5
+    ('Rams', 'Bears', +3.5, 48.5, '2026-01-18', 'SUN 6:30 PM'),          # Rams (away) favored by 3.5
 ]
 
 # NFL Simple model constants (optimized)
