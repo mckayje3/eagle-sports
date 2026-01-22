@@ -1,8 +1,9 @@
 """
-NBA Predictor - Supports both Enhanced Ridge model and Deep Eagle neural net
+NBA Predictor - Supports Ridge V2, Enhanced Ridge, and Deep Eagle models
 
-PREFERRED MODEL: Enhanced Ridge (dynamic HCA, injuries, momentum, streaks)
-FALLBACK: Deep Eagle neural net (legacy, known to overfit)
+PREFERRED MODEL: Ridge V2 (pure model - no Vegas blend, SRS, reduced HCA)
+FALLBACK 1: Enhanced Ridge (dynamic HCA, injuries, momentum)
+FALLBACK 2: Deep Eagle neural net (legacy, known to overfit)
 
 SPREAD CONVENTION (Vegas standard):
     spread = away_score - home_score
@@ -100,15 +101,21 @@ def infer_model_architecture(state_dict):
 
 
 class NBAPredictor:
-    """Predict NBA game outcomes using Enhanced Ridge model (preferred) or Deep Eagle (fallback).
+    """Predict NBA game outcomes using Ridge V2 (preferred), Enhanced Ridge, or Deep Eagle.
 
     Model priority:
-    1. Enhanced Ridge (models/nba_ridge_enhanced.pkl) - Dynamic HCA, injuries, momentum
-    2. Deep Eagle neural net - Legacy model, known to overfit
+    1. Ridge V2 (models/nba_ridge_v2.pkl) - Pure model, SRS, reduced HCA, no Vegas blend
+    2. Enhanced Ridge (models/nba_ridge_enhanced.pkl) - Dynamic HCA, injuries, momentum
+    3. Deep Eagle neural net - Legacy model, known to overfit
 
-    The Enhanced Ridge model includes dynamic per-team HCA, injury adjustments,
-    momentum, and win/loss streaks. Walk-forward tested at 52.3% overall ATS,
-    59.4% at 2+ pt edges (small sample).
+    Ridge V2 is a pure model without Vegas blending - designed as baseline for
+    Deep Eagle edge classifier. Walk-forward: 56.2% overall, 61.2% at 7+ pt edges.
+
+    CONFIDENCE SCORING (based on pattern analysis):
+    - 2+ stars: 64.3% ATS (2025-2026 combined)
+    - Filters out road favorite picks (35% ATS historically)
+    - Prefers home picks, especially home favorites
+    - Close games (Vegas < 4 pts) are best
     """
 
     # Legacy adjustment constants (used only with Deep Eagle model)
@@ -121,6 +128,78 @@ class NBAPredictor:
     MIDDLE_TOTAL_EDGE_MIN = 4.0
     MIDDLE_TOTAL_EDGE_MAX = 6.0
 
+    @staticmethod
+    def calculate_spread_confidence(
+        edge: float,
+        vegas_spread: float | None,
+        min_edge: float = 5.0,
+    ) -> tuple[int, bool]:
+        """
+        Calculate confidence stars for a spread pick based on pattern analysis.
+
+        Rules (based on 2025-2026 backtest, 64.3% ATS at 2+ stars):
+        1. Must have min_edge (default 5 pts) to qualify
+        2. FADE road favorite picks (35% ATS -> 65% when faded)
+        3. +1 for home picks
+        4. +1 for home favorites (stacks with #3)
+        5. +1 for close games (Vegas < 4 pts)
+        6. -1 for blowout spreads (Vegas 10+ pts)
+        7. +1 for big edges (7+ pts)
+
+        Args:
+            edge: Model spread - Vegas spread (negative = pick home)
+            vegas_spread: Vegas spread (negative = home favored)
+            min_edge: Minimum edge to qualify (default 5.0)
+
+        Returns:
+            Tuple of (confidence_stars, should_fade).
+            should_fade=True means bet OPPOSITE of model's pick (bet home dog).
+        """
+        if vegas_spread is None:
+            return 1, False  # No Vegas line to compare
+
+        abs_edge = abs(edge)
+
+        # Must have minimum edge
+        if abs_edge < min_edge:
+            return 0, False
+
+        # Classify the pick
+        pick_home = edge < 0
+        vegas_home_fav = vegas_spread < 0
+
+        # FADE road favorite picks (35% ATS -> 65% when faded)
+        # Road fav = picking away team when away is Vegas favorite
+        if not pick_home and not vegas_home_fav:  # Pick away, away is favored
+            # Fade this pick - bet the home dog instead (64.7% ATS)
+            return 2, True  # 2 stars for fade play
+
+        # Start building confidence for normal picks
+        score = 0
+
+        # +1 for home picks (62.5% vs 55.4%)
+        if pick_home:
+            score += 1
+
+        # +1 for home favorites (67.2% ATS)
+        if pick_home and vegas_home_fav:
+            score += 1
+
+        # +1 for close games (Vegas spread < 4 pts) - 64.1% ATS
+        if abs(vegas_spread) < 4:
+            score += 1
+
+        # -1 for blowout spreads (Vegas 10+ pts) - 53.8% ATS
+        if abs(vegas_spread) >= 10:
+            score -= 1
+
+        # +1 for big edges (7+ pts)
+        if abs_edge >= 7:
+            score += 1
+
+        # Minimum 1 star if we passed the edge threshold
+        return max(score, 1), False
+
     def __init__(self, model_path='models/deep_eagle_nba_2025.pt',
                  scaler_path='models/deep_eagle_nba_2025_scaler.pkl',
                  db_path='nba_games.db',
@@ -130,16 +209,40 @@ class NBAPredictor:
         self.scaler_path = scaler_path
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.model = None
-        self.enhanced_model = None  # Enhanced Ridge model
+        self.ridge_v2_model = None  # Ridge V2 model (preferred)
+        self.enhanced_model = None  # Enhanced Ridge model (fallback)
         self.scaler = None
         self.feature_cols = None
-        self.using_enhanced = False  # Track which model is active
+        self.using_ridge_v2 = False  # Track if using V2
+        self.using_enhanced = False  # Track if using enhanced
         self._load_model(use_enhanced=use_enhanced)
 
     def _load_model(self, use_enhanced=True):
-        """Load trained model and scaler. Prefers Enhanced Ridge, falls back to Deep Eagle."""
+        """Load trained model and scaler. Prefers Ridge V2, then Enhanced Ridge, then Deep Eagle."""
 
-        # Try Enhanced Ridge model first (preferred)
+        # Try Ridge V2 model first (preferred - pure model, no Vegas blend)
+        if use_enhanced:
+            try:
+                from nba_ridge_v2 import NBARidgeV2
+                v2_path = 'models/nba_ridge_v2.pkl'
+
+                if os.path.exists(v2_path):
+                    self.ridge_v2_model = NBARidgeV2.load()
+                    self.using_ridge_v2 = True
+                    self.using_enhanced = True  # For compatibility
+                    print(f"Loaded NBA Ridge V2 model (pure - no Vegas blend)")
+                    print(f"  Features: SRS, reduced HCA (1.5), road fav penalty")
+                    print(f"  Walk-forward: 56.2% overall, 61.2% at 7+ pt edges")
+                    return
+                else:
+                    print(f"Ridge V2 not found at {v2_path}, trying Enhanced Ridge...")
+
+            except ImportError as e:
+                print(f"Could not import NBARidgeV2: {e}")
+            except Exception as e:
+                print(f"Error loading Ridge V2: {e}")
+
+        # Try Enhanced Ridge model (fallback 1)
         if use_enhanced:
             try:
                 from nba_enhanced_ridge import NBAEnhancedModel
@@ -744,8 +847,8 @@ class NBAPredictor:
         return adjusted_total, adjustments
 
     def predict(self, games_df):
-        """Generate predictions for games using Enhanced Ridge (preferred) or Deep Eagle model."""
-        if self.enhanced_model is None and self.model is None:
+        """Generate predictions for games using Ridge V2, Enhanced Ridge, or Deep Eagle model."""
+        if self.ridge_v2_model is None and self.enhanced_model is None and self.model is None:
             print("No model loaded")
             return None
 
@@ -755,9 +858,39 @@ class NBAPredictor:
         try:
             for idx, game in games_df.iterrows():
                 try:
-                    # Use enhanced model if available (preferred)
-                    if self.using_enhanced and self.enhanced_model is not None:
-                        # Enhanced model has its own predict method
+                    # Use Ridge V2 if available (preferred - pure model)
+                    if self.using_ridge_v2 and self.ridge_v2_model is not None:
+                        season = int(game.get('season', 2026))
+                        home_id = int(game['home_team_id'])
+                        away_id = int(game['away_team_id'])
+                        game_date = game['date']
+                        game_id = int(game['game_id'])
+
+                        # Get Vegas odds for comparison (not blending)
+                        odds = self._get_odds(conn, game_id)
+                        vegas_spread = odds.get('latest_spread')
+                        vegas_total = odds.get('latest_total', 220)
+
+                        # Use Ridge V2's predict method (returns dict)
+                        result = self.ridge_v2_model.predict(
+                            home_id=home_id,
+                            away_id=away_id,
+                            season=season,
+                            game_date=game_date,
+                            game_id=game_id,
+                            vegas_spread=vegas_spread,
+                            vegas_total=vegas_total
+                        )
+
+                        # Extract values from result dict
+                        raw_spread = result['predicted_spread']
+                        raw_total = result['predicted_total']
+                        home_score = result['home_score']
+                        away_score = result['away_score']
+                        total = raw_total
+
+                    # Use Enhanced Ridge if V2 not available
+                    elif self.using_enhanced and self.enhanced_model is not None:
                         season = int(game.get('season', 2026))
                         home_id = int(game['home_team_id'])
                         away_id = int(game['away_team_id'])
@@ -814,9 +947,14 @@ class NBAPredictor:
                     if not self.using_enhanced:
                         odds = self._get_odds(conn, int(game['game_id']))
 
-                    # For Enhanced model: NO adjustments needed (they're built in)
+                    # For Ridge V2 / Enhanced model: NO adjustments needed (they're built in)
                     # For Deep Eagle: Apply legacy post-prediction adjustments
-                    if self.using_enhanced:
+                    if self.using_ridge_v2:
+                        # Ridge V2 is pure model with built-in adjustments
+                        spread = raw_spread
+                        raw_total = total
+                        adjustment_notes = ['ridge_v2_pure']
+                    elif self.using_enhanced:
                         # Enhanced model doesn't need post-prediction adjustments
                         spread = raw_spread
                         raw_total = total
@@ -843,7 +981,22 @@ class NBAPredictor:
                         spread = adjusted_spread
                         total = adjusted_total
 
-                    # Calculate confidence based on adjusted spread
+                    # Calculate spread edge and confidence stars
+                    spread_edge = spread - odds['latest_spread'] if odds['latest_spread'] is not None else 0
+                    spread_stars, should_fade = self.calculate_spread_confidence(spread_edge, odds['latest_spread'])
+
+                    # Determine the actual pick (accounting for fade)
+                    if should_fade:
+                        # Fade = bet opposite of model. Model picked away (road fav), so bet home
+                        actual_pick_team = game['home_team']
+                        actual_pick_spread = odds['latest_spread']  # Take the home dog spread
+                        fade_note = 'FADE_ROAD_FAV'
+                    else:
+                        actual_pick_team = get_predicted_winner(spread, game['home_team'], game['away_team'])
+                        actual_pick_spread = spread
+                        fade_note = ''
+
+                    # Legacy confidence score (for backwards compatibility)
                     score_diff = abs(spread)
                     confidence = min(0.95, 0.5 + score_diff / 25)
 
@@ -867,9 +1020,13 @@ class NBAPredictor:
                         'adjustment_notes': '; '.join(adjustment_notes) if adjustment_notes else '',
                         'vegas_spread': odds['latest_spread'],
                         'vegas_total': odds['latest_total'],
+                        'spread_edge': round(spread_edge, 1),  # Edge vs Vegas
+                        'spread_stars': spread_stars,  # Confidence stars (0-4)
+                        'should_fade': should_fade,  # True = bet opposite of model
+                        'fade_note': fade_note,  # Explanation if fading
                         'confidence': round(confidence, 3),
                         # Use spread_utils for consistent convention enforcement
-                        'predicted_winner': get_predicted_winner(spread, game['home_team'], game['away_team'])
+                        'predicted_winner': actual_pick_team  # Actual pick (accounts for fade)
                     })
 
                 except Exception as e:
@@ -902,8 +1059,8 @@ if __name__ == '__main__':
 
     predictor = NBAPredictor()
 
-    if predictor.enhanced_model is None and predictor.model is None:
-        print("\nNo model available. Train with: python nba_enhanced_ridge.py")
+    if predictor.ridge_v2_model is None and predictor.enhanced_model is None and predictor.model is None:
+        print("\nNo model available. Train with: python nba_ridge_v2.py")
         sys.exit(1)
 
     # Get upcoming games
@@ -921,14 +1078,26 @@ if __name__ == '__main__':
 
     if predictions is not None and not predictions.empty:
         print(f"\n{'='*80}")
-        print("NBA PREDICTIONS")
+        print("NBA PREDICTIONS (Rule-Based Confidence: 2+ stars = 64% ATS)")
+        print("FADE plays = bet opposite of model (home dog when model picks road fav)")
         print('='*80)
         for _, pred in predictions.iterrows():
+            stars = '*' * pred.get('spread_stars', 0) if pred.get('spread_stars', 0) > 0 else '(skip)'
+            edge = pred.get('spread_edge', 0)
+            should_fade = pred.get('should_fade', False)
+            fade_note = pred.get('fade_note', '')
+
             print(f"\n{pred['date']}: {pred['away_team']} @ {pred['home_team']}")
             print(f"  Predicted: {pred['pred_away_score']:.0f} - {pred['pred_home_score']:.0f}")
-            print(f"  Spread: {pred['predicted_winner']} by {abs(pred['pred_spread']):.1f}")
+
+            if should_fade:
+                print(f"  ** FADE PLAY ** Bet: {pred['home_team']} +{pred['vegas_spread']:.1f} (home dog)")
+                print(f"  Model picked road fav but we FADE (65% ATS when fading)")
+            else:
+                print(f"  Spread: {pred['predicted_winner']} by {abs(pred['pred_spread']):.1f}")
+
+            print(f"  Vegas: {pred['vegas_spread']}, Edge: {edge:+.1f}, Stars: {stars}")
             print(f"  Total: {pred['pred_total']:.1f}")
-            print(f"  Confidence: {pred['confidence']:.1%}")
 
         # Save predictions
         predictor.save_predictions(predictions)

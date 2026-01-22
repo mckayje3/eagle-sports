@@ -1637,11 +1637,39 @@ def display_top_picks(predictions_df, sport_emoji="🏈", max_picks=5, min_disag
         is_3star_total = False
 
         if sport == 'NBA':
-            # NBA Enhanced Ridge walk-forward (2026 YTD, 512 games):
-            # 5+ pt edges: 56.1% ATS (37/66), +7% ROI - PROFITABLE
-            # 6+ pt edges: 56.8% ATS (21/37), +8% ROI - PROFITABLE
+            # NBA Ridge V2 + Rule-Based Confidence (2025-2026, 1615 games):
+            # Base 5+ edges: 59.0% ATS
+            # With rule filter (2+ stars): 64.3% ATS - BEST
+            # Road fav picks: 35% ATS - FADE these (65% when faded)
             # Totals: ~50% at all thresholds - not profitable
-            is_3star_spread = spread_edge >= 5
+            edge_signed = model_spread - vegas_spread
+            pick_home = edge_signed < 0
+            vegas_home_fav = vegas_spread < 0
+
+            # Check if this is a road fav pick (FADE these - 65% ATS when faded)
+            is_road_fav_pick = not pick_home and not vegas_home_fav
+
+            if spread_edge >= 5:
+                if is_road_fav_pick:
+                    # This is a FADE play - 65% ATS when fading road fav picks
+                    is_3star_spread = True  # Include as 2-star fade play
+                else:
+                    # Calculate rule-based score for normal picks
+                    score = 0
+                    if pick_home:  # +1 for home picks
+                        score += 1
+                    if pick_home and vegas_home_fav:  # +1 for home favorites
+                        score += 1
+                    if abs(vegas_spread) < 4:  # +1 for close games
+                        score += 1
+                    if abs(vegas_spread) >= 10:  # -1 for blowouts
+                        score -= 1
+                    if spread_edge >= 7:  # +1 for big edges
+                        score += 1
+                    # 3-star = 2+ score (64.3% ATS)
+                    is_3star_spread = score >= 2
+            else:
+                is_3star_spread = False
             is_3star_total = False  # NBA totals not profitable
         elif sport == 'CBB':
             # CBB walk-forward (2026 YTD, 353 games): SWEET SPOT at 2-4 pt edges
@@ -2012,20 +2040,55 @@ def show_nba_predictions_live():
         if pd.isna(pred_spread):
             pred_spread = 0
 
-        # Spread confidence stars (NBA - Enhanced Ridge walk-forward 2026 YTD, 512 games)
-        # 5+ pt edges: 56.1% ATS (37/66), +7% ROI - PROFITABLE
-        # 3-4 pt edges: 53.2% ATS (92/173), +1.5% ROI - marginally profitable
-        # <3 pt edges: ~50% ATS - not profitable
+        # NBA Spread confidence stars (Ridge V2 + Rule-Based, 2025-2026 backtest, 1615 games)
+        # Rule filter (2+ stars): 64.3% ATS (126/196) - BEST
+        # Base 5+ edges: 59.0% ATS
+        # Road fav picks: 35% ATS - FADE these (65% when fading)
         abs_edge = abs(edge)
-        if abs_edge >= 5:
-            conf_stars = "⭐⭐⭐"  # 56.1% - profitable
-        elif abs_edge >= 3:
-            conf_stars = "⭐⭐"    # 53.2% - marginally profitable
-        else:
-            conf_stars = "⭐"      # ~50% ATS - not profitable
+        pick_home = edge < 0
+        vegas_home_fav = vegas_spread < 0 if vegas_spread else True
+        should_fade = False
 
-        # Pick direction
-        if edge > 0:
+        # Start with 0 stars (need 5+ pt edge to qualify)
+        if abs_edge < 5:
+            conf_stars = "⭐"  # Below threshold
+        # FADE road favorite picks (35% ATS -> 65% when faded)
+        elif not pick_home and not vegas_home_fav:  # Model picks away when away is favored
+            conf_stars = "⭐⭐"  # Fade play - 65% ATS
+            should_fade = True
+        else:
+            # Rule-based scoring
+            score = 0
+            # +1 for home picks (62.5% vs 55.4%)
+            if pick_home:
+                score += 1
+            # +1 for home favorites (67% ATS)
+            if pick_home and vegas_home_fav:
+                score += 1
+            # +1 for close games (Vegas < 4 pts) - 64.1% ATS
+            if abs(vegas_spread) < 4 if vegas_spread else False:
+                score += 1
+            # -1 for blowouts (Vegas 10+ pts) - 53.8% ATS
+            if abs(vegas_spread) >= 10 if vegas_spread else False:
+                score -= 1
+            # +1 for big edges (7+ pts)
+            if abs_edge >= 7:
+                score += 1
+            # Map score to stars (minimum 1 if 5+ edge)
+            score = max(score, 1)
+            if score >= 3:
+                conf_stars = "⭐⭐⭐"  # 63.1% ATS
+            elif score >= 2:
+                conf_stars = "⭐⭐"    # 64.9% ATS - BEST
+            else:
+                conf_stars = "⭐"      # 57.1% ATS
+
+        # Pick direction (accounting for fade)
+        if should_fade:
+            # Fade = bet home dog instead of road fav
+            pick_team = row['home_team']
+            pick = f"🔄 FADE → {pick_team} +{vegas_spread:.1f}"
+        elif edge > 0:
             pick_team = row['away_team']
             if vegas_spread > 0:
                 pick = f"{pick_team} -{abs(vegas_spread):.1f}"

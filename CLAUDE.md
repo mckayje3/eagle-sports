@@ -18,6 +18,8 @@ python nhl_predictor.py             # NHL predictions
 # Retrain models (after significant data updates)
 python nfl_simple_model.py          # Retrain NFL simple model
 python train_deep_eagle_nfl.py      # Retrain NFL deep model (requires deep-eagle lib)
+python cbb_enhanced_ridge.py        # Retrain CBB enhanced model
+python nba_enhanced_ridge.py        # Retrain NBA enhanced model
 
 # Update odds from ESPN
 python espn_unified_odds.py         # Scrape current odds for all sports
@@ -77,6 +79,7 @@ LEFT JOIN odds_and_predictions o ON g.game_id = o.game_id
 - **All sports have `game_date_eastern` column** - use this for date filtering/grouping
 - The `date` column stores UTC timestamps (e.g., `2026-01-14T23:00Z`), but `game_date_eastern` gives the correct Eastern date (`2026-01-13` for late games)
 - CFB `date` column is date-only format (no timestamps)
+- **CFB postseason games** (championship, bowl games in January) are stored as `season=N+1, week=1` but team stats are in `season=N`. The predictor auto-handles this by using previous season stats when `week <= 1`.
 
 ### Prediction Columns (CRITICAL)
 
@@ -137,6 +140,22 @@ COALESCE(o.avg_pred_total, o.predicted_home_score + o.predicted_away_score) as p
 
 **Why this matters:** Star ratings drive betting decisions. If backtest shows 65% ATS at 1+ goal edge but the app still shows 2 stars, users miss profitable plays. Always keep predictor, app, and docs in sync!
 
+### Model Improvement Protocol (Fade Logic Check)
+
+**CRITICAL:** When improving a model's accuracy, always re-evaluate any existing fade logic.
+
+**Current fade strategies:**
+- NFL Ridge Totals: Fade UNDER at 5+ pts (61.9% when fading)
+
+**Why this matters:** Fade strategies exist because a model consistently fails in one direction. If you improve the model and it no longer fails that way, the fade becomes counterproductive (you'd be betting opposite of a now-accurate prediction).
+
+**When retraining or tuning a model:**
+1. Run backtest on the new model
+2. Check if any fade strategies apply to this model (see list above)
+3. If fade exists: re-run fade analysis to verify it's still beneficial
+4. Update or remove fade logic as needed
+5. Document changes in `MODEL_IMPROVEMENTS.md`
+
 ### ESPN API Gotchas
 
 **CBB Scoreboard Limitation:** ESPN's scoreboard API (`/scoreboard?dates=YYYYMMDD`) only returns ~12 featured games per day, NOT all games. The `update_game_results.py` script handles this by also querying incomplete games directly via the event summary API.
@@ -160,15 +179,23 @@ edge = model_spread - vegas_spread
 # Positive edge → bet AWAY
 ```
 
-### NBA Model (Enhanced Ridge - Profitable at 5+ pt edges)
-The NBA predictor uses an Enhanced Ridge model with dynamic HCA, injuries, momentum, and streaks:
+### NBA Model (Ridge V2 + Rule-Based Confidence - PROFITABLE)
+The NBA predictor uses Ridge V2 (pure model, no Vegas blend) with rule-based confidence scoring:
 
-- Walk-forward validation: Train on 2024+2025, test on 2026 YTD (512 games)
-- **5+ pt edges: 56.1% ATS (37/66), +7% ROI** - PROFITABLE
-- **6+ pt edges: 56.8% ATS (21/37), +8% ROI** - PROFITABLE
-- 3-4 pt edges: 53.2% ATS - marginally profitable
+**Ridge V2 Features:**
+- SRS opponent-adjusted ratings
+- Reduced HCA (1.5 pts vs traditional 2.2)
+- Road favorite penalty (+1.5 pts)
+- NO Vegas blending (pure model for edge detection)
+
+**Walk-forward Results (2025-2026 combined, 1615 games):**
+- Base 5+ pt edges: 59.0% ATS (308/522)
+- **With rule filter (2+ stars): 64.3% ATS (126/196)** - BEST
+- **3+ stars: 63.1% ATS (41/65)**
 - Totals: ~50% at all thresholds - NOT profitable (skip totals)
-- Model files: `models/nba_ridge_enhanced.pkl`
+- Model files: `models/nba_ridge_v2.pkl`
+
+**Key Rule: FADE road favorite picks** (35% ATS -> **65% when faded**)
 
 ### CBB Model (Enhanced Ridge - Promising at 2-4 pt edges)
 The CBB predictor uses an Enhanced Ridge model with an unusual pattern:
@@ -224,12 +251,13 @@ Each sport page shows a "⭐⭐⭐ 3-Star Plays" section at the top highlighting
 | Sport | Bet Type | Threshold | Win Rate | Sample | Status |
 |-------|----------|-----------|----------|--------|--------|
 | NHL | **Moneyline** | Home dog +100-120 | 59.6% | 94 | **CONFIRMED** (+26% ROI, p=0.009) |
+| NBA | Spread | **2+ stars (rule-based)** | **64.3% ATS** | 196 | **BEST** - rule filter |
 | CBB | Spread | 2-4 pts | 62.9% ATS | 70 | **Promising** (small sample) |
 | CFB | Spread | 5+ pts | 57.1% ATS | - | **PROFITABLE** |
-| NBA | Spread | 5+ pts | 56.1% ATS | 66 | **PROFITABLE** (+7% ROI) |
 | NFL | Spread | 5+ pts | 55.3% ATS | - | **PROFITABLE** |
 
 **Note:** NHL uses MONEYLINE (not puck line) because puck lines have lopsided juice.
+**NBA Rule Filter:** Skip road fav picks; prefer home picks, home favs, close games.
 **Totals:** Not profitable for any sport - all show 1 star for totals.
 
 **Walk-forward validation** = train on season N, test on season N+1 (simulates real deployment).
@@ -290,14 +318,24 @@ Playoff predictions come from `predict_nfl_playoffs.py` and `nfl_playoff_predict
 
 Note: CFB models show ~50% ATS at all thresholds - not currently profitable.
 
-**NBA (Enhanced Ridge - PROFITABLE at 5+ pt edges):**
+**NBA (Ridge V2 + Rule-Based Confidence - PROFITABLE):**
 
-*Spreads (512 games, 2026 YTD):*
-| Edge | Stars | Win % | Sample | ROI |
-|------|-------|-------|--------|-----|
-| >= 5 pts | ⭐⭐⭐ | 56.1% | 66 | +7.0% |
-| >= 3 pts | ⭐⭐ | 53.2% | 173 | +1.5% |
-| < 3 pts | ⭐ | ~50% | 339 | Negative |
+*Spreads (1615 games, 2025-2026):*
+| Criteria | Stars | Win % | Sample | Notes |
+|----------|-------|-------|--------|-------|
+| Road Fav picks - **FADE** | ⭐⭐ | **65%** | 17 | Bet HOME DOG instead |
+| 5+ edge, basic | ⭐ | 57.1% | 312 | Marginal |
+| 5+ edge + home/close/big edge | ⭐⭐ | **64.9%** | 131 | **BET** |
+| Multiple positive factors | ⭐⭐⭐ | **63.1%** | 65 | **STRONG BET** |
+| All factors aligned | ⭐⭐⭐⭐ | 75% | 8 | Small sample |
+
+**Rule-Based Scoring (5+ pt edge required):**
+1. **FADE road favorite picks** (bet home dog instead - 65% ATS)
+2. +1 for home picks (62.5% vs 55.4%)
+3. +1 for home favorites (67% ATS)
+4. +1 for close games (Vegas < 4 pts)
+5. -1 for blowouts (Vegas 10+ pts)
+6. +1 for big edges (7+ pts)
 
 *Totals:* All 1 star (~50% at all thresholds - not profitable)
 
@@ -358,6 +396,19 @@ python push_databases.py  # Commit and push all DBs + CSVs
 - **`models/*.pt` + `*_scaler.pkl`** - Trained model pairs, always update together
 - **Deep Eagle models** - Require external `deep-eagle` library at `DEEP_EAGLE_PATH`
 - **`users.db`** - Auth database for API/dashboard
+
+## Troubleshooting
+
+### Enhanced Ridge Models Return None for All Games
+If CBB/NBA predictions fail with "model returned None" for every game:
+- **Cause:** The saved model file is missing `team_stats` data (teams appear to have 0 games)
+- **Fix:** Retrain the model: `python cbb_enhanced_ridge.py` or `python nba_enhanced_ridge.py`
+- This repopulates team stats from the database and saves them in the model file
+
+### CFB Championship/Postseason Games Missing Stats
+If CFB predicts with "No game data for [team] - using defaults" for January games:
+- **Cause:** Game stored as Season N+1, Week 1, but stats are in Season N
+- **Fix:** Already handled automatically - predictor uses previous season for week ≤ 1
 
 ## Common Tasks
 
