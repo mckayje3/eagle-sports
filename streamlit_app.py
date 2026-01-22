@@ -1759,7 +1759,7 @@ def display_top_picks(predictions_df, sport_emoji="🏈", max_picks=5, min_disag
 
     # Sport-specific warnings based on walk-forward validation
     if sport == 'NBA':
-        st.success("✅ NBA 5+ pt edges: 56.1% ATS (+7% ROI) on 512 games. Spreads only - totals not profitable.")
+        st.success("✅ NBA: Spreads 2+ stars = 64% ATS | Totals: Fade UNDER 7+ = 59% O/U")
     elif sport == 'CBB':
         st.warning("⚠️ CBB 2-4 pt edges: 62.9% ATS (44/70) - promising but small sample. High edges (5+) degrade.")
     elif sport == 'NHL':
@@ -2109,12 +2109,16 @@ def show_nba_predictions_live():
         if pd.isna(vegas_total):
             vegas_total = 0
         total_edge = pred_total - vegas_total if vegas_total else 0
-        total_pick = f"OVER {vegas_total:.1f}" if total_edge > 0 else f"UNDER {vegas_total:.1f}"
 
-        # Total confidence stars (NBA - totals not validated in walk-forward)
-        # Walk-forward only validated spread model. Totals need separate analysis.
-        # For now, all totals are 1 star until we have walk-forward data
-        total_stars = "⭐"
+        # NBA Total confidence - Fade UNDER 7+ = 59% win rate (79-55 record)
+        # Model has OVER bias, so when it predicts UNDER strongly, bet OVER instead
+        should_fade_total = total_edge <= -7.0  # Model predicts UNDER by 7+ pts
+        if should_fade_total:
+            total_pick = f"🔄 FADE → OVER {vegas_total:.1f}"
+            total_stars = "⭐⭐"  # 59% win rate when fading
+        else:
+            total_pick = f"OVER {vegas_total:.1f}" if total_edge > 0 else f"UNDER {vegas_total:.1f}"
+            total_stars = "⭐"  # All other totals ~50% - not profitable
 
         # Check if game is completed
         game_date_raw = row.get('game_date', '')

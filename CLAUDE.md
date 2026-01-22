@@ -146,6 +146,7 @@ COALESCE(o.avg_pred_total, o.predicted_home_score + o.predicted_away_score) as p
 
 **Current fade strategies:**
 - NFL Ridge Totals: Fade UNDER at 5+ pts (61.9% when fading)
+- NBA Ridge V2 Totals: Fade UNDER at 7+ pts (59% when fading)
 
 **Why this matters:** Fade strategies exist because a model consistently fails in one direction. If you improve the model and it no longer fails that way, the fade becomes counterproductive (you'd be betting opposite of a now-accurate prediction).
 
@@ -192,10 +193,16 @@ The NBA predictor uses Ridge V2 (pure model, no Vegas blend) with rule-based con
 - Base 5+ pt edges: 59.0% ATS (308/522)
 - **With rule filter (2+ stars): 64.3% ATS (126/196)** - BEST
 - **3+ stars: 63.1% ATS (41/65)**
-- Totals: ~50% at all thresholds - NOT profitable (skip totals)
 - Model files: `models/nba_ridge_v2.pkl`
 
-**Key Rule: FADE road favorite picks** (35% ATS -> **65% when faded**)
+**Totals Walk-forward (2025-2026):**
+- Overall O/U: 48.9% (not profitable)
+- **Fade UNDER 7+: 59% win rate (79-55 record)** - PROFITABLE
+- Model has +1.01 pts OVER bias, so when it predicts UNDER strongly, bet OVER instead
+
+**Key Rules:**
+- **FADE road favorite spread picks** (35% ATS -> **65% when faded**)
+- **FADE UNDER 7+ total picks** (41% O/U -> **59% when faded**)
 
 ### CBB Model (Enhanced Ridge - NOT PROFITABLE)
 The CBB predictor uses an Enhanced Ridge model. Full walk-forward validation shows it does NOT beat Vegas:
@@ -253,14 +260,15 @@ Each sport page shows a "⭐⭐⭐ 3-Star Plays" section at the top highlighting
 |-------|----------|-----------|----------|--------|--------|
 | NHL | **Moneyline** | Home dog +100-120 | 59.6% | 94 | **CONFIRMED** (+26% ROI, p=0.009) |
 | NBA | Spread | **2+ stars (rule-based)** | **64.3% ATS** | 196 | **BEST** - rule filter |
+| NBA | **Total** | **Fade UNDER 7+** | **59% O/U** | 134 | **PROFITABLE** - bet OVER |
 | NFL | Spread | 5+ pts | 55.3% ATS | - | **PROFITABLE** |
 | CFB | Spread | 5+ pts | 57.1% ATS | - | **PROFITABLE** |
 | CBB | Spread | Any | ~50% ATS | 11,066 | **NOT PROFITABLE** |
 
 **Note:** NHL uses MONEYLINE (not puck line) because puck lines have lopsided juice.
 **NBA Rule Filter:** Skip road fav picks; prefer home picks, home favs, close games.
+**NBA Totals:** Fade UNDER 7+ predictions = bet OVER (model has OVER bias).
 **CBB:** Full walk-forward shows ~50% ATS at all thresholds - entertainment only.
-**Totals:** Not profitable for any sport - all show 1 star for totals.
 
 **Walk-forward validation** = train on season N, test on season N+1 (simulates real deployment).
 
@@ -339,7 +347,13 @@ Note: CFB models show ~50% ATS at all thresholds - not currently profitable.
 5. -1 for blowouts (Vegas 10+ pts)
 6. +1 for big edges (7+ pts)
 
-*Totals:* All 1 star (~50% at all thresholds - not profitable)
+*Totals (1615 games):*
+| Criteria | Stars | Win % | Sample | Notes |
+|----------|-------|-------|--------|-------|
+| UNDER 7+ - **FADE** | ⭐⭐ | **59%** | 134 | Bet OVER instead |
+| All other totals | ⭐ | ~50% | - | Not profitable |
+
+**Key Insight:** Model has +1.01 OVER bias. When it predicts UNDER strongly (7+ pts), bet OVER.
 
 **CBB (Enhanced Ridge - NOT PROFITABLE):**
 

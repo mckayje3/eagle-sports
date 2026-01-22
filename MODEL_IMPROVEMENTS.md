@@ -3,16 +3,18 @@
 ## Summary of Edge Analysis Results
 
 ### Basketball (NBA/CBB)
-| Model | Threshold | ATS % | Sample | Status |
-|-------|-----------|-------|--------|--------|
-| **NBA Ridge V2 + Rules** | **5+ pts, 2+ stars** | **64.3%** | 196 | **✅ BEST** |
-| NBA Ridge V2 (base) | 5+ pts | 59.0% | 522 | Profitable |
-| NBA Deep Eagle (with fades) | 6+ pts | 62.7% | - | Profitable |
-| NBA Enhanced Ridge | Any | 51.4% | - | Not profitable |
-| **CBB Enhanced Ridge** | **Any** | **~50%** | **11,066** | **❌ NOT PROFITABLE** |
+| Model | Bet Type | Threshold | Win % | Sample | Status |
+|-------|----------|-----------|-------|--------|--------|
+| **NBA Ridge V2 + Rules** | Spread | **5+ pts, 2+ stars** | **64.3% ATS** | 196 | **✅ BEST** |
+| **NBA Ridge V2 Totals** | **Total** | **Fade UNDER 7+** | **59% O/U** | 134 | **✅ PROFITABLE** |
+| NBA Ridge V2 (base) | Spread | 5+ pts | 59.0% ATS | 522 | Profitable |
+| NBA Deep Eagle (with fades) | Spread | 6+ pts | 62.7% ATS | - | Profitable |
+| NBA Enhanced Ridge | Spread | Any | 51.4% ATS | - | Not profitable |
+| **CBB Enhanced Ridge** | Spread | **Any** | **~50% ATS** | **11,066** | **❌ NOT PROFITABLE** |
 
 **Key Findings:**
 - NBA Ridge V2 with rule-based filtering achieves 64.3% ATS - the best NBA result
+- **NBA Totals: Fade UNDER 7+ = 59% win rate** (model has OVER bias)
 - CBB does NOT beat Vegas at any threshold - previous 62.9% claim was small sample noise (70 games)
 
 ### Football (NFL/CFB) - Updated Analysis (2026-01-15)
@@ -249,6 +251,16 @@ These adjustments corrected known model biases found through backtesting.
 - [x] Previous 62.9% claim (70 games) was small sample noise - true rate is ~49%
 - [x] No rule-based filters improve results (unlike NBA)
 - [x] Updated documentation to reflect CBB as "entertainment only"
+
+### ✅ Completed (NBA Totals Fade - 2026-01-22)
+- [x] Created `nba_totals_analysis.py` for totals walk-forward analysis
+- [x] Ran full walk-forward on 1615 games (2025-2026 combined)
+- [x] **DISCOVERY: Fade UNDER 7+ = 59% win rate (79-55 record)**
+- [x] Model has +1.01 OVER bias, so when it predicts UNDER strongly, bet OVER
+- [x] Added `calculate_total_confidence()` method to `nba_predictor.py`
+- [x] Updated `_apply_total_adjustments()` with fade UNDER 7+ logic
+- [x] Updated `streamlit_app.py` with total fade indicator and 2-star rating
+- [x] Updated all documentation (CLAUDE.md, MODEL_IMPROVEMENTS.md)
 
 ### Longer Term
 - [ ] Unify all predictors with consistent adjustment framework

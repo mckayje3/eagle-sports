@@ -128,6 +128,11 @@ class NBAPredictor:
     MIDDLE_TOTAL_EDGE_MIN = 4.0
     MIDDLE_TOTAL_EDGE_MAX = 6.0
 
+    # Total fade constants (from walk-forward analysis)
+    # When model predicts UNDER by 7+ pts, fade to OVER (59% win rate)
+    FADE_UNDER_THRESHOLD = 7.0
+    FADE_UNDER_ADJUSTMENT = 14.0  # Flip by adding 2x the edge
+
     @staticmethod
     def calculate_spread_confidence(
         edge: float,
@@ -199,6 +204,39 @@ class NBAPredictor:
 
         # Minimum 1 star if we passed the edge threshold
         return max(score, 1), False
+
+    @staticmethod
+    def calculate_total_confidence(
+        total_edge: float,
+        vegas_total: float | None,
+    ) -> tuple[int, bool]:
+        """
+        Calculate confidence stars for a total pick based on walk-forward analysis.
+
+        Rules (based on 2025-2026 backtest):
+        1. Most totals are ~50% - NOT profitable
+        2. EXCEPTION: Fade UNDER 7+ = 59% win rate (79-55 record)
+           - When model predicts UNDER by 7+ pts, bet OVER instead
+
+        Args:
+            total_edge: Model total - Vegas total (negative = pick UNDER)
+            vegas_total: Vegas total line
+
+        Returns:
+            Tuple of (confidence_stars, should_fade).
+            should_fade=True means bet OVER when model says UNDER.
+        """
+        if vegas_total is None or vegas_total <= 0:
+            return 1, False  # No Vegas line to compare
+
+        # Check for fade UNDER 7+ scenario
+        # total_edge < -7 means model predicts UNDER by 7+ pts
+        if total_edge <= -7.0:
+            # Fade this to OVER (59% win rate in backtest)
+            return 2, True  # 2 stars for fade play
+
+        # All other totals are ~50% - not profitable
+        return 1, False
 
     def __init__(self, model_path='models/deep_eagle_nba_2025.pt',
                  scaler_path='models/deep_eagle_nba_2025_scaler.pkl',
@@ -815,27 +853,37 @@ class NBAPredictor:
         self,
         pred_total: float,
         vegas_total: float | None
-    ) -> tuple[float, list[str]]:
+    ) -> tuple[float, list[str], bool]:
         """
         Apply post-prediction adjustments to the predicted total.
 
         Adjustments applied:
-        1. Fade middle-edge overs: When model has 4-6pt edge toward OVER, flip to UNDER
+        1. Fade UNDER 7+: When model predicts UNDER by 7+ pts, flip to OVER (59% win rate)
+        2. Fade middle-edge: When model has 4-6pt edge, flip direction
 
         Returns:
-            (adjusted_total, list_of_adjustments_applied)
+            (adjusted_total, list_of_adjustments_applied, should_fade_total)
         """
         adjustments = []
         adjusted_total = pred_total
+        should_fade_total = False
 
         if vegas_total is not None and vegas_total > 0:
             total_edge = pred_total - vegas_total
             abs_edge = abs(total_edge)
 
-            # FADE MIDDLE-EDGE TOTALS
+            # FADE UNDER 7+ (highest priority - 59% win rate)
+            # When model predicts UNDER by 7+ pts, flip to OVER
+            if total_edge <= -self.FADE_UNDER_THRESHOLD:
+                # Flip to OVER by adding 2x the edge magnitude
+                fade_adjustment = self.FADE_UNDER_ADJUSTMENT
+                adjusted_total = pred_total + fade_adjustment
+                adjustments.append(f"fade_under_7:{fade_adjustment:+.1f}")
+                should_fade_total = True
+
+            # FADE MIDDLE-EDGE TOTALS (only if not already faded)
             # Backtest: 4-6pt OVER edges hit 34% (fade to 66%), UNDER edges hit 44% (fade to 56%)
-            # Flip both directions in this range
-            if self.MIDDLE_TOTAL_EDGE_MIN <= abs_edge < self.MIDDLE_TOTAL_EDGE_MAX:
+            elif self.MIDDLE_TOTAL_EDGE_MIN <= abs_edge < self.MIDDLE_TOTAL_EDGE_MAX:
                 # Flip the edge by subtracting 2 * edge
                 fade_adjustment = -2 * total_edge
                 adjusted_total = pred_total + fade_adjustment
@@ -844,7 +892,7 @@ class NBAPredictor:
                 else:
                     adjustments.append(f"fade_middle_under:{fade_adjustment:+.1f}")
 
-        return adjusted_total, adjustments
+        return adjusted_total, adjustments, should_fade_total
 
     def predict(self, games_df):
         """Generate predictions for games using Ridge V2, Enhanced Ridge, or Deep Eagle model."""
@@ -947,18 +995,29 @@ class NBAPredictor:
                     if not self.using_enhanced:
                         odds = self._get_odds(conn, int(game['game_id']))
 
-                    # For Ridge V2 / Enhanced model: NO adjustments needed (they're built in)
-                    # For Deep Eagle: Apply legacy post-prediction adjustments
+                    # For Ridge V2 / Enhanced model: Apply total adjustments (fade UNDER 7+)
+                    # For Deep Eagle: Apply legacy post-prediction adjustments for both spread and total
+                    should_fade_total = False
                     if self.using_ridge_v2:
-                        # Ridge V2 is pure model with built-in adjustments
+                        # Ridge V2: No spread adjustments (built in), but apply total fade
                         spread = raw_spread
                         raw_total = total
-                        adjustment_notes = ['ridge_v2_pure']
+                        adjusted_total, total_adj_notes, should_fade_total = self._apply_total_adjustments(
+                            pred_total=total,
+                            vegas_total=odds['latest_total']
+                        )
+                        total = adjusted_total
+                        adjustment_notes = ['ridge_v2_pure'] + total_adj_notes
                     elif self.using_enhanced:
-                        # Enhanced model doesn't need post-prediction adjustments
+                        # Enhanced model: No spread adjustments, but apply total fade
                         spread = raw_spread
                         raw_total = total
-                        adjustment_notes = ['enhanced_model']
+                        adjusted_total, total_adj_notes, should_fade_total = self._apply_total_adjustments(
+                            pred_total=total,
+                            vegas_total=odds['latest_total']
+                        )
+                        total = adjusted_total
+                        adjustment_notes = ['enhanced_model'] + total_adj_notes
                     else:
                         # Apply post-prediction spread adjustments (Deep Eagle only)
                         adjusted_spread, spread_adj_notes = self._apply_spread_adjustments(
@@ -972,7 +1031,7 @@ class NBAPredictor:
 
                         # Apply post-prediction total adjustments
                         raw_total = total
-                        adjusted_total, total_adj_notes = self._apply_total_adjustments(
+                        adjusted_total, total_adj_notes, should_fade_total = self._apply_total_adjustments(
                             pred_total=total,
                             vegas_total=odds['latest_total']
                         )
@@ -985,7 +1044,23 @@ class NBAPredictor:
                     spread_edge = spread - odds['latest_spread'] if odds['latest_spread'] is not None else 0
                     spread_stars, should_fade = self.calculate_spread_confidence(spread_edge, odds['latest_spread'])
 
-                    # Determine the actual pick (accounting for fade)
+                    # Calculate total edge and confidence stars
+                    # Use raw_total for edge calculation (before adjustments)
+                    total_edge = raw_total - odds['latest_total'] if odds['latest_total'] is not None else 0
+                    total_stars, _ = self.calculate_total_confidence(total_edge, odds['latest_total'])
+                    # Override total_stars if we're fading (already calculated in _apply_total_adjustments)
+                    if should_fade_total:
+                        total_stars = 2  # Fade plays are 2 stars
+
+                    # Determine total pick (accounting for fade)
+                    if should_fade_total:
+                        total_pick = 'OVER'  # Fade UNDER = bet OVER
+                        total_fade_note = 'FADE_UNDER_7'
+                    else:
+                        total_pick = 'OVER' if total_edge > 0 else 'UNDER'
+                        total_fade_note = ''
+
+                    # Determine the actual spread pick (accounting for fade)
                     if should_fade:
                         # Fade = bet opposite of model. Model picked away (road fav), so bet home
                         actual_pick_team = game['home_team']
@@ -1020,13 +1095,20 @@ class NBAPredictor:
                         'adjustment_notes': '; '.join(adjustment_notes) if adjustment_notes else '',
                         'vegas_spread': odds['latest_spread'],
                         'vegas_total': odds['latest_total'],
+                        # Spread pick fields
                         'spread_edge': round(spread_edge, 1),  # Edge vs Vegas
                         'spread_stars': spread_stars,  # Confidence stars (0-4)
                         'should_fade': should_fade,  # True = bet opposite of model
-                        'fade_note': fade_note,  # Explanation if fading
+                        'fade_note': fade_note,  # Explanation if fading spread
+                        'predicted_winner': actual_pick_team,  # Actual spread pick (accounts for fade)
+                        # Total pick fields
+                        'total_edge': round(total_edge, 1),  # Edge vs Vegas (before adjustments)
+                        'total_stars': total_stars,  # Confidence stars for total (1-2)
+                        'total_pick': total_pick,  # OVER or UNDER (accounts for fade)
+                        'should_fade_total': should_fade_total,  # True = fade UNDER to OVER
+                        'total_fade_note': total_fade_note,  # Explanation if fading total
+                        # Legacy field
                         'confidence': round(confidence, 3),
-                        # Use spread_utils for consistent convention enforcement
-                        'predicted_winner': actual_pick_team  # Actual pick (accounts for fade)
                     })
 
                 except Exception as e:
@@ -1078,26 +1160,37 @@ if __name__ == '__main__':
 
     if predictions is not None and not predictions.empty:
         print(f"\n{'='*80}")
-        print("NBA PREDICTIONS (Rule-Based Confidence: 2+ stars = 64% ATS)")
-        print("FADE plays = bet opposite of model (home dog when model picks road fav)")
+        print("NBA PREDICTIONS")
+        print("Spreads: 2+ stars = 64% ATS | Totals: Fade UNDER 7+ = 59% O/U")
+        print("FADE plays = bet opposite of model")
         print('='*80)
         for _, pred in predictions.iterrows():
-            stars = '*' * pred.get('spread_stars', 0) if pred.get('spread_stars', 0) > 0 else '(skip)'
-            edge = pred.get('spread_edge', 0)
+            spread_stars = '*' * pred.get('spread_stars', 0) if pred.get('spread_stars', 0) > 0 else '(skip)'
+            total_stars = '*' * pred.get('total_stars', 1)
+            spread_edge = pred.get('spread_edge', 0)
+            total_edge = pred.get('total_edge', 0)
             should_fade = pred.get('should_fade', False)
-            fade_note = pred.get('fade_note', '')
+            should_fade_total = pred.get('should_fade_total', False)
 
             print(f"\n{pred['date']}: {pred['away_team']} @ {pred['home_team']}")
             print(f"  Predicted: {pred['pred_away_score']:.0f} - {pred['pred_home_score']:.0f}")
 
+            # Spread pick
             if should_fade:
-                print(f"  ** FADE PLAY ** Bet: {pred['home_team']} +{pred['vegas_spread']:.1f} (home dog)")
+                print(f"  ** SPREAD FADE ** Bet: {pred['home_team']} +{pred['vegas_spread']:.1f} (home dog)")
                 print(f"  Model picked road fav but we FADE (65% ATS when fading)")
             else:
                 print(f"  Spread: {pred['predicted_winner']} by {abs(pred['pred_spread']):.1f}")
+            print(f"  Vegas: {pred['vegas_spread']}, Edge: {spread_edge:+.1f}, Stars: {spread_stars}")
 
-            print(f"  Vegas: {pred['vegas_spread']}, Edge: {edge:+.1f}, Stars: {stars}")
-            print(f"  Total: {pred['pred_total']:.1f}")
+            # Total pick
+            if should_fade_total:
+                print(f"  ** TOTAL FADE ** Bet OVER {pred['vegas_total']:.1f} (model said UNDER by {abs(total_edge):.1f})")
+                print(f"  Fade UNDER 7+ = 59% win rate")
+            else:
+                total_pick = pred.get('total_pick', 'OVER' if total_edge > 0 else 'UNDER')
+                print(f"  Total: {pred['pred_total']:.1f} ({total_pick})")
+            print(f"  Vegas Total: {pred['vegas_total']}, Edge: {total_edge:+.1f}, Stars: {total_stars}")
 
         # Save predictions
         predictor.save_predictions(predictions)
