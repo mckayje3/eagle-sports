@@ -197,17 +197,18 @@ The NBA predictor uses Ridge V2 (pure model, no Vegas blend) with rule-based con
 
 **Key Rule: FADE road favorite picks** (35% ATS -> **65% when faded**)
 
-### CBB Model (Enhanced Ridge - Promising at 2-4 pt edges)
-The CBB predictor uses an Enhanced Ridge model with an unusual pattern:
+### CBB Model (Enhanced Ridge - NOT PROFITABLE)
+The CBB predictor uses an Enhanced Ridge model. Full walk-forward validation shows it does NOT beat Vegas:
 
-- Walk-forward validation: Train on 2024+2025, test on 2026 YTD (353 games)
-- **2-4 pt edges: 62.9% ATS (44/70)** - promising but small sample (p=0.02, doesn't survive multiple testing)
-- Pattern held in both time splits: 69% (first half) and 58.5% (second half)
-- 5+ pt edges: 50.3% - consistently degrades at high edges
+- Walk-forward validation: 11,066 games (2024-2026), true online learning
+- **All thresholds ~50% ATS** - no profitable edge at any level
+- 2-4 pt edges: 48.9% ATS (1620-1690) - previous 62.9% claim was small sample noise
+- 5+ pt edges: 49.6% ATS (1003-1020) - coin flip
+- No rule-based filters improve results (unlike NBA)
 - Totals: ~50% at all thresholds - NOT profitable
 - Model files: `models/cbb_enhanced_model.pkl`
 
-**Caution:** CBB shows opposite pattern of other sports (medium edges > high edges) but sample is small. Monitor as more games accumulate.
+**Status:** Entertainment only. The model's +0.57 MAE gap vs Vegas doesn't translate to ATS profit.
 
 ### NFL Post-Prediction Adjustments
 The NFL predictor (Deep Eagle) applies automatic adjustments after model prediction:
@@ -252,12 +253,13 @@ Each sport page shows a "⭐⭐⭐ 3-Star Plays" section at the top highlighting
 |-------|----------|-----------|----------|--------|--------|
 | NHL | **Moneyline** | Home dog +100-120 | 59.6% | 94 | **CONFIRMED** (+26% ROI, p=0.009) |
 | NBA | Spread | **2+ stars (rule-based)** | **64.3% ATS** | 196 | **BEST** - rule filter |
-| CBB | Spread | 2-4 pts | 62.9% ATS | 70 | **Promising** (small sample) |
-| CFB | Spread | 5+ pts | 57.1% ATS | - | **PROFITABLE** |
 | NFL | Spread | 5+ pts | 55.3% ATS | - | **PROFITABLE** |
+| CFB | Spread | 5+ pts | 57.1% ATS | - | **PROFITABLE** |
+| CBB | Spread | Any | ~50% ATS | 11,066 | **NOT PROFITABLE** |
 
 **Note:** NHL uses MONEYLINE (not puck line) because puck lines have lopsided juice.
 **NBA Rule Filter:** Skip road fav picks; prefer home picks, home favs, close games.
+**CBB:** Full walk-forward shows ~50% ATS at all thresholds - entertainment only.
 **Totals:** Not profitable for any sport - all show 1 star for totals.
 
 **Walk-forward validation** = train on season N, test on season N+1 (simulates real deployment).
@@ -339,16 +341,16 @@ Note: CFB models show ~50% ATS at all thresholds - not currently profitable.
 
 *Totals:* All 1 star (~50% at all thresholds - not profitable)
 
-**CBB (Enhanced Ridge - Promising at 2-4 pt edges):**
+**CBB (Enhanced Ridge - NOT PROFITABLE):**
 
-*Spreads (353 games, 2026 YTD):*
+*Full walk-forward (11,066 games, 2024-2026):*
 | Edge | Stars | Win % | Sample | Notes |
 |------|-------|-------|--------|-------|
-| 2-4 pts | ⭐⭐⭐ | 62.9% | 70 | Promising but small sample (p=0.02) |
-| 5+ pts | ⭐ | 50.3% | 171 | Consistently poor |
-| < 2 pts | ⭐ | 50.0% | 112 | Noise |
+| Any | ⭐ | ~50% | 11,066 | Not profitable at any threshold |
+| 2-4 pts | ⭐ | 48.9% | 3,310 | Previous 62.9% was small sample noise |
+| 5+ pts | ⭐ | 49.6% | 2,023 | Coin flip |
 
-**Note:** CBB shows opposite pattern - high edges degrade. Pattern held in both time splits (69% early, 58.5% late). Monitor as sample grows.
+**Note:** CBB model does NOT beat Vegas. The +0.57 MAE gap doesn't translate to ATS profit. No rule-based filters (home/away, fav/dog, spread size) improve results. Treat as entertainment only.
 
 *Totals:* All 1 star (~50% ATS, not profitable)
 

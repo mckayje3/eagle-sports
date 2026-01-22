@@ -2,17 +2,18 @@
 
 ## Summary of Edge Analysis Results
 
-### Basketball (NBA/CBB) - Working Well
-| Model | Threshold | ATS % | Status |
-|-------|-----------|-------|--------|
-| **NBA Ridge V2 + Rules** | **5+ pts, 2+ stars** | **64.3%** | **✅ BEST** |
-| NBA Ridge V2 (base) | 5+ pts | 59.0% | Profitable |
-| NBA Deep Eagle (with fades) | 6+ pts | 62.7% | Profitable |
-| CBB Deep Eagle (with fades) | 6+ pts | 71.9% | Profitable |
-| CBB Enhanced Ridge | 2-4 pts | 62.9% | Promising |
-| NBA Enhanced Ridge | Any | 51.4% | Not profitable |
+### Basketball (NBA/CBB)
+| Model | Threshold | ATS % | Sample | Status |
+|-------|-----------|-------|--------|--------|
+| **NBA Ridge V2 + Rules** | **5+ pts, 2+ stars** | **64.3%** | 196 | **✅ BEST** |
+| NBA Ridge V2 (base) | 5+ pts | 59.0% | 522 | Profitable |
+| NBA Deep Eagle (with fades) | 6+ pts | 62.7% | - | Profitable |
+| NBA Enhanced Ridge | Any | 51.4% | - | Not profitable |
+| **CBB Enhanced Ridge** | **Any** | **~50%** | **11,066** | **❌ NOT PROFITABLE** |
 
-**Key Finding:** NBA Ridge V2 with rule-based filtering achieves 64.3% ATS - the best NBA result.
+**Key Findings:**
+- NBA Ridge V2 with rule-based filtering achieves 64.3% ATS - the best NBA result
+- CBB does NOT beat Vegas at any threshold - previous 62.9% claim was small sample noise (70 games)
 
 ### Football (NFL/CFB) - Updated Analysis (2026-01-15)
 | Model | 5+ pt Edge ATS | 7+ pt Edge ATS | Status |
@@ -241,6 +242,14 @@ These adjustments corrected known model biases found through backtesting.
 - [x] Updated `streamlit_app.py` with FADE indicator and rule-based stars
 - [x] Updated all documentation (CLAUDE.md, MODEL_IMPROVEMENTS.md)
 
+### ✅ Completed (CBB Analysis - 2026-01-22)
+- [x] Created `cbb_full_walkforward.py` for true online learning backtest
+- [x] Ran full walk-forward on 11,066 games (2024-2026)
+- [x] **CONCLUSION: CBB is NOT profitable at any threshold**
+- [x] Previous 62.9% claim (70 games) was small sample noise - true rate is ~49%
+- [x] No rule-based filters improve results (unlike NBA)
+- [x] Updated documentation to reflect CBB as "entertainment only"
+
 ### Longer Term
 - [ ] Unify all predictors with consistent adjustment framework
 - [ ] Automated backtest framework for testing new adjustments
@@ -311,19 +320,19 @@ Stored in `pred_total` (adjusted) vs `pred_total_base` (raw model).
 
 Based on backtesting, here are the recommended star ratings:
 
-| Sport | Bet Type | 3-Star Threshold | Win/ATS % | Notes |
-|-------|----------|------------------|-----------|-------|
-| **NBA** | Spread | **5+ pts, 2+ stars** | **64.3% ATS** | **Ridge V2 + rule filter** |
-| CBB | Spread | 2-4 pts | 62.9% ATS | Enhanced Ridge (odd pattern) |
-| **NFL** | Spread | **>= 5 pts** | **58.4% ATS** | **Deep Eagle + adjustments** |
-| CFB | Spread | N/A | ~50% | Not profitable at any threshold |
-| **NHL** | **MONEYLINE** | **Home dog +100-120** | **59.6% win** | **NOT puck line (juice issue)** |
+| Sport | Bet Type | 3-Star Threshold | Win/ATS % | Sample | Notes |
+|-------|----------|------------------|-----------|--------|-------|
+| **NBA** | Spread | **5+ pts, 2+ stars** | **64.3% ATS** | 196 | **Ridge V2 + rule filter** |
+| **NFL** | Spread | **>= 5 pts** | **58.4% ATS** | - | **Deep Eagle + adjustments** |
+| **NHL** | **MONEYLINE** | **Home dog +100-120** | **59.6% win** | 94 | **NOT puck line (juice issue)** |
+| CFB | Spread | N/A | ~50% | - | Not profitable at any threshold |
+| CBB | Spread | N/A | ~50% | 11,066 | **NOT profitable - entertainment only** |
 
-**Profitable sports:** NBA, CBB, NFL, NHL
-**Not profitable:** CFB
+**Profitable sports:** NBA, NFL, NHL
+**Not profitable:** CFB, CBB
 
 **IMPORTANT:** NHL uses MONEYLINE (not puck line/spread) because puck lines have lopsided juice (+200/-200), making the math completely different from -110 spreads.
 
 ---
 
-*Last Updated: 2026-01-22*
+*Last Updated: 2026-01-22 (CBB analysis added)*
