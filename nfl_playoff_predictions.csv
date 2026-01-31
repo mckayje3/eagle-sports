@@ -1,3 +1,2 @@
 game_id,date,time_slot,week,home_team,away_team,pred_home_score,pred_away_score,pred_spread,pred_total,vegas_spread,vegas_total,edge,is_playoff,home_ppg,away_ppg,home_form,away_form
-0,2026-01-25,SAT 3:00 PM,DIV,Broncos,Patriots,26.4,26.0,-0.4,52.4,-4.5,42.5,4.1,True,23.50843404806472,28.941239884664196,4.25,15.0
-0,2026-01-25,SAT 6:30 PM,DIV,Seahawks,Rams,28.3,30.4,2.0,58.7,2.5,46.5,-0.5,True,27.84863314891423,30.81165947316048,7.5,5.0
+0,2026-02-08,SUN 6:30 PM,DIV,Patriots,Seahawks,29.9,26.9,-3.1,56.8,4.5,45.5,-7.6,True,28.92080143012678,27.874739410172108,15.0,7.5
