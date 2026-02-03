@@ -1603,9 +1603,10 @@ def display_top_picks(predictions_df, sport_emoji="🏈", max_picks=5, min_disag
     spread_col = 'pred_spread' if 'pred_spread' in predictions_df.columns else 'predicted_spread'
     total_col = 'pred_total' if 'pred_total' in predictions_df.columns else 'predicted_total'
 
-    # Filter to games with Vegas odds
+    # Filter to games with Vegas odds AND model predictions
     df = predictions_df.copy()
-    df = df[df['vegas_spread'].notna() & df['vegas_total'].notna()]
+    df = df[df['vegas_spread'].notna() & df['vegas_total'].notna()
+            & df[spread_col].notna() & df[total_col].notna()]
 
     if df.empty:
         return
