@@ -119,10 +119,10 @@ def generate_predictions(days=7):
 
         predictor = NBAPredictor()
 
-        # Check if any model is available (enhanced ridge or deep eagle)
-        if predictor.enhanced_model is None and predictor.model is None:
+        # Check if any model is available (ridge v2, enhanced ridge, or deep eagle)
+        if predictor.ridge_v2_model is None and predictor.enhanced_model is None and predictor.model is None:
             logger.warning("No NBA model loaded - no predictions generated")
-            logger.warning("Train: python train_nba_robust.py train")
+            logger.warning("Train: python nba_ridge_v2.py")
             return None
 
         predictions_df = predictor.predict_upcoming(days=days)
