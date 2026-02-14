@@ -18,3 +18,9 @@ game_id,date,home_team,away_team,pred_home_score,pred_away_score,pred_spread,pre
 401810663,2026-02-21T01:00Z,Oklahoma City Thunder,Brooklyn Nets,121.0,103.6,-17.4,-17.4,224.6,224.6,ridge_v2_pure,0,223.0,-17.4,3,False,,Oklahoma City Thunder,1.6,1,OVER,False,,0.95
 401810664,2026-02-21T03:00Z,Los Angeles Lakers,LA Clippers,113.9,114.3,0.5,0.5,217.8,228.2,ridge_v2_pure; fade_middle_over:-10.4,0,223.0,0.5,0,False,,LA Clippers,5.2,1,OVER,False,,0.52
 401810665,2026-02-21T03:00Z,Portland Trail Blazers,Denver Nuggets,116.6,118.6,1.9,1.9,235.2,235.2,ridge_v2_pure,0,223.0,1.9,0,False,,Denver Nuggets,12.2,1,OVER,False,,0.578
+401810666,2026-02-21T22:00Z,Phoenix Suns,Orlando Magic,115.9,111.5,-4.5,-4.5,218.6,227.4,ridge_v2_pure; fade_middle_over:-8.8,0,223.0,-4.5,0,False,,Phoenix Suns,4.4,1,OVER,False,,0.679
+401810667,2026-02-22T00:00Z,New Orleans Pelicans,Philadelphia 76ers,117.8,120.5,2.7,2.7,238.3,238.3,ridge_v2_pure,0,223.0,2.7,0,False,,Philadelphia 76ers,15.3,1,OVER,False,,0.608
+401810668,2026-02-22T01:00Z,Miami Heat,Memphis Grizzlies,120.8,120.0,-0.8,-0.8,240.8,240.8,ridge_v2_pure,0,223.0,-0.8,0,False,,Miami Heat,17.8,1,OVER,False,,0.531
+401810669,2026-02-22T01:00Z,Chicago Bulls,Detroit Pistons,112.9,118.2,5.3,5.3,231.1,231.1,ridge_v2_pure,0,223.0,5.3,2,True,FADE_ROAD_FAV,Chicago Bulls,8.1,1,OVER,False,,0.71
+401810670,2026-02-22T01:00Z,San Antonio Spurs,Sacramento Kings,121.1,108.9,-12.3,-12.3,230.0,230.0,ridge_v2_pure,0,223.0,-12.3,3,False,,San Antonio Spurs,7.0,1,OVER,False,,0.95
+401810671,2026-02-22T01:30Z,New York Knicks,Houston Rockets,114.2,114.7,0.5,0.5,217.1,228.9,ridge_v2_pure; fade_middle_over:-11.8,0,223.0,0.5,0,False,,Houston Rockets,5.9,1,OVER,False,,0.518
