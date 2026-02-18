@@ -1,8 +1,9 @@
 game_id,date,home_team,away_team,pred_spread,pred_total,vegas_spread,vegas_total,edge,ml_home,ml_away,ml_play,ml_stars,completed
-401803254,2026-02-05,Buffalo Sabres,Pittsburgh Penguins,-0.31,6.06,-1.5,6.5,1.19,-135,114,,0,0
-401803256,2026-02-05,New Jersey Devils,New York Islanders,0.49,6.16,-1.5,5.5,1.99,-110,-110,,0,0
-401803257,2026-02-05,New York Rangers,Carolina Hurricanes,-0.34,6.51,1.5,6.5,-1.84,190,-230,New York Rangers ML +190,1,0
-401803258,2026-02-05,Philadelphia Flyers,Ottawa Senators,0.17,6.27,1.5,6.5,-1.33,110,-130,Philadelphia Flyers ML +110,3,0
-401803259,2026-02-05,Washington Capitals,Nashville Predators,-0.45,6.05,-1.5,6.5,1.05,-185,154,,0,0
-401803255,2026-02-05,Tampa Bay Lightning,Florida Panthers,-2.07,6.41,-1.5,6.5,-0.57,-198,164,,0,0
-401803260,2026-02-05,Vegas Golden Knights,Los Angeles Kings,-0.72,5.97,-1.5,5.5,0.78,-142,120,,0,0
+401803261,2026-02-25,New Jersey Devils,Buffalo Sabres,0.76,6.19,0,5.5,0.76,,,,0,0
+401803262,2026-02-25,Washington Capitals,Philadelphia Flyers,-0.89,6.01,0,5.5,-0.89,,,,0,0
+401803263,2026-02-25,Tampa Bay Lightning,Toronto Maple Leafs,-1.68,6.28,0,5.5,-1.68,,,,0,0
+401803264,2026-02-25,Dallas Stars,Seattle Kraken,-0.31,6.29,0,5.5,-0.31,,,,0,0
+401803265,2026-02-25,Utah Mammoth,Colorado Avalanche,-0.71,6.12,0,5.5,-0.71,,,,0,0
+401803266,2026-02-25,Vancouver Canucks,Winnipeg Jets,0.07,6.11,0,5.5,0.07,,,,0,0
+401803267,2026-02-25,Los Angeles Kings,Vegas Golden Knights,0.17,6.21,0,5.5,0.17,,,,0,0
+401803268,2026-02-25,Anaheim Ducks,Edmonton Oilers,-0.34,6.2,0,5.5,-0.34,,,,0,0
