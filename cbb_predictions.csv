@@ -1,113 +1,55 @@
 game_id,date,home_team,away_team,pred_home_score,pred_away_score,pred_spread,pred_spread_base,pred_total,vegas_spread,confidence,adjustments,predicted_winner
-401809375,2026-02-18T23:00Z,Wofford Terriers,VMI Keydets,80.6,72.0,-8.6,-8.6,152.7,-13.5,0.744,enhanced_model,Wofford Terriers
-401824394,2026-02-18T23:00Z,Holy Cross Crusaders,Lafayette Leopards,69.3,67.0,-2.3,-2.3,136.3,-1.5,0.541,enhanced_model,Holy Cross Crusaders
-401825526,2026-02-18T23:00Z,Penn State Nittany Lions,Rutgers Scarlet Knights,78.2,70.1,-8.1,-8.1,148.3,-4.5,0.679,enhanced_model,Penn State Nittany Lions
-401809373,2026-02-18T23:30Z,Furman Paladins,East Tennessee State Buccaneers,73.5,70.5,-2.9,-2.9,144.0,1.5,0.722,enhanced_model,Furman Paladins
-401817672,2026-02-18T23:30Z,Youngstown State Penguins,Cleveland State Vikings,86.3,75.1,-11.2,-11.2,161.3,-10.5,0.534,enhanced_model,Youngstown State Penguins
-401822950,2026-02-18T23:30Z,Georgetown Hoyas,Butler Bulldogs,78.8,77.8,-1.0,-1.0,156.6,-6.5,0.775,enhanced_model,Georgetown Hoyas
-401804936,2026-02-19T00:00Z,Delaware Blue Hens,Western Kentucky Hilltoppers,69.9,75.0,5.1,5.1,144.8,3.5,0.58,enhanced_model,Western Kentucky Hilltoppers
-401807748,2026-02-19T00:00Z,Florida Gulf Coast Eagles,Jacksonville Dolphins,78.0,73.0,-5.1,-5.1,151.0,-7.5,0.621,enhanced_model,Florida Gulf Coast Eagles
-401807750,2026-02-19T00:00Z,Eastern Kentucky Colonels,West Georgia Wolves,85.3,77.1,-8.3,-8.3,162.4,-6.5,0.588,enhanced_model,Eastern Kentucky Colonels
-401808244,2026-02-19T00:00Z,Alabama Crimson Tide,Arkansas Razorbacks,92.9,87.9,-4.9,-4.9,180.8,-3.5,0.572,enhanced_model,Alabama Crimson Tide
-401808247,2026-02-19T00:00Z,Tennessee Volunteers,Oklahoma Sooners,82.1,77.5,-4.5,-4.5,159.6,-10.5,0.799,enhanced_model,Tennessee Volunteers
-401808248,2026-02-19T00:00Z,Texas A&M Aggies,Ole Miss Rebels,85.0,73.9,-11.1,-11.1,159.0,-9.5,0.58,enhanced_model,Texas A&M Aggies
-401808675,2026-02-19T00:00Z,Coastal Carolina Chanticleers,James Madison Dukes,76.1,72.9,-3.2,-3.2,148.9,1.5,0.737,enhanced_model,Coastal Carolina Chanticleers
-401809374,2026-02-19T00:00Z,Western Carolina Catamounts,UNC Greensboro Spartans,78.4,82.2,3.8,3.8,160.6,-4.5,0.913,enhanced_model,UNC Greensboro Spartans
-401817671,2026-02-19T00:00Z,Northern Kentucky Norse,Purdue Fort Wayne Mastodons,82.2,76.8,-5.4,-5.4,159.0,-6.5,0.557,enhanced_model,Northern Kentucky Norse
-401820174,2026-02-19T00:00Z,Navy Midshipmen,Lehigh Mountain Hawks,76.6,63.9,-12.7,-12.7,140.5,-9.5,0.661,enhanced_model,Navy Midshipmen
-401820206,2026-02-19T00:00Z,Loyola Maryland Greyhounds,Army Black Knights,77.6,77.3,-0.3,-0.3,154.9,-5.5,0.758,enhanced_model,Loyola Maryland Greyhounds
-401820753,2026-02-19T00:00Z,Wake Forest Demon Deacons,Clemson Tigers,70.9,73.3,2.4,2.4,144.3,3.5,0.556,enhanced_model,Clemson Tigers
-401822948,2026-02-19T00:00Z,UConn Huskies,Creighton Bluejays,76.8,66.3,-10.5,-10.5,143.1,-16.5,0.801,enhanced_model,UConn Huskies
-401828232,2026-02-19T00:00Z,Temple Owls,UAB Blazers,76.4,75.4,-0.9,-0.9,151.8,1.5,0.622,enhanced_model,Temple Owls
-401828234,2026-02-19T00:00Z,East Carolina Pirates,Wichita State Shockers,70.6,78.5,7.9,7.9,149.2,7.5,0.521,enhanced_model,Wichita State Shockers
-401828432,2026-02-19T00:00Z,Davidson Wildcats,Richmond Spiders,72.1,70.8,-1.2,-1.2,142.9,-5.5,0.713,enhanced_model,Davidson Wildcats
-401828433,2026-02-19T00:00Z,George Mason Patriots,Dayton Flyers,73.6,68.9,-4.7,-4.7,142.5,-2.5,0.609,enhanced_model,George Mason Patriots
-401828434,2026-02-19T00:00Z,Duquesne Dukes,La Salle Explorers,82.5,66.9,-15.6,-15.6,149.5,-11.5,0.706,enhanced_model,Duquesne Dukes
-401828435,2026-02-19T00:00Z,Fordham Rams,Loyola Chicago Ramblers,75.6,63.2,-12.4,-12.4,138.8,-8.5,0.696,enhanced_model,Fordham Rams
-401828436,2026-02-19T00:00Z,St. Bonaventure Bonnies,Saint Joseph's Hawks,75.0,70.2,-4.7,-4.7,145.2,-4.5,0.511,enhanced_model,St. Bonaventure Bonnies
-401828678,2026-02-19T00:00Z,Bucknell Bison,American University Eagles,66.5,75.0,8.5,8.5,141.4,2.5,0.799,enhanced_model,American University Eagles
-401830224,2026-02-19T00:00Z,Valparaiso Beacons,Bradley Braves,72.7,72.4,-0.4,-0.4,145.1,2.5,0.644,enhanced_model,Valparaiso Beacons
-401830307,2026-02-19T00:00Z,Indiana State Sycamores,Northern Iowa Panthers,66.8,70.0,3.2,3.2,136.8,4.5,0.563,enhanced_model,Northern Iowa Panthers
-401804934,2026-02-19T00:30Z,Louisiana Tech Bulldogs,Jacksonville State Gamecocks,66.7,63.2,-3.5,-3.5,130.0,-2.5,0.549,enhanced_model,Louisiana Tech Bulldogs
-401804937,2026-02-19T00:30Z,Sam Houston Bearkats,Middle Tennessee Blue Raiders,79.0,72.9,-6.1,-6.1,151.9,-5.5,0.531,enhanced_model,Sam Houston Bearkats
-401807749,2026-02-19T00:30Z,Bellarmine Knights,Lipscomb Bisons,75.6,83.4,7.7,7.7,159.0,3.5,0.711,enhanced_model,Lipscomb Bisons
-401808676,2026-02-19T00:30Z,UL Monroe Warhawks,Troy Trojans,72.1,88.1,16.0,16.0,160.1,15.5,0.525,enhanced_model,Troy Trojans
-401830308,2026-02-19T00:30Z,Drake Bulldogs,Southern Illinois Salukis,76.6,69.0,-7.6,-7.6,145.5,1.5,0.95,enhanced_model,Drake Bulldogs
-401804935,2026-02-19T01:00Z,Missouri State Bears,Kennesaw State Owls,77.8,79.7,1.9,1.9,157.5,-1.5,0.672,enhanced_model,Kennesaw State Owls
-401818424,2026-02-19T01:00Z,South Dakota State Jackrabbits,North Dakota State Bison,76.0,77.8,1.8,1.8,153.8,1.5,0.514,enhanced_model,North Dakota State Bison
-401818425,2026-02-19T01:00Z,Omaha Mavericks,Oral Roberts Golden Eagles,79.7,71.2,-8.5,-8.5,150.9,-9.5,0.55,enhanced_model,Omaha Mavericks
-401822951,2026-02-19T01:00Z,Seton Hall Pirates,DePaul Blue Demons,70.1,64.9,-5.2,-5.2,135.1,-8.5,0.664,enhanced_model,Seton Hall Pirates
-401825525,2026-02-19T01:00Z,Northwestern Wildcats,Maryland Terrapins,77.6,69.6,-8.0,-8.0,147.2,-8.5,0.526,enhanced_model,Northwestern Wildcats
-401828233,2026-02-19T01:00Z,Tulsa Golden Hurricane,Charlotte 49ers,86.2,71.4,-14.8,-14.8,157.7,-13.5,0.564,enhanced_model,Tulsa Golden Hurricane
-401828235,2026-02-19T01:00Z,UTSA Roadrunners,Florida Atlantic Owls,71.3,86.0,14.7,14.7,157.3,12.5,0.612,enhanced_model,Florida Atlantic Owls
-401830305,2026-02-19T01:00Z,Evansville Purple Aces,UIC Flames,67.6,72.9,5.3,5.3,140.5,8.5,0.662,enhanced_model,UIC Flames
-401858787,2026-02-19T01:00Z,South Carolina State Bulldogs,North Carolina Central Eagles,73.1,79.6,6.4,6.4,152.7,2.5,0.697,enhanced_model,North Carolina Central Eagles
-401827691,2026-02-19T01:30Z,West Virginia Mountaineers,Utah Utes,79.5,69.3,-10.2,-10.2,148.7,-10.5,0.516,enhanced_model,West Virginia Mountaineers
-401808242,2026-02-19T02:00Z,Mississippi State Bulldogs,Auburn Tigers,82.5,83.1,0.7,0.7,165.6,4.5,0.691,enhanced_model,Auburn Tigers
-401808246,2026-02-19T02:00Z,Missouri Tigers,Vanderbilt Commodores,78.9,81.5,2.5,2.5,160.4,3.5,0.548,enhanced_model,Vanderbilt Commodores
-401820750,2026-02-19T02:00Z,Georgia Tech Yellow Jackets,Virginia Cavaliers,71.6,78.2,6.6,6.6,149.8,13.5,0.843,enhanced_model,Virginia Cavaliers
-401822949,2026-02-19T02:00Z,Marquette Golden Eagles,St. John's Red Storm,73.0,83.3,10.3,10.3,156.3,9.5,0.539,enhanced_model,St. John's Red Storm
-401827689,2026-02-19T02:00Z,Arizona Wildcats,BYU Cougars,85.4,77.7,-7.7,-7.7,163.0,-12.5,0.74,enhanced_model,Arizona Wildcats
-401827690,2026-02-19T02:00Z,Oklahoma State Cowboys,Kansas Jayhawks,80.0,83.0,3.0,3.0,163.0,5.5,0.625,enhanced_model,Kansas Jayhawks
-401829253,2026-02-19T02:00Z,Seattle U Redhawks,Saint Mary's Gaels,67.0,70.4,3.4,3.4,137.4,10.5,0.854,enhanced_model,Saint Mary's Gaels
-401830306,2026-02-19T02:00Z,Illinois State Redbirds,Murray State Racers,81.5,74.6,-7.0,-7.0,156.1,-2.5,0.723,enhanced_model,Illinois State Redbirds
-401829251,2026-02-19T02:30Z,Washington State Cougars,Pacific Tigers,72.7,75.3,2.6,2.6,148.0,-1.5,0.704,enhanced_model,Pacific Tigers
-401825527,2026-02-19T03:00Z,USC Trojans,Illinois Fighting Illini,74.5,80.0,5.5,5.5,154.5,9.5,0.702,enhanced_model,Illinois Fighting Illini
-401829252,2026-02-19T03:00Z,Portland Pilots,Pepperdine Waves,76.0,71.3,-4.8,-4.8,147.3,-5.5,0.536,enhanced_model,Portland Pilots
-401823830,2026-02-19T03:30Z,Utah State Aggies,Boise State Broncos,83.8,70.4,-13.4,-13.4,154.2,-9.5,0.697,enhanced_model,Utah State Aggies
-401829250,2026-02-19T04:00Z,San Francisco Dons,Gonzaga Bulldogs,70.3,80.8,10.5,10.5,151.1,13.5,0.65,enhanced_model,Gonzaga Bulldogs
-401830831,2026-02-19T04:00Z,UNLV Rebels,Colorado State Rams,74.3,71.4,-3.0,-3.0,145.7,-1.5,0.573,enhanced_model,UNLV Rebels
-401804938,2026-02-19T23:00Z,Liberty Flames,Florida International Panthers,81.1,71.4,-9.7,-9.7,152.6,,0.95,enhanced_model,Liberty Flames
-401812159,2026-02-19T23:00Z,Bryant Bulldogs,Binghamton Bearcats,70.1,64.9,-5.2,-5.2,135.0,,0.759,enhanced_model,Bryant Bulldogs
-401812160,2026-02-19T23:00Z,UMass Lowell River Hawks,New Hampshire Wildcats,77.6,70.7,-6.9,-6.9,148.3,,0.845,enhanced_model,UMass Lowell River Hawks
-401812161,2026-02-19T23:00Z,UMBC Retrievers,Vermont Catamounts,72.6,70.2,-2.4,-2.4,142.8,,0.622,enhanced_model,UMBC Retrievers
-401808677,2026-02-19T23:30Z,App State Mountaineers,Marshall Thundering Herd,75.2,71.2,-4.0,-4.0,146.4,,0.701,enhanced_model,App State Mountaineers
-401823953,2026-02-19T23:30Z,Winthrop Eagles,South Carolina Upstate Spartans,85.3,72.3,-13.0,-13.0,157.6,,0.95,enhanced_model,Winthrop Eagles
-401807746,2026-02-20T00:00Z,North Florida Ospreys,Austin Peay Governors,76.8,90.1,13.3,13.3,166.8,,0.95,enhanced_model,Austin Peay Governors
-401809376,2026-02-20T00:00Z,Mercer Bears,Chattanooga Mocs,82.9,77.1,-5.8,-5.8,160.0,,0.792,enhanced_model,Mercer Bears
-401809377,2026-02-20T00:00Z,The Citadel Bulldogs,Samford Bulldogs,72.2,77.6,5.4,5.4,149.8,,0.771,enhanced_model,Samford Bulldogs
-401812071,2026-02-20T00:00Z,North Carolina A&T Aggies,Charleston Cougars,78.2,77.0,-1.2,-1.2,155.2,,0.562,enhanced_model,North Carolina A&T Aggies
-401812073,2026-02-20T00:00Z,Campbell Fighting Camels,William & Mary Tribe,80.2,81.2,1.0,1.0,161.4,,0.548,enhanced_model,William & Mary Tribe
-401812074,2026-02-20T00:00Z,Northeastern Huskies,Drexel Dragons,70.5,72.8,2.2,2.2,143.3,,0.612,enhanced_model,Drexel Dragons
-401812075,2026-02-20T00:00Z,UNC Wilmington Seahawks,Monmouth Hawks,76.3,62.6,-13.7,-13.7,138.8,,0.95,enhanced_model,UNC Wilmington Seahawks
-401812158,2026-02-20T00:00Z,NJIT Highlanders,UAlbany Great Danes,69.7,74.0,4.3,4.3,143.7,,0.716,enhanced_model,UAlbany Great Danes
-401812329,2026-02-20T00:00Z,Chicago State Cougars,Fairleigh Dickinson Knights,65.8,73.0,7.1,7.1,138.8,,0.857,enhanced_model,Fairleigh Dickinson Knights
-401812347,2026-02-20T00:00Z,Central Connecticut Blue Devils,Le Moyne Dolphins,78.6,66.7,-11.9,-11.9,145.3,,0.95,enhanced_model,Central Connecticut Blue Devils
-401812376,2026-02-20T00:00Z,Saint Francis Red Flash,Long Island University Sharks,71.2,76.6,5.4,5.4,147.8,,0.771,enhanced_model,Long Island University Sharks
-401812409,2026-02-20T00:00Z,New Haven Chargers,Stonehill Skyhawks,67.6,63.4,-4.2,-4.2,130.9,,0.71,enhanced_model,New Haven Chargers
-401812416,2026-02-20T00:00Z,Mercyhurst Lakers,Wagner Seahawks,67.3,65.8,-1.5,-1.5,133.1,,0.575,enhanced_model,Mercyhurst Lakers
-401817673,2026-02-20T00:00Z,Wright State Raiders,IU Indianapolis Jaguars,90.0,76.9,-13.1,-13.1,166.9,,0.95,enhanced_model,Wright State Raiders
-401823950,2026-02-20T00:00Z,Radford Highlanders,Gardner-Webb Runnin' Bulldogs,90.7,72.5,-18.2,-18.2,163.1,,0.95,enhanced_model,Radford Highlanders
-401823951,2026-02-20T00:00Z,Presbyterian Blue Hose,Longwood Lancers,75.1,71.7,-3.4,-3.4,146.8,,0.668,enhanced_model,Presbyterian Blue Hose
-401823952,2026-02-20T00:00Z,High Point Panthers,UNC Asheville Bulldogs,89.3,68.5,-20.8,-20.8,157.8,,0.95,enhanced_model,High Point Panthers
-401827124,2026-02-20T00:00Z,Bethune-Cookman Wildcats,Alabama State Hornets,76.5,76.9,0.4,0.4,153.5,,0.52,enhanced_model,Alabama State Hornets
-401828237,2026-02-20T00:00Z,South Florida Bulls,Memphis Tigers,86.6,75.9,-10.7,-10.7,162.5,,0.95,enhanced_model,South Florida Bulls
-401805199,2026-02-20T01:00Z,Tarleton State Texans,Southern Utah Thunderbirds,83.0,73.7,-9.3,-9.3,156.7,,0.95,enhanced_model,Tarleton State Texans
-401805200,2026-02-20T01:00Z,UT Arlington Mavericks,Utah Tech Trailblazers,72.6,68.1,-4.5,-4.5,140.7,,0.725,enhanced_model,UT Arlington Mavericks
-401805201,2026-02-20T01:00Z,Utah Valley Wolverines,California Baptist Lancers,79.6,67.6,-12.0,-12.0,147.3,,0.95,enhanced_model,Utah Valley Wolverines
-401806494,2026-02-20T01:00Z,Little Rock Trojans,UT Martin Skyhawks,67.8,73.7,5.9,5.9,141.5,,0.795,enhanced_model,UT Martin Skyhawks
-401807747,2026-02-20T01:00Z,Stetson Hatters,Central Arkansas Bears,74.5,83.0,8.5,8.5,157.4,,0.926,enhanced_model,Central Arkansas Bears
-401808678,2026-02-20T01:00Z,Georgia State Panthers,Georgia Southern Eagles,78.5,79.2,0.7,0.7,157.7,,0.536,enhanced_model,Georgia Southern Eagles
-401808679,2026-02-20T01:00Z,Louisiana Ragin' Cajuns,Arkansas State Red Wolves,69.4,76.3,6.9,6.9,145.7,,0.843,enhanced_model,Arkansas State Red Wolves
-401808680,2026-02-20T01:00Z,South Alabama Jaguars,Texas State Bobcats,74.3,66.3,-7.9,-7.9,140.6,,0.896,enhanced_model,South Alabama Jaguars
-401812072,2026-02-20T01:00Z,Hofstra Pride,Hampton Pirates,73.0,65.0,-8.0,-8.0,138.0,,0.902,enhanced_model,Hofstra Pride
-401818427,2026-02-20T01:00Z,North Dakota Fighting Hawks,Kansas City Roos,85.5,74.4,-11.1,-11.1,159.9,,0.95,enhanced_model,North Dakota Fighting Hawks
-401806492,2026-02-20T01:30Z,Eastern Illinois Panthers,Morehead State Eagles,70.5,71.1,0.7,0.7,141.6,,0.533,enhanced_model,Morehead State Eagles
-401806495,2026-02-20T01:30Z,Tennessee Tech Golden Eagles,SIU Edwardsville Cougars,65.9,73.4,7.5,7.5,139.3,,0.875,enhanced_model,SIU Edwardsville Cougars
-401827078,2026-02-20T01:30Z,Mississippi Valley State Delta Devils,Prairie View A&M Panthers,67.3,87.4,20.1,20.1,154.7,,0.95,enhanced_model,Prairie View A&M Panthers
-401827148,2026-02-20T01:30Z,Arkansas-Pine Bluff Golden Lions,Texas Southern Tigers,81.4,78.7,-2.7,-2.7,160.2,,0.634,enhanced_model,Arkansas-Pine Bluff Golden Lions
-401827207,2026-02-20T01:30Z,Florida A&M Rattlers,Alabama A&M Bulldogs,72.9,74.7,1.8,1.8,147.6,,0.588,enhanced_model,Alabama A&M Bulldogs
-401808483,2026-02-20T02:00Z,Portland State Vikings,Idaho Vandals,80.7,73.4,-7.3,-7.3,154.1,,0.865,enhanced_model,Portland State Vikings
-401808497,2026-02-20T02:00Z,Idaho State Bengals,Montana Grizzlies,78.4,74.9,-3.5,-3.5,153.3,,0.677,enhanced_model,Idaho State Bengals
-401808519,2026-02-20T02:00Z,Weber State Wildcats,Montana State Bobcats,77.7,77.0,-0.7,-0.7,154.7,,0.536,enhanced_model,Weber State Wildcats
-401818426,2026-02-20T02:00Z,Denver Pioneers,South Dakota Coyotes,89.4,85.8,-3.7,-3.7,175.2,,0.684,enhanced_model,Denver Pioneers
-401823268,2026-02-20T02:00Z,UC Santa Barbara Gauchos,Cal State Northridge Matadors,82.6,77.1,-5.5,-5.5,159.7,,0.777,enhanced_model,UC Santa Barbara Gauchos
-401828236,2026-02-20T02:00Z,North Texas Mean Green,Tulane Green Wave,69.4,63.6,-5.8,-5.8,133.1,,0.79,enhanced_model,North Texas Mean Green
-401808466,2026-02-20T03:00Z,Sacramento State Hornets,Eastern Washington Eagles,83.5,79.4,-4.2,-4.2,162.9,,0.708,enhanced_model,Sacramento State Hornets
-401809118,2026-02-20T03:00Z,Long Beach State Beach,UC Irvine Anteaters,73.2,76.7,3.5,3.5,149.8,,0.675,enhanced_model,UC Irvine Anteaters
-401809135,2026-02-20T03:00Z,Cal State Fullerton Titans,UC Davis Aggies,80.2,82.6,2.3,2.3,162.8,,0.616,enhanced_model,UC Davis Aggies
-401823743,2026-02-20T03:00Z,UC Riverside Highlanders,Cal State Bakersfield Roadrunners,75.3,74.9,-0.4,-0.4,150.2,,0.522,enhanced_model,UC Riverside Highlanders
-401809148,2026-02-20T04:59Z,Hawai'i Rainbow Warriors,Cal Poly Mustangs,87.2,70.3,-16.9,-16.9,157.5,,0.95,enhanced_model,Hawai'i Rainbow Warriors
+401804938,2026-02-19T23:00Z,Liberty Flames,Florida International Panthers,81.1,71.4,-9.7,-9.7,152.6,-11.5,0.588,enhanced_model,Liberty Flames
+401812159,2026-02-19T23:00Z,Bryant Bulldogs,Binghamton Bearcats,70.1,64.9,-5.2,-5.2,135.0,-6.5,0.566,enhanced_model,Bryant Bulldogs
+401812160,2026-02-19T23:00Z,UMass Lowell River Hawks,New Hampshire Wildcats,77.6,70.7,-6.9,-6.9,148.3,-4.5,0.62,enhanced_model,UMass Lowell River Hawks
+401812161,2026-02-19T23:00Z,UMBC Retrievers,Vermont Catamounts,72.6,70.2,-2.4,-2.4,142.8,1.5,0.697,enhanced_model,UMBC Retrievers
+401808677,2026-02-19T23:30Z,App State Mountaineers,Marshall Thundering Herd,75.2,71.2,-4.0,-4.0,146.4,-2.5,0.576,enhanced_model,App State Mountaineers
+401823953,2026-02-19T23:30Z,Winthrop Eagles,South Carolina Upstate Spartans,85.3,72.3,-13.0,-13.0,157.6,-13.5,0.524,enhanced_model,Winthrop Eagles
+401807746,2026-02-20T00:00Z,North Florida Ospreys,Austin Peay Governors,76.8,90.1,13.3,13.3,166.8,10.5,0.639,enhanced_model,Austin Peay Governors
+401809376,2026-02-20T00:00Z,Mercer Bears,Chattanooga Mocs,82.9,77.1,-5.8,-5.8,160.0,-10.5,0.733,enhanced_model,Mercer Bears
+401809377,2026-02-20T00:00Z,The Citadel Bulldogs,Samford Bulldogs,72.2,77.6,5.4,5.4,149.8,10.5,0.754,enhanced_model,Samford Bulldogs
+401812071,2026-02-20T00:00Z,North Carolina A&T Aggies,Charleston Cougars,78.2,77.0,-1.2,-1.2,155.2,4.5,0.787,enhanced_model,North Carolina A&T Aggies
+401812073,2026-02-20T00:00Z,Campbell Fighting Camels,William & Mary Tribe,80.2,81.2,1.0,1.0,161.4,1.5,0.527,enhanced_model,William & Mary Tribe
+401812074,2026-02-20T00:00Z,Northeastern Huskies,Drexel Dragons,70.5,72.8,2.2,2.2,143.3,1.5,0.537,enhanced_model,Drexel Dragons
+401812075,2026-02-20T00:00Z,UNC Wilmington Seahawks,Monmouth Hawks,76.3,62.6,-13.7,-13.7,138.8,-7.5,0.81,enhanced_model,UNC Wilmington Seahawks
+401812158,2026-02-20T00:00Z,NJIT Highlanders,UAlbany Great Danes,69.7,74.0,4.3,4.3,143.7,-3.5,0.891,enhanced_model,UAlbany Great Danes
+401812329,2026-02-20T00:00Z,Chicago State Cougars,Fairleigh Dickinson Knights,65.8,73.0,7.1,7.1,138.8,1.5,0.782,enhanced_model,Fairleigh Dickinson Knights
+401812347,2026-02-20T00:00Z,Central Connecticut Blue Devils,Le Moyne Dolphins,78.6,66.7,-11.9,-11.9,145.3,-4.5,0.868,enhanced_model,Central Connecticut Blue Devils
+401812376,2026-02-20T00:00Z,Saint Francis Red Flash,Long Island University Sharks,71.2,76.6,5.4,5.4,147.8,9.5,0.704,enhanced_model,Long Island University Sharks
+401812409,2026-02-20T00:00Z,New Haven Chargers,Stonehill Skyhawks,67.6,63.4,-4.2,-4.2,130.9,-2.5,0.585,enhanced_model,New Haven Chargers
+401812416,2026-02-20T00:00Z,Mercyhurst Lakers,Wagner Seahawks,67.3,65.8,-1.5,-1.5,133.1,-5.5,0.7,enhanced_model,Mercyhurst Lakers
+401817673,2026-02-20T00:00Z,Wright State Raiders,IU Indianapolis Jaguars,90.0,76.9,-13.1,-13.1,166.9,-12.5,0.529,enhanced_model,Wright State Raiders
+401823950,2026-02-20T00:00Z,Radford Highlanders,Gardner-Webb Runnin' Bulldogs,90.7,72.5,-18.2,-18.2,163.1,-19.5,0.565,enhanced_model,Radford Highlanders
+401823951,2026-02-20T00:00Z,Presbyterian Blue Hose,Longwood Lancers,75.1,71.7,-3.4,-3.4,146.8,-3.5,0.507,enhanced_model,Presbyterian Blue Hose
+401823952,2026-02-20T00:00Z,High Point Panthers,UNC Asheville Bulldogs,89.3,68.5,-20.8,-20.8,157.8,-13.5,0.866,enhanced_model,High Point Panthers
+401827124,2026-02-20T00:00Z,Bethune-Cookman Wildcats,Alabama State Hornets,76.5,76.9,0.4,0.4,153.5,-5.5,0.795,enhanced_model,Alabama State Hornets
+401828237,2026-02-20T00:00Z,South Florida Bulls,Memphis Tigers,86.6,75.9,-10.7,-10.7,162.5,-8.5,0.61,enhanced_model,South Florida Bulls
+401805199,2026-02-20T01:00Z,Tarleton State Texans,Southern Utah Thunderbirds,83.0,73.7,-9.3,-9.3,156.7,-5.5,0.688,enhanced_model,Tarleton State Texans
+401805200,2026-02-20T01:00Z,UT Arlington Mavericks,Utah Tech Trailblazers,72.6,68.1,-4.5,-4.5,140.7,-4.5,0.5,enhanced_model,UT Arlington Mavericks
+401805201,2026-02-20T01:00Z,Utah Valley Wolverines,California Baptist Lancers,79.6,67.6,-12.0,-12.0,147.3,-7.5,0.726,enhanced_model,Utah Valley Wolverines
+401806494,2026-02-20T01:00Z,Little Rock Trojans,UT Martin Skyhawks,67.8,73.7,5.9,5.9,141.5,2.5,0.67,enhanced_model,UT Martin Skyhawks
+401807747,2026-02-20T01:00Z,Stetson Hatters,Central Arkansas Bears,74.5,83.0,8.5,8.5,157.4,8.5,0.501,enhanced_model,Central Arkansas Bears
+401808678,2026-02-20T01:00Z,Georgia State Panthers,Georgia Southern Eagles,78.5,79.2,0.7,0.7,157.7,-1.5,0.611,enhanced_model,Georgia Southern Eagles
+401808679,2026-02-20T01:00Z,Louisiana Ragin' Cajuns,Arkansas State Red Wolves,69.4,76.3,6.9,6.9,145.7,7.5,0.532,enhanced_model,Arkansas State Red Wolves
+401808680,2026-02-20T01:00Z,South Alabama Jaguars,Texas State Bobcats,74.3,66.3,-7.9,-7.9,140.6,-3.5,0.721,enhanced_model,South Alabama Jaguars
+401812072,2026-02-20T01:00Z,Hofstra Pride,Hampton Pirates,73.0,65.0,-8.0,-8.0,138.0,-11.5,0.673,enhanced_model,Hofstra Pride
+401818427,2026-02-20T01:00Z,North Dakota Fighting Hawks,Kansas City Roos,85.5,74.4,-11.1,-11.1,159.9,-10.5,0.531,enhanced_model,North Dakota Fighting Hawks
+401806492,2026-02-20T01:30Z,Eastern Illinois Panthers,Morehead State Eagles,70.5,71.1,0.7,0.7,141.6,1.5,0.542,enhanced_model,Morehead State Eagles
+401806495,2026-02-20T01:30Z,Tennessee Tech Golden Eagles,SIU Edwardsville Cougars,65.9,73.4,7.5,7.5,139.3,2.5,0.75,enhanced_model,SIU Edwardsville Cougars
+401827078,2026-02-20T01:30Z,Mississippi Valley State Delta Devils,Prairie View A&M Panthers,67.3,87.4,20.1,20.1,154.7,9.5,0.95,enhanced_model,Prairie View A&M Panthers
+401827148,2026-02-20T01:30Z,Arkansas-Pine Bluff Golden Lions,Texas Southern Tigers,81.4,78.7,-2.7,-2.7,160.2,-2.5,0.509,enhanced_model,Arkansas-Pine Bluff Golden Lions
+401827207,2026-02-20T01:30Z,Florida A&M Rattlers,Alabama A&M Bulldogs,72.9,74.7,1.8,1.8,147.6,-1.5,0.663,enhanced_model,Alabama A&M Bulldogs
+401808483,2026-02-20T02:00Z,Portland State Vikings,Idaho Vandals,80.7,73.4,-7.3,-7.3,154.1,-4.5,0.64,enhanced_model,Portland State Vikings
+401808497,2026-02-20T02:00Z,Idaho State Bengals,Montana Grizzlies,78.4,74.9,-3.5,-3.5,153.3,1.5,0.752,enhanced_model,Idaho State Bengals
+401808519,2026-02-20T02:00Z,Weber State Wildcats,Montana State Bobcats,77.7,77.0,-0.7,-0.7,154.7,-1.5,0.539,enhanced_model,Weber State Wildcats
+401818426,2026-02-20T02:00Z,Denver Pioneers,South Dakota Coyotes,89.4,85.8,-3.7,-3.7,175.2,-6.5,0.641,enhanced_model,Denver Pioneers
+401823268,2026-02-20T02:00Z,UC Santa Barbara Gauchos,Cal State Northridge Matadors,82.6,77.1,-5.5,-5.5,159.7,-3.5,0.602,enhanced_model,UC Santa Barbara Gauchos
+401828236,2026-02-20T02:00Z,North Texas Mean Green,Tulane Green Wave,69.4,63.6,-5.8,-5.8,133.1,-6.5,0.535,enhanced_model,North Texas Mean Green
+401808466,2026-02-20T03:00Z,Sacramento State Hornets,Eastern Washington Eagles,83.5,79.4,-4.2,-4.2,162.9,1.5,0.783,enhanced_model,Sacramento State Hornets
+401809118,2026-02-20T03:00Z,Long Beach State Beach,UC Irvine Anteaters,73.2,76.7,3.5,3.5,149.8,5.5,0.6,enhanced_model,UC Irvine Anteaters
+401809135,2026-02-20T03:00Z,Cal State Fullerton Titans,UC Davis Aggies,80.2,82.6,2.3,2.3,162.8,-1.5,0.691,enhanced_model,UC Davis Aggies
+401823743,2026-02-20T03:00Z,UC Riverside Highlanders,Cal State Bakersfield Roadrunners,75.3,74.9,-0.4,-0.4,150.2,-5.5,0.753,enhanced_model,UC Riverside Highlanders
+401809148,2026-02-20T04:59Z,Hawai'i Rainbow Warriors,Cal Poly Mustangs,87.2,70.3,-16.9,-16.9,157.5,-12.5,0.718,enhanced_model,Hawai'i Rainbow Warriors
 401814574,2026-02-20T23:30Z,Ball State Cardinals,Akron Zips,74.6,84.9,10.3,10.3,159.5,,0.95,enhanced_model,Akron Zips
 401813307,2026-02-21T00:00Z,Manhattan Jaspers,Marist Red Foxes,64.5,75.5,10.9,10.9,140.0,,0.95,enhanced_model,Marist Red Foxes
 401813369,2026-02-21T00:00Z,Rider Broncs,Canisius Golden Griffins,66.0,64.1,-1.9,-1.9,130.2,,0.593,enhanced_model,Rider Broncs
@@ -128,6 +70,7 @@ game_id,date,home_team,away_team,pred_home_score,pred_away_score,pred_spread,pre
 401825530,2026-02-21T17:00Z,Minnesota Golden Gophers,Rutgers Scarlet Knights,75.0,65.2,-9.7,-9.7,140.2,,0.95,enhanced_model,Minnesota Golden Gophers
 401828238,2026-02-21T17:00Z,Charlotte 49ers,East Carolina Pirates,78.5,71.2,-7.3,-7.3,149.8,,0.866,enhanced_model,Charlotte 49ers
 401828441,2026-02-21T17:00Z,Saint Joseph's Hawks,Loyola Chicago Ramblers,76.7,65.0,-11.7,-11.7,141.8,,0.95,enhanced_model,Saint Joseph's Hawks
+401830243,2026-02-21T17:00Z,Howard Bison,North Carolina Central Eagles,76.6,70.3,-6.3,-6.3,146.9,,0.816,enhanced_model,Howard Bison
 401808254,2026-02-21T18:00Z,South Carolina Gamecocks,Mississippi State Bulldogs,80.3,75.6,-4.7,-4.7,156.0,,0.735,enhanced_model,South Carolina Gamecocks
 401808681,2026-02-21T18:00Z,App State Mountaineers,Georgia Southern Eagles,77.8,73.2,-4.6,-4.6,150.9,,0.729,enhanced_model,App State Mountaineers
 401808682,2026-02-21T18:00Z,Coastal Carolina Chanticleers,Marshall Thundering Herd,75.3,77.2,1.9,1.9,152.5,,0.597,enhanced_model,Marshall Thundering Herd
@@ -205,7 +148,6 @@ game_id,date,home_team,away_team,pred_home_score,pred_away_score,pred_spread,pre
 401822777,2026-02-21T21:30Z,Coppin State Eagles,Maryland Eastern Shore Hawks,65.9,73.9,8.0,8.0,139.7,,0.899,enhanced_model,Maryland Eastern Shore Hawks
 401823955,2026-02-21T21:30Z,South Carolina Upstate Spartans,Presbyterian Blue Hose,72.7,73.6,0.9,0.9,146.2,,0.546,enhanced_model,Presbyterian Blue Hose
 401823956,2026-02-21T21:30Z,UNC Asheville Bulldogs,Radford Highlanders,78.0,78.9,0.9,0.9,156.9,,0.546,enhanced_model,Radford Highlanders
-401830243,2026-02-21T21:30Z,Howard Bison,North Carolina Central Eagles,76.6,70.3,-6.3,-6.3,146.9,,0.816,enhanced_model,Howard Bison
 401804940,2026-02-21T22:00Z,Kennesaw State Owls,Louisiana Tech Bulldogs,76.8,70.0,-6.8,-6.8,146.9,,0.84,enhanced_model,Kennesaw State Owls
 401805203,2026-02-21T22:00Z,Tarleton State Texans,Utah Tech Trailblazers,79.2,73.1,-6.1,-6.1,152.3,,0.804,enhanced_model,Tarleton State Texans
 401807754,2026-02-21T22:00Z,Lipscomb Bisons,North Alabama Lions,84.9,71.5,-13.4,-13.4,156.4,,0.95,enhanced_model,Lipscomb Bisons
@@ -232,7 +174,7 @@ game_id,date,home_team,away_team,pred_home_score,pred_away_score,pred_spread,pre
 401829254,2026-02-21T23:00Z,San Diego Toreros,Loyola Marymount Lions,75.3,74.2,-1.1,-1.1,149.5,,0.556,enhanced_model,San Diego Toreros
 401829503,2026-02-21T23:00Z,Mississippi Valley State Delta Devils,Texas Southern Tigers,66.4,81.9,15.5,15.5,148.3,,0.95,enhanced_model,Texas Southern Tigers
 401830310,2026-02-21T23:00Z,Northern Iowa Panthers,Southern Illinois Salukis,70.3,61.3,-9.0,-9.0,131.6,,0.95,enhanced_model,Northern Iowa Panthers
-401817238,2026-02-21T23:30Z,Duke Blue Devils,Michigan Wolverines,80.1,78.4,-1.7,-1.7,158.5,,0.585,enhanced_model,Duke Blue Devils
+401817238,2026-02-21T23:30Z,Duke Blue Devils,Michigan Wolverines,80.1,78.4,-1.7,-1.7,158.5,2.5,0.71,enhanced_model,Duke Blue Devils
 401827149,2026-02-21T23:30Z,Arkansas-Pine Bluff Golden Lions,Prairie View A&M Panthers,82.3,84.2,1.9,1.9,166.6,,0.594,enhanced_model,Prairie View A&M Panthers
 401807751,2026-02-22T00:00Z,Jacksonville Dolphins,Austin Peay Governors,71.2,75.2,3.9,3.9,146.4,,0.697,enhanced_model,Austin Peay Governors
 401807753,2026-02-22T00:00Z,Bellarmine Knights,Eastern Kentucky Colonels,79.3,81.4,2.0,2.0,160.7,,0.601,enhanced_model,Eastern Kentucky Colonels
@@ -240,7 +182,6 @@ game_id,date,home_team,away_team,pred_home_score,pred_away_score,pred_spread,pre
 401809382,2026-02-22T00:00Z,Wofford Terriers,Furman Paladins,76.1,75.8,-0.3,-0.3,152.0,,0.514,enhanced_model,Wofford Terriers
 401812077,2026-02-22T00:00Z,Elon Phoenix,North Carolina A&T Aggies,84.8,76.6,-8.2,-8.2,161.5,,0.911,enhanced_model,Elon Phoenix
 401812165,2026-02-22T00:00Z,NJIT Highlanders,Vermont Catamounts,65.5,73.6,8.1,8.1,139.1,,0.906,enhanced_model,Vermont Catamounts
-401824375,2026-02-22T00:30Z,Lehigh Mountain Hawks,Boston University Terriers,75.5,74.6,-0.9,-0.9,150.1,,0.547,enhanced_model,Lehigh Mountain Hawks
 401808530,2026-02-22T01:00Z,Northern Colorado Bears,Northern Arizona Lumberjacks,81.6,72.9,-8.7,-8.7,154.5,,0.933,enhanced_model,Northern Colorado Bears
 401808886,2026-02-22T01:00Z,McNeese Cowboys,Texas A&M-Corpus Christi Islanders,76.2,67.9,-8.2,-8.2,144.1,,0.912,enhanced_model,McNeese Cowboys
 401818429,2026-02-22T01:00Z,Oral Roberts Golden Eagles,South Dakota Coyotes,79.4,82.0,2.6,2.6,161.4,,0.63,enhanced_model,South Dakota Coyotes
@@ -267,6 +208,7 @@ game_id,date,home_team,away_team,pred_home_score,pred_away_score,pred_spread,pre
 401829259,2026-02-22T03:00Z,San Francisco Dons,Santa Clara Broncos,74.0,76.2,2.2,2.2,150.2,,0.608,enhanced_model,Santa Clara Broncos
 401829319,2026-02-22T03:00Z,Nevada Wolf Pack,Utah State Aggies,73.1,75.7,2.6,2.6,148.8,,0.629,enhanced_model,Utah State Aggies
 401827693,2026-02-22T03:30Z,BYU Cougars,Iowa State Cyclones,77.7,76.0,-1.7,-1.7,153.8,,0.587,enhanced_model,BYU Cougars
+401824375,2026-02-22T17:00Z,Lehigh Mountain Hawks,Boston University Terriers,75.5,74.6,-0.9,-0.9,150.1,,0.547,enhanced_model,Lehigh Mountain Hawks
 401824435,2026-02-22T17:00Z,Bucknell Bison,Holy Cross Crusaders,66.9,69.0,2.2,2.2,135.9,,0.609,enhanced_model,Holy Cross Crusaders
 401828240,2026-02-22T17:00Z,Memphis Tigers,UAB Blazers,75.4,79.1,3.8,3.8,154.5,,0.688,enhanced_model,UAB Blazers
 401828679,2026-02-22T17:00Z,Lafayette Leopards,American University Eagles,69.2,72.9,3.7,3.7,142.1,,0.687,enhanced_model,American University Eagles
@@ -385,3 +327,58 @@ game_id,date,home_team,away_team,pred_home_score,pred_away_score,pred_spread,pre
 401825542,2026-02-26T04:00Z,Oregon Ducks,Wisconsin Badgers,77.0,79.1,2.2,2.2,156.1,,0.608,enhanced_model,Wisconsin Badgers
 401829262,2026-02-26T04:00Z,Saint Mary's Gaels,Santa Clara Broncos,76.3,72.6,-3.7,-3.7,149.0,,0.685,enhanced_model,Saint Mary's Gaels
 401829264,2026-02-26T04:00Z,Loyola Marymount Lions,Washington State Cougars,75.4,72.4,-3.1,-3.1,147.8,,0.655,enhanced_model,Loyola Marymount Lions
+401812087,2026-02-26T16:00Z,Hampton Pirates,Charleston Cougars,73.7,70.3,-3.4,-3.4,143.9,,0.671,enhanced_model,Hampton Pirates
+401827107,2026-02-26T22:00Z,Grambling Tigers,Bethune-Cookman Wildcats,76.9,69.3,-7.5,-7.5,146.2,,0.876,enhanced_model,Grambling Tigers
+401812166,2026-02-26T23:00Z,UMBC Retrievers,Bryant Bulldogs,75.6,65.6,-10.0,-10.0,141.2,,0.95,enhanced_model,UMBC Retrievers
+401812169,2026-02-26T23:00Z,Binghamton Bearcats,New Hampshire Wildcats,70.1,69.8,-0.3,-0.3,139.9,,0.513,enhanced_model,Binghamton Bearcats
+401812167,2026-02-26T23:30Z,UAlbany Great Danes,Maine Black Bears,71.3,63.6,-7.7,-7.7,134.9,,0.884,enhanced_model,UAlbany Great Danes
+401804949,2026-02-27T00:00Z,Kennesaw State Owls,Liberty Flames,78.4,77.1,-1.3,-1.3,155.5,,0.563,enhanced_model,Kennesaw State Owls
+401804950,2026-02-27T00:00Z,Jacksonville State Gamecocks,Delaware Blue Hens,74.0,62.0,-12.0,-12.0,136.0,,0.95,enhanced_model,Jacksonville State Gamecocks
+401807760,2026-02-27T00:00Z,North Florida Ospreys,Florida Gulf Coast Eagles,80.9,89.8,8.9,8.9,170.7,,0.943,enhanced_model,Florida Gulf Coast Eagles
+401807762,2026-02-27T00:00Z,Jacksonville Dolphins,Stetson Hatters,79.3,69.8,-9.6,-9.6,149.1,,0.95,enhanced_model,Jacksonville Dolphins
+401809386,2026-02-27T00:00Z,Chattanooga Mocs,UNC Greensboro Spartans,80.8,74.6,-6.2,-6.2,155.4,,0.811,enhanced_model,Chattanooga Mocs
+401812082,2026-02-27T00:00Z,William & Mary Tribe,Northeastern Huskies,86.1,74.8,-11.3,-11.3,161.0,,0.95,enhanced_model,William & Mary Tribe
+401812083,2026-02-27T00:00Z,Monmouth Hawks,Stony Brook Seawolves,70.7,67.0,-3.7,-3.7,137.7,,0.683,enhanced_model,Monmouth Hawks
+401812084,2026-02-27T00:00Z,UNC Wilmington Seahawks,North Carolina A&T Aggies,81.3,67.9,-13.4,-13.4,149.3,,0.95,enhanced_model,UNC Wilmington Seahawks
+401812085,2026-02-27T00:00Z,Towson Tigers,Elon Phoenix,74.6,74.6,-0.1,-0.1,149.2,,0.503,enhanced_model,Towson Tigers
+401812086,2026-02-27T00:00Z,Drexel Dragons,Campbell Fighting Camels,73.3,69.1,-4.2,-4.2,142.3,,0.71,enhanced_model,Drexel Dragons
+401812168,2026-02-27T00:00Z,Vermont Catamounts,UMass Lowell River Hawks,75.7,69.0,-6.7,-6.7,144.7,,0.837,enhanced_model,Vermont Catamounts
+401812331,2026-02-27T00:00Z,Le Moyne Dolphins,Fairleigh Dickinson Knights,70.9,67.5,-3.5,-3.5,138.4,,0.673,enhanced_model,Le Moyne Dolphins
+401812378,2026-02-27T00:00Z,Long Island University Sharks,Chicago State Cougars,78.2,64.0,-14.2,-14.2,142.2,,0.95,enhanced_model,Long Island University Sharks
+401812399,2026-02-27T00:00Z,Stonehill Skyhawks,Saint Francis Red Flash,75.9,68.2,-7.7,-7.7,144.1,,0.887,enhanced_model,Stonehill Skyhawks
+401812417,2026-02-27T00:00Z,Wagner Seahawks,New Haven Chargers,70.8,64.7,-6.1,-6.1,135.4,,0.804,enhanced_model,Wagner Seahawks
+401812658,2026-02-27T00:00Z,Central Connecticut Blue Devils,Mercyhurst Lakers,73.6,62.6,-10.9,-10.9,136.2,,0.95,enhanced_model,Central Connecticut Blue Devils
+401823958,2026-02-27T00:00Z,Presbyterian Blue Hose,High Point Panthers,70.9,81.9,11.0,11.0,152.8,,0.95,enhanced_model,High Point Panthers
+401823959,2026-02-27T00:00Z,Gardner-Webb Runnin' Bulldogs,UNC Asheville Bulldogs,72.7,82.2,9.5,9.5,154.8,,0.95,enhanced_model,UNC Asheville Bulldogs
+401823960,2026-02-27T00:00Z,Radford Highlanders,South Carolina Upstate Spartans,82.7,76.1,-6.6,-6.6,158.8,,0.831,enhanced_model,Radford Highlanders
+401823961,2026-02-27T00:00Z,Charleston Southern Buccaneers,Winthrop Eagles,83.0,84.7,1.8,1.8,167.7,,0.589,enhanced_model,Winthrop Eagles
+401828246,2026-02-27T00:00Z,Florida Atlantic Owls,Temple Owls,78.9,72.4,-6.5,-6.5,151.3,,0.827,enhanced_model,Florida Atlantic Owls
+401804945,2026-02-27T00:30Z,Western Kentucky Hilltoppers,New Mexico State Aggies,74.4,76.2,1.8,1.8,150.6,,0.589,enhanced_model,New Mexico State Aggies
+401804946,2026-02-27T00:30Z,Middle Tennessee Blue Raiders,UTEP Miners,75.4,64.6,-10.8,-10.8,140.0,,0.95,enhanced_model,Middle Tennessee Blue Raiders
+401804948,2026-02-27T00:30Z,Louisiana Tech Bulldogs,Missouri State Bears,69.3,64.4,-4.9,-4.9,133.7,,0.746,enhanced_model,Louisiana Tech Bulldogs
+401805206,2026-02-27T01:00Z,Utah Valley Wolverines,Tarleton State Texans,83.0,73.0,-10.0,-10.0,156.0,,0.95,enhanced_model,Utah Valley Wolverines
+401806504,2026-02-27T01:00Z,Little Rock Trojans,Morehead State Eagles,75.6,74.9,-0.7,-0.7,150.5,,0.533,enhanced_model,Little Rock Trojans
+401809387,2026-02-27T01:00Z,Samford Bulldogs,VMI Keydets,80.8,71.7,-9.1,-9.1,152.5,,0.95,enhanced_model,Samford Bulldogs
+401818433,2026-02-27T01:00Z,Kansas City Roos,South Dakota State Jackrabbits,74.1,83.3,9.2,9.2,157.5,,0.95,enhanced_model,South Dakota State Jackrabbits
+401818435,2026-02-27T01:00Z,Oral Roberts Golden Eagles,Denver Pioneers,79.0,83.2,4.1,4.1,162.2,,0.706,enhanced_model,Denver Pioneers
+401825543,2026-02-27T01:00Z,Purdue Boilermakers,Michigan State Spartans,77.1,71.9,-5.2,-5.2,149.0,,0.758,enhanced_model,Purdue Boilermakers
+401829691,2026-02-27T01:00Z,Texas Southern Tigers,Alcorn State Braves,82.3,66.3,-16.0,-16.0,148.7,,0.95,enhanced_model,Texas Southern Tigers
+401806505,2026-02-27T01:30Z,Southeast Missouri State Redhawks,Tennessee State Tigers,78.5,76.2,-2.3,-2.3,154.8,,0.615,enhanced_model,Southeast Missouri State Redhawks
+401806506,2026-02-27T01:30Z,SIU Edwardsville Cougars,Western Illinois Leathernecks,74.5,58.9,-15.5,-15.5,133.4,,0.95,enhanced_model,SIU Edwardsville Cougars
+401806507,2026-02-27T01:30Z,UT Martin Skyhawks,Tennessee Tech Golden Eagles,77.1,63.5,-13.5,-13.5,140.6,,0.95,enhanced_model,UT Martin Skyhawks
+401827035,2026-02-27T01:30Z,Southern Jaguars,Florida A&M Rattlers,80.7,70.1,-10.6,-10.6,150.8,,0.95,enhanced_model,Southern Jaguars
+401804947,2026-02-27T02:00Z,Sam Houston Bearkats,Florida International Panthers,84.6,78.1,-6.6,-6.6,162.7,,0.828,enhanced_model,Sam Houston Bearkats
+401805205,2026-02-27T02:00Z,Utah Tech Trailblazers,Abilene Christian Wildcats,74.8,68.7,-6.1,-6.1,143.5,,0.806,enhanced_model,Utah Tech Trailblazers
+401808468,2026-02-27T02:00Z,Eastern Washington Eagles,Northern Colorado Bears,78.5,84.1,5.6,5.6,162.6,,0.78,enhanced_model,Northern Colorado Bears
+401808485,2026-02-27T02:00Z,Idaho Vandals,Northern Arizona Lumberjacks,79.5,69.8,-9.8,-9.8,149.3,,0.95,enhanced_model,Idaho Vandals
+401808510,2026-02-27T02:00Z,Montana Grizzlies,Sacramento State Hornets,83.9,75.7,-8.2,-8.2,159.6,,0.909,enhanced_model,Montana Grizzlies
+401808520,2026-02-27T02:00Z,Montana State Bobcats,Portland State Vikings,76.3,73.7,-2.6,-2.6,150.0,,0.632,enhanced_model,Montana State Bobcats
+401809137,2026-02-27T02:00Z,UC Davis Aggies,Hawai'i Rainbow Warriors,72.8,75.9,3.0,3.0,148.7,,0.652,enhanced_model,Hawai'i Rainbow Warriors
+401818432,2026-02-27T02:00Z,St. Thomas-Minnesota Tommies,North Dakota State Bison,79.4,74.0,-5.4,-5.4,153.4,,0.771,enhanced_model,St. Thomas-Minnesota Tommies
+401826049,2026-02-27T02:00Z,UC Santa Barbara Gauchos,UC Riverside Highlanders,81.7,68.5,-13.2,-13.2,150.2,,0.95,enhanced_model,UC Santa Barbara Gauchos
+401828249,2026-02-27T02:00Z,Memphis Tigers,Wichita State Shockers,73.6,74.3,0.7,0.7,147.9,,0.537,enhanced_model,Wichita State Shockers
+401827080,2026-02-27T02:30Z,Prairie View A&M Panthers,Jackson State Tigers,89.3,72.4,-16.9,-16.9,161.6,,0.95,enhanced_model,Prairie View A&M Panthers
+401805207,2026-02-27T03:00Z,California Baptist Lancers,UT Arlington Mavericks,70.1,67.4,-2.8,-2.8,137.5,,0.64,enhanced_model,California Baptist Lancers
+401809101,2026-02-27T03:00Z,UC San Diego Tritons,Cal State Bakersfield Roadrunners,82.5,67.1,-15.3,-15.3,149.6,,0.95,enhanced_model,UC San Diego Tritons
+401809119,2026-02-27T03:00Z,Cal State Northridge Matadors,UC Irvine Anteaters,77.5,79.5,2.0,2.0,157.0,,0.598,enhanced_model,UC Irvine Anteaters
+401809163,2026-02-27T03:00Z,Cal Poly Mustangs,Long Beach State Beach,81.2,84.2,3.0,3.0,165.4,,0.649,enhanced_model,Long Beach State Beach
