@@ -1,19 +1,9 @@
 game_id,date,home_team,away_team,pred_home_score,pred_away_score,pred_spread,pred_spread_base,pred_total,pred_total_base,adjustment_notes,vegas_spread,vegas_total,spread_edge,spread_stars,should_fade,fade_note,predicted_winner,total_edge,total_stars,total_pick,should_fade_total,total_fade_note,confidence
-401810703,2026-02-27T00:00Z,Indiana Pacers,Charlotte Hornets,112.1,116.8,4.7,4.7,229.0,229.0,ridge_v2_pure,12.5,228.5,-7.8,1,False,,Charlotte Hornets,0.5,1,OVER,False,,0.688
-401810704,2026-02-27T00:00Z,Philadelphia 76ers,Miami Heat,120.0,118.3,-1.7,-1.7,238.2,238.2,ridge_v2_pure,-1.5,240.5,-0.2,0,False,,Philadelphia 76ers,-2.3,1,UNDER,False,,0.569
-401810705,2026-02-27T00:30Z,Atlanta Hawks,Washington Wizards,120.9,116.2,-4.7,-4.7,237.1,237.1,ridge_v2_pure,-10.5,233.5,5.8,1,False,,Atlanta Hawks,3.6,1,OVER,False,,0.689
-401810706,2026-02-27T00:30Z,Brooklyn Nets,San Antonio Spurs,108.8,115.5,6.7,6.7,224.3,224.3,ridge_v2_pure,12.5,224.5,-5.8,1,False,,San Antonio Spurs,-0.2,1,UNDER,False,,0.768
-401810707,2026-02-27T00:30Z,Orlando Magic,Houston Rockets,114.0,115.2,1.3,1.3,229.2,229.2,ridge_v2_pure,1.5,216.5,-0.2,0,False,,Houston Rockets,12.7,1,OVER,False,,0.551
-401810708,2026-02-27T01:00Z,Chicago Bulls,Portland Trail Blazers,120.3,118.1,-2.2,-2.2,238.4,238.4,ridge_v2_pure,4.5,235.5,-6.7,1,False,,Chicago Bulls,2.9,1,OVER,False,,0.586
-401810709,2026-02-27T01:30Z,Dallas Mavericks,Sacramento Kings,120.6,113.1,-7.4,-7.4,233.7,233.7,ridge_v2_pure,-6.5,233.5,-0.9,0,False,,Dallas Mavericks,0.2,1,OVER,False,,0.797
-401810710,2026-02-27T02:00Z,Phoenix Suns,Los Angeles Lakers,116.2,110.7,-5.5,-5.5,226.9,226.9,ridge_v2_pure,5.5,218.5,-11.0,2,False,,Phoenix Suns,8.4,1,OVER,False,,0.72
-401810711,2026-02-27T02:00Z,Utah Jazz,New Orleans Pelicans,124.0,126.6,2.5,2.5,250.6,250.6,ridge_v2_pure,4.5,241.5,-2.0,0,False,,New Orleans Pelicans,9.1,1,OVER,False,,0.602
-401810712,2026-02-27T03:00Z,LA Clippers,Minnesota Timberwolves,115.5,116.7,1.2,1.2,220.8,232.2,ridge_v2_pure; fade_middle_over:-11.3,5.5,226.5,-4.3,0,False,,Minnesota Timberwolves,5.7,1,OVER,False,,0.549
-401810713,2026-02-28T00:00Z,Detroit Pistons,Cleveland Cavaliers,120.1,111.9,-8.2,-8.2,232.0,232.0,ridge_v2_pure,0.0,223.0,-8.2,3,False,,Detroit Pistons,9.0,1,OVER,False,,0.827
-401810714,2026-02-28T00:30Z,Boston Celtics,Brooklyn Nets,118.8,104.3,-14.5,-14.5,223.1,223.1,ridge_v2_pure,0.0,223.0,-14.5,3,False,,Boston Celtics,0.1,1,OVER,False,,0.95
-401810715,2026-02-28T01:00Z,Milwaukee Bucks,New York Knicks,112.5,114.0,1.5,1.5,226.5,226.5,ridge_v2_pure,0.0,223.0,1.5,0,False,,New York Knicks,3.5,1,OVER,False,,0.558
-401810716,2026-02-28T01:30Z,Dallas Mavericks,Memphis Grizzlies,118.7,117.4,-1.3,-1.3,236.2,236.2,ridge_v2_pure,0.0,223.0,-1.3,0,False,,Dallas Mavericks,13.2,1,OVER,False,,0.552
-401810717,2026-02-28T02:30Z,Oklahoma City Thunder,Denver Nuggets,121.5,109.3,-12.1,-12.1,230.8,230.8,ridge_v2_pure,0.0,223.0,-12.1,3,False,,Oklahoma City Thunder,7.8,1,OVER,False,,0.95
+401810713,2026-02-28T00:00Z,Detroit Pistons,Cleveland Cavaliers,120.1,111.9,-8.2,-8.2,223.0,232.0,ridge_v2_pure; fade_middle_over:-8.9,-6.5,227.5,-1.7,0,False,,Detroit Pistons,4.5,1,OVER,False,,0.827
+401810714,2026-02-28T00:30Z,Boston Celtics,Brooklyn Nets,118.8,104.3,-14.5,-14.5,223.1,223.1,ridge_v2_pure,-17.5,207.5,3.0,0,False,,Boston Celtics,15.6,1,OVER,False,,0.95
+401810715,2026-02-28T01:00Z,Milwaukee Bucks,New York Knicks,112.5,114.0,1.5,1.5,216.5,226.5,ridge_v2_pure; fade_middle_over:-10.1,8.5,221.5,-7.0,2,False,,New York Knicks,5.0,1,OVER,False,,0.558
+401810716,2026-02-28T01:30Z,Dallas Mavericks,Memphis Grizzlies,118.7,117.4,-1.3,-1.3,244.8,236.2,ridge_v2_pure; fade_middle_under:+8.6,-4.5,240.5,3.2,0,False,,Dallas Mavericks,-4.3,1,UNDER,False,,0.552
+401810717,2026-02-28T02:30Z,Oklahoma City Thunder,Denver Nuggets,121.5,109.3,-12.1,-12.1,230.8,230.8,ridge_v2_pure,-8.5,233.5,-3.6,0,False,,Oklahoma City Thunder,-2.7,1,UNDER,False,,0.95
 401810718,2026-02-28T18:00Z,Charlotte Hornets,Portland Trail Blazers,119.5,115.7,-3.8,-3.8,235.1,235.1,ridge_v2_pure,0.0,223.0,-3.8,0,False,,Charlotte Hornets,12.1,1,OVER,False,,0.652
 401810719,2026-02-28T20:30Z,Miami Heat,Houston Rockets,116.7,119.1,2.5,2.5,235.8,235.8,ridge_v2_pure,0.0,223.0,2.5,0,False,,Houston Rockets,12.8,1,OVER,False,,0.6
 401810720,2026-03-01T00:00Z,Washington Wizards,Toronto Raptors,113.5,118.7,5.2,5.2,232.2,232.2,ridge_v2_pure,0.0,223.0,5.2,2,True,FADE_ROAD_FAV,Washington Wizards,9.2,1,OVER,False,,0.71
@@ -59,3 +49,10 @@ game_id,date,home_team,away_team,pred_home_score,pred_away_score,pred_spread,pre
 401810760,2026-03-06T02:00Z,Phoenix Suns,Chicago Bulls,117.8,113.0,-4.8,-4.8,230.7,230.7,ridge_v2_pure,0.0,223.0,-4.8,0,False,,Phoenix Suns,7.7,1,OVER,False,,0.694
 401810761,2026-03-06T03:00Z,Denver Nuggets,Los Angeles Lakers,119.0,113.9,-5.1,-5.1,232.9,232.9,ridge_v2_pure,0.0,223.0,-5.1,2,False,,Denver Nuggets,9.9,1,OVER,False,,0.706
 401810762,2026-03-06T03:00Z,Sacramento Kings,New Orleans Pelicans,117.3,118.6,1.3,1.3,236.0,236.0,ridge_v2_pure,0.0,223.0,1.3,0,False,,New Orleans Pelicans,13.0,1,OVER,False,,0.553
+401810763,2026-03-07T00:00Z,Boston Celtics,Dallas Mavericks,120.1,110.0,-10.1,-10.1,230.1,230.1,ridge_v2_pure,0.0,223.0,-10.1,3,False,,Boston Celtics,7.1,1,OVER,False,,0.902
+401810764,2026-03-07T00:00Z,Charlotte Hornets,Miami Heat,120.6,117.8,-2.8,-2.8,238.4,238.4,ridge_v2_pure,0.0,223.0,-2.8,0,False,,Charlotte Hornets,15.4,1,OVER,False,,0.613
+401810765,2026-03-07T01:00Z,Houston Rockets,Portland Trail Blazers,119.4,110.9,-8.5,-8.5,230.2,230.2,ridge_v2_pure,0.0,223.0,-8.5,3,False,,Houston Rockets,7.2,1,OVER,False,,0.84
+401810766,2026-03-07T02:00Z,Denver Nuggets,New York Knicks,118.7,114.5,-4.2,-4.2,233.2,233.2,ridge_v2_pure,0.0,223.0,-4.2,0,False,,Denver Nuggets,10.2,1,OVER,False,,0.666
+401810767,2026-03-07T02:00Z,Phoenix Suns,New Orleans Pelicans,120.0,111.7,-8.3,-8.3,231.7,231.7,ridge_v2_pure,0.0,223.0,-8.3,3,False,,Phoenix Suns,8.7,1,OVER,False,,0.832
+401810768,2026-03-07T02:30Z,San Antonio Spurs,LA Clippers,116.2,110.7,-5.5,-5.5,226.9,226.9,ridge_v2_pure,0.0,223.0,-5.5,2,False,,San Antonio Spurs,3.9,1,OVER,False,,0.722
+401810769,2026-03-07T03:30Z,Los Angeles Lakers,Indiana Pacers,116.9,111.6,-5.3,-5.3,217.5,228.5,ridge_v2_pure; fade_middle_over:-11.0,0.0,223.0,-5.3,2,False,,Los Angeles Lakers,5.5,1,OVER,False,,0.712
