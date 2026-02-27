@@ -1,0 +1,10 @@
+matchup,home_team,away_team,week,date,home_win_prob,away_win_prob,predicted_winner,confidence,spread,implied_spread,neutral_site
+Cardinals @ Mustangs,Mustangs,Cardinals,13,2025-11-22T17:00Z,0.60833365,0.39166635,Mustangs,0.60833365,-1.5,-4.333346,0
+Bears @ Owls,Owls,Bears,13,2025-11-22T19:00Z,0.60833365,0.39166635,Owls,0.60833365,,-4.333346,0
+Trojans @ Ducks,Ducks,Trojans,13,2025-11-22T20:30Z,0.60833365,0.39166635,Ducks,0.60833365,-14.5,-4.333346,0
+Pirates @ Roadrunners,Roadrunners,Pirates,13,2025-11-22T20:30Z,0.60833365,0.39166635,Roadrunners,0.60833365,-4.0,-4.333346,0
+Golden Eagles @ Jaguars,Jaguars,Golden Eagles,13,2025-11-22T20:30Z,0.60833365,0.39166635,Jaguars,0.60833365,-3.0,-4.333346,0
+Horned Frogs @ Cougars,Cougars,Horned Frogs,13,2025-11-22T21:00Z,0.60833365,0.39166635,Cougars,0.60833365,0.0,-4.333346,0
+Panthers @ Yellow Jackets,Yellow Jackets,Panthers,13,2025-11-23T00:00Z,0.60833365,0.39166635,Yellow Jackets,0.60833365,-3.0,-4.333346,0
+Volunteers @ Gators,Gators,Volunteers,13,2025-11-23T00:30Z,0.60833365,0.39166635,Gators,0.60833365,,-4.333346,0
+Cougars @ Bearcats,Bearcats,Cougars,13,2025-11-23T01:00Z,0.60833365,0.39166635,Bearcats,0.60833365,-3.5,-4.333346,0

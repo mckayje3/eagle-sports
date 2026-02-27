@@ -70,38 +70,38 @@ class CFBDataPreparation:
                 tgs.penalties,
                 tgs.penalty_yards,
                 -- Vegas lines (home team perspective)
-                go.latest_spread as vegas_spread_home,
-                go.closing_total as vegas_total,
+                op.latest_spread as vegas_spread_home,
+                op.latest_total as vegas_total,
                 -- Team-specific spread (positive = team favored)
                 CASE WHEN g.home_team_id = ?
-                     THEN -go.latest_spread
-                     ELSE go.latest_spread END as vegas_spread,
+                     THEN -op.latest_spread
+                     ELSE op.latest_spread END as vegas_spread,
                 -- ATS result (1 = covered, 0 = didn't cover, 0.5 = push)
                 CASE
-                    WHEN go.latest_spread IS NULL THEN NULL
+                    WHEN op.latest_spread IS NULL THEN NULL
                     WHEN g.home_team_id = ? THEN
                         CASE
-                            WHEN (g.home_score - g.away_score) + go.latest_spread > 0 THEN 1
-                            WHEN (g.home_score - g.away_score) + go.latest_spread < 0 THEN 0
+                            WHEN (g.home_score - g.away_score) + op.latest_spread > 0 THEN 1
+                            WHEN (g.home_score - g.away_score) + op.latest_spread < 0 THEN 0
                             ELSE 0.5
                         END
                     ELSE
                         CASE
-                            WHEN (g.away_score - g.home_score) - go.latest_spread > 0 THEN 1
-                            WHEN (g.away_score - g.home_score) - go.latest_spread < 0 THEN 0
+                            WHEN (g.away_score - g.home_score) - op.latest_spread > 0 THEN 1
+                            WHEN (g.away_score - g.home_score) - op.latest_spread < 0 THEN 0
                             ELSE 0.5
                         END
                 END as covered_spread,
                 -- Over/under result
                 CASE
-                    WHEN go.closing_total IS NULL THEN NULL
-                    WHEN (g.home_score + g.away_score) > go.closing_total THEN 1
-                    WHEN (g.home_score + g.away_score) < go.closing_total THEN 0
+                    WHEN op.latest_total IS NULL THEN NULL
+                    WHEN (g.home_score + g.away_score) > op.latest_total THEN 1
+                    WHEN (g.home_score + g.away_score) < op.latest_total THEN 0
                     ELSE 0.5
                 END as went_over
             FROM games g
             LEFT JOIN team_game_stats tgs ON g.game_id = tgs.game_id AND tgs.team_id = ?
-            LEFT JOIN game_odds go ON g.game_id = go.game_id AND go.source = 'TheOddsAPI'
+            LEFT JOIN odds_and_predictions op ON g.game_id = op.game_id
             WHERE (g.home_team_id = ? OR g.away_team_id = ?)
                 AND g.season = ?
                 AND g.completed = 1

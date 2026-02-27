@@ -1,0 +1,2 @@
+game_id,date,week,home_team,away_team,pred_home_score,pred_away_score,pred_spread,pred_total,vegas_spread,vegas_total,confidence,pred_home_win_prob,predicted_winner
+401762521,2025-12-13T20:00Z,16,Navy Midshipmen,Army Black Knights,55.4,32.9,22.6,88.3,0,0,0.95,0.95,Navy Midshipmen

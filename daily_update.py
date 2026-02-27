@@ -200,6 +200,55 @@ def scrape_basketball_games(sport: str, days: int = 7) -> int:
     return total_games
 
 
+def scrape_hockey_games(days: int = 7) -> int:
+    """
+    Scrape and insert new hockey games from ESPN.
+    NHL needs games scraped before odds/predictions can be added.
+
+    Args:
+        days: Number of days forward to scrape
+
+    Returns:
+        Number of games added
+    """
+    from datetime import timedelta
+    import time
+
+    # Determine season based on current date (year season ends, like NBA)
+    # Oct-Dec 2025 = season 2026, Jan-Sep 2026 = season 2026
+    today = datetime.now()
+    if today.month >= 10:
+        season = today.year + 1
+    else:
+        season = today.year
+
+    from nhl_espn_scraper import NHLESPNScraper
+    scraper = NHLESPNScraper()
+    scraper.db.connect()
+
+    total_games = 0
+
+    # Scrape today and next N days
+    for i in range(days + 1):
+        current_date = today + timedelta(days=i)
+        date_str = current_date.strftime('%Y%m%d')
+
+        try:
+            games = scraper.fetch_scoreboard(date_str)
+            if games:
+                for game in games:
+                    game['season'] = season
+                    scraper.db.insert_game(game)
+                total_games += len(games)
+        except Exception as e:
+            logger.warning(f"  Error scraping NHL games for {date_str}: {e}")
+
+        time.sleep(0.1)  # Rate limiting
+
+    scraper.db.close()
+    return total_games
+
+
 def update_basketball(sport: str, dry_run=False) -> bool:
     """Update NBA or CBB"""
     logger.info(f"Updating {sport.upper()}...")
@@ -242,11 +291,15 @@ def update_hockey(dry_run=False) -> bool:
     logger.info("Updating NHL...")
 
     if dry_run:
-        logger.info("  [DRY RUN] Would fetch results, odds, and update predictions")
+        logger.info("  [DRY RUN] Would scrape games, fetch results, odds, and update predictions")
         return True
 
     try:
-        # Update results first (get final scores for completed games)
+        # Scrape upcoming games first (ensures games exist before adding odds)
+        games_scraped = scrape_hockey_games(days=7)
+        logger.info(f"  Games: {games_scraped} scraped/updated")
+
+        # Update results (get final scores for completed games)
         update_game_results('nhl', dry_run)
 
         # Fetch odds

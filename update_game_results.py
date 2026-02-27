@@ -1,6 +1,6 @@
 """
 ESPN Game Results Updater - Updates final scores for completed games
-Supports: NBA, NFL, CFB, CBB
+Supports: NBA, NFL, CFB, CBB, NHL
 
 This runs as part of daily_update.py to fill in scores for games
 that have completed since they were initially added to the database.
@@ -39,12 +39,17 @@ class ESPNResultsUpdater:
             'sport': 'basketball',
             'league': 'mens-college-basketball',
             'db_path': 'cbb_games.db',
+        },
+        'nhl': {
+            'sport': 'hockey',
+            'league': 'nhl',
+            'db_path': 'nhl_games.db',
         }
     }
 
     def __init__(self, sport: str):
         if sport.lower() not in self.SPORTS_CONFIG:
-            raise ValueError(f"Unsupported sport: {sport}. Use: nba, nfl, cfb, cbb")
+            raise ValueError(f"Unsupported sport: {sport}. Use: nba, nfl, cfb, cbb, nhl")
 
         self.sport = sport.lower()
         self.config = self.SPORTS_CONFIG[self.sport]
@@ -216,6 +221,119 @@ class ESPNResultsUpdater:
         except Exception:
             return False
 
+    def fetch_game_by_id(self, game_id: int) -> dict | None:
+        """
+        Fetch a single game's result directly from ESPN event API.
+
+        ESPN's scoreboard API doesn't return all games (especially for CBB),
+        so we need to query individual games directly.
+
+        Args:
+            game_id: ESPN game ID
+
+        Returns:
+            Dict with game_id, home_score, away_score, completed, winner_team_id
+            or None if game not found or not completed
+        """
+        url = f"{self.base_url}/summary"
+        params = {'event': game_id}
+
+        try:
+            response = self.session.get(url, params=params, timeout=15)
+            if response.status_code != 200:
+                return None
+
+            data = response.json()
+            header = data.get('header', {})
+            competitions = header.get('competitions', [{}])
+
+            if not competitions:
+                return None
+
+            competition = competitions[0]
+            status = competition.get('status', {}).get('type', {})
+            completed = status.get('completed', False)
+
+            if not completed:
+                return None
+
+            # Get competitors
+            home_score = None
+            away_score = None
+            home_team_id = None
+            away_team_id = None
+
+            for competitor in competition.get('competitors', []):
+                score = competitor.get('score')
+                if score is not None and score != '':
+                    score = int(score)
+                else:
+                    score = None
+
+                team_id = int(competitor.get('team', {}).get('id', 0))
+
+                if competitor.get('homeAway') == 'home':
+                    home_score = score
+                    home_team_id = team_id
+                else:
+                    away_score = score
+                    away_team_id = team_id
+
+            if home_score is None or away_score is None:
+                return None
+
+            # Determine winner
+            winner_id = None
+            if home_score > away_score:
+                winner_id = home_team_id
+            elif away_score > home_score:
+                winner_id = away_team_id
+
+            return {
+                'game_id': game_id,
+                'home_score': home_score,
+                'away_score': away_score,
+                'completed': 1,
+                'winner_team_id': winner_id,
+            }
+
+        except Exception as e:
+            logger.debug(f"Error fetching game {game_id}: {e}")
+            return None
+
+    def get_incomplete_games(self, days: int = 7) -> list[int]:
+        """
+        Get list of incomplete game IDs from the database for past N days.
+
+        Args:
+            days: Number of days to look back
+
+        Returns:
+            List of game IDs that are not marked completed
+        """
+        conn = sqlite3.connect(self.config['db_path'])
+        cursor = conn.cursor()
+
+        try:
+            cutoff_date = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+
+            cursor.execute('''
+                SELECT game_id FROM games
+                WHERE completed = 0
+                AND date >= ?
+                AND date < datetime('now', '+1 day')
+                ORDER BY date DESC
+            ''', (cutoff_date,))
+
+            game_ids = [row[0] for row in cursor.fetchall()]
+            conn.close()
+            return game_ids
+
+        except Exception as e:
+            logger.error(f"Error getting incomplete games: {e}")
+            conn.close()
+            return []
+
     def update_recent(self, days: int = 7) -> tuple[int, int]:
         """
         Update results for games in the past N days
@@ -226,10 +344,13 @@ class ESPNResultsUpdater:
         Returns:
             Tuple of (games_found, games_updated)
         """
+        import time
+
         total_found = 0
         total_updated = 0
+        updated_ids = set()
 
-        # Iterate through each day
+        # Method 1: Iterate through each day via scoreboard API
         for i in range(days + 1):  # +1 to include today
             date = datetime.now() - timedelta(days=i)
             date_str = date.strftime('%Y%m%d')
@@ -243,6 +364,7 @@ class ESPNResultsUpdater:
                 if game.get('completed') and game.get('home_score') is not None:
                     if self.update_game_result(game):
                         total_updated += 1
+                        updated_ids.add(game['game_id'])
 
                         # Sync to prediction cache
                         self.sync_result_to_cache(
@@ -251,7 +373,32 @@ class ESPNResultsUpdater:
                             game['away_score']
                         )
 
-        return total_found, total_updated
+        # Method 2: Query incomplete games directly (ESPN scoreboard doesn't return all games)
+        # This is especially important for CBB which has many games not on the main scoreboard
+        incomplete_ids = self.get_incomplete_games(days)
+        incomplete_ids = [gid for gid in incomplete_ids if gid not in updated_ids]
+
+        if incomplete_ids:
+            logger.info(f"  Checking {len(incomplete_ids)} incomplete games directly...")
+
+            for game_id in incomplete_ids:
+                game = self.fetch_game_by_id(game_id)
+
+                if game:
+                    if self.update_game_result(game):
+                        total_updated += 1
+
+                        # Sync to prediction cache
+                        self.sync_result_to_cache(
+                            game['game_id'],
+                            game['home_score'],
+                            game['away_score']
+                        )
+
+                # Rate limit API calls
+                time.sleep(0.05)
+
+        return total_found + len(incomplete_ids), total_updated
 
 
 
@@ -287,7 +434,7 @@ if __name__ == '__main__':
     )
 
     parser = argparse.ArgumentParser(description='ESPN Game Results Updater')
-    parser.add_argument('sport', choices=['nba', 'nfl', 'cfb', 'cbb', 'all'],
+    parser.add_argument('sport', choices=['nba', 'nfl', 'cfb', 'cbb', 'nhl', 'all'],
                         help='Sport to update (or "all")')
     parser.add_argument('--days', type=int, default=7,
                         help='Days to look back (default: 7)')
@@ -299,7 +446,7 @@ if __name__ == '__main__':
     print("=" * 60)
 
     if args.sport == 'all':
-        sports = ['nba', 'nfl', 'cfb', 'cbb']
+        sports = ['nba', 'nfl', 'cfb', 'cbb', 'nhl']
     else:
         sports = [args.sport]
 

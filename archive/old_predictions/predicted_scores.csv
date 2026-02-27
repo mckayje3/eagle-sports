@@ -1,0 +1,123 @@
+game_id,week,date,away_team,home_team,predicted_away_score,predicted_home_score,predicted_winner,win_probability,predicted_spread,predicted_total,neutral_site
+401762862,13,2025-11-19T00:00Z,Akron Zips,Bowling Green Falcons,27,24,Bowling Green Falcons,0.6242816,-3.6459796,50.65166,0
+401762863,13,2025-11-19T00:00Z,Massachusetts Minutemen,Ohio Bobcats,20,45,Ohio Bobcats,0.95097584,25.02154,65.013016,0
+401762864,13,2025-11-19T00:00Z,Western Michigan Broncos,Northern Illinois Huskies,27,20,Northern Illinois Huskies,0.5636462,-7.1042953,46.350586,0
+401762865,13,2025-11-20T00:00Z,Miami (OH) RedHawks,Buffalo Bulls,22,23,Buffalo Bulls,0.75375617,1.4444516,45.136448,0
+401762866,13,2025-11-20T00:00Z,Central Michigan Chippewas,Kent State Golden Flashes,33,24,Kent State Golden Flashes,0.5289175,-8.695955,56.41094,0
+401761655,13,2025-11-21T00:30Z,Louisiana Ragin' Cajuns,Arkansas State Red Wolves,24,26,Arkansas State Red Wolves,0.7069437,1.742829,50.291977,0
+401754598,13,2025-11-22T01:00Z,Florida State Seminoles,NC State Wolfpack,30,21,Florida State Seminoles,0.7989656,-9.125427,51.485344,0
+401760418,13,2025-11-22T03:30Z,Hawai'i Rainbow Warriors,UNLV Rebels,33,32,UNLV Rebels,0.64221025,-1.1361717,64.81738,0
+401752778,13,2025-11-22T17:00Z,Missouri Tigers,Oklahoma Sooners,23,26,Oklahoma Sooners,0.53910923,2.886327,49.139927,0
+401752781,13,2025-11-22T17:00Z,Samford Bulldogs,Texas A&M Aggies,10,53,Texas A&M Aggies,0.99501675,43.02268,62.6946,0
+401752909,13,2025-11-22T17:00Z,Minnesota Golden Gophers,Northwestern Wildcats,23,26,Northwestern Wildcats,0.7198029,3.1938732,48.213657,0
+401752912,13,2025-11-22T17:00Z,Rutgers Scarlet Knights,Ohio State Buckeyes,16,49,Ohio State Buckeyes,0.9905205,33.285435,64.805084,0
+401754602,13,2025-11-22T17:00Z,Louisville Cardinals,SMU Mustangs,25,28,SMU Mustangs,0.61981165,3.5360177,53.017536,0
+401754603,13,2025-11-22T17:00Z,Miami Hurricanes,Virginia Tech Hokies,35,21,Miami Hurricanes,0.9266946,-13.859868,56.00159,0
+401754606,13,2025-11-22T17:00Z,Delaware Blue Hens,Wake Forest Demon Deacons,20,32,Wake Forest Demon Deacons,0.7329536,11.489033,51.920002,0
+401756958,13,2025-11-22T17:00Z,Kansas Jayhawks,Iowa State Cyclones,23,24,Iowa State Cyclones,0.67586356,1.2751007,47.37,0
+401762512,13,2025-11-22T17:00Z,Tulsa Golden Hurricane,Army Black Knights,19,29,Army Black Knights,0.73067695,9.881751,47.926716,0
+401752776,13,2025-11-22T17:45Z,Charlotte 49ers,Georgia Bulldogs,23,51,Georgia Bulldogs,0.97992367,27.65341,73.4274,0
+401752954,13,2025-11-22T18:00Z,Washington State Cougars,James Madison Dukes,16,41,James Madison Dukes,0.96492475,24.690474,56.561737,0
+401756954,13,2025-11-22T18:00Z,Baylor Bears,Arizona Wildcats,21,37,Arizona Wildcats,0.85089785,15.769158,58.122013,0
+401761657,13,2025-11-22T18:00Z,Old Dominion Monarchs,Georgia Southern Eagles,36,26,Old Dominion Monarchs,0.76317,-9.4114,61.80756,0
+401752773,13,2025-11-22T19:00Z,Eastern Illinois Panthers,Alabama Crimson Tide,7,44,Alabama Crimson Tide,0.9987772,36.687813,50.819523,0
+401752774,13,2025-11-22T19:00Z,Mercer Bears,Auburn Tigers,7,39,Auburn Tigers,0.99720925,31.700563,46.02436,0
+401757306,13,2025-11-22T19:00Z,Missouri State Bears,Kennesaw State Owls,24,32,Kennesaw State Owls,0.77171385,7.798092,56.059933,0
+401760419,13,2025-11-22T19:00Z,Nevada Wolf Pack,Wyoming Cowboys,17,28,Wyoming Cowboys,0.77200294,11.564627,45.427586,0
+401762867,13,2025-11-22T19:00Z,Ball State Cardinals,Toledo Rockets,12,41,Toledo Rockets,0.97188246,28.419031,53.075405,0
+401761656,13,2025-11-22T19:30Z,Marshall Thundering Herd,App State Mountaineers,32,26,App State Mountaineers,0.54544735,-6.358679,57.56448,0
+401757175,13,2025-11-22T20:00Z,UConn Huskies,Florida Atlantic Owls,38,28,UConn Huskies,0.7785238,-9.400042,65.78046,0
+401757307,13,2025-11-22T20:00Z,Liberty Flames,Louisiana Tech Bulldogs,17,26,Louisiana Tech Bulldogs,0.7494252,8.197592,43.17424,0
+401757308,13,2025-11-22T20:00Z,Sam Houston Bearkats,Middle Tennessee Blue Raiders,27,32,Sam Houston Bearkats,0.5248898,4.828597,59.6317,0
+401757309,13,2025-11-22T20:00Z,New Mexico State Aggies,UTEP Miners,26,24,UTEP Miners,0.6177114,-1.4460297,49.561054,0
+401762511,13,2025-11-22T20:00Z,South Florida Bulls,UAB Blazers,41,27,South Florida Bulls,0.93362343,-14.461676,67.89154,0
+401752780,13,2025-11-22T20:30Z,Arkansas Razorbacks,Texas Longhorns,23,35,Texas Longhorns,0.8264277,11.445168,57.75852,0
+401752782,13,2025-11-22T20:30Z,Kentucky Wildcats,Vanderbilt Commodores,20,37,Vanderbilt Commodores,0.88260543,17.714983,57.08914,0
+401752911,13,2025-11-22T20:30Z,USC Trojans,Oregon Ducks,20,41,Oregon Ducks,0.8749707,20.1311,60.89069,0
+401752913,13,2025-11-22T20:30Z,Michigan State Spartans,Iowa Hawkeyes,15,36,Iowa Hawkeyes,0.9145321,21.059923,50.444305,0
+401754600,13,2025-11-22T20:30Z,Duke Blue Devils,North Carolina Tar Heels,28,22,Duke Blue Devils,0.5843712,-6.0469055,49.419415,0
+401754604,13,2025-11-22T20:30Z,Syracuse Orange,Notre Dame Fighting Irish,18,45,Notre Dame Fighting Irish,0.9686291,26.690863,63.675014,0
+401757305,13,2025-11-22T20:30Z,Jacksonville State Gamecocks,Florida International Panthers,34,27,Jacksonville State Gamecocks,0.51173913,-6.780385,60.444412,0
+401761658,13,2025-11-22T20:30Z,Southern Miss Golden Eagles,South Alabama Jaguars,35,27,Southern Miss Golden Eagles,0.6956673,-8.160416,61.740974,0
+401762513,13,2025-11-22T20:30Z,East Carolina Pirates,UTSA Roadrunners,33,24,East Carolina Pirates,0.837451,-9.047994,57.689312,0
+401762515,13,2025-11-22T20:45Z,Tulane Green Wave,Temple Owls,35,31,Temple Owls,0.628297,-4.4731855,65.52146,0
+401752914,13,2025-11-22T21:00Z,Michigan Wolverines,Maryland Terrapins,32,23,Michigan Wolverines,0.75715864,-8.435725,54.670788,0
+401756957,13,2025-11-22T21:00Z,TCU Horned Frogs,Houston Cougars,24,32,Houston Cougars,0.74723524,8.55078,55.74573,0
+401756959,13,2025-11-22T21:00Z,Oklahoma State Cowboys,UCF Knights,17,39,UCF Knights,0.8767445,22.142746,56.464954,0
+401756960,13,2025-11-22T21:00Z,Kansas State Wildcats,Utah Utes,16,42,Utah Utes,0.9625233,26.624508,58.112236,0
+401761660,13,2025-11-22T21:00Z,Georgia State Panthers,Troy Trojans,23,40,Troy Trojans,0.8228507,16.887403,62.236935,0
+401752779,13,2025-11-22T21:15Z,Coastal Carolina Chanticleers,South Carolina Gamecocks,30,27,South Carolina Gamecocks,0.5659412,-3.7793152,57.03509,0
+401754605,13,2025-11-22T21:30Z,Furman Paladins,Clemson Tigers,7,40,Clemson Tigers,0.9975776,32.369133,47.059704,0
+401761659,13,2025-11-22T22:00Z,UL Monroe Warhawks,Texas State Bobcats,23,40,Texas State Bobcats,0.8372637,17.144499,63.735355,0
+401752908,13,2025-11-23T00:00Z,Nebraska Cornhuskers,Penn State Nittany Lions,31,24,Nebraska Cornhuskers,0.7568652,-6.754693,54.38888,0
+401754601,13,2025-11-23T00:00Z,Pittsburgh Panthers,Georgia Tech Yellow Jackets,30,32,Georgia Tech Yellow Jackets,0.5242701,1.6739613,62.61694,0
+401760415,13,2025-11-23T00:00Z,New Mexico Lobos,Air Force Falcons,38,30,New Mexico Lobos,0.63115996,-7.9113045,67.15197,0
+401760416,13,2025-11-23T00:00Z,Colorado State Rams,Boise State Broncos,19,35,Boise State Broncos,0.8881406,16.349585,53.775032,0
+401752775,13,2025-11-23T00:30Z,Tennessee Volunteers,Florida Gators,36,25,Tennessee Volunteers,0.8302123,-11.416502,60.539104,0
+401752915,13,2025-11-23T00:30Z,Illinois Fighting Illini,Wisconsin Badgers,30,19,Illinois Fighting Illini,0.766114,-10.578712,49.464207,0
+401754599,13,2025-11-23T00:30Z,California Golden Bears,Stanford Cardinal,31,23,Stanford Cardinal,0.5263961,-7.850714,53.69623,0
+401762514,13,2025-11-23T00:30Z,North Texas Mean Green,Rice Owls,39,25,North Texas Mean Green,0.9242955,-14.121421,63.941364,0
+401752777,13,2025-11-23T00:45Z,Western Kentucky Hilltoppers,LSU Tigers,30,24,Western Kentucky Hilltoppers,0.68100977,-5.566222,53.70271,0
+401756955,13,2025-11-23T01:00Z,BYU Cougars,Cincinnati Bearcats,34,27,BYU Cougars,0.8071302,-6.5698686,61.474277,0
+401756956,13,2025-11-23T01:00Z,Arizona State Sun Devils,Colorado Buffaloes,34,26,Arizona State Sun Devils,0.50710005,-8.029129,59.789955,0
+401752910,13,2025-11-23T03:30Z,Washington Huskies,UCLA Bruins,34,20,Washington Huskies,0.8975731,-13.602131,54.445755,0
+401760417,13,2025-11-23T03:30Z,Utah State Aggies,Fresno State Bulldogs,23,30,Fresno State Bulldogs,0.7247488,6.7601748,52.491634,0
+401760420,13,2025-11-23T03:30Z,San José State Spartans,San Diego State Aztecs,17,39,San Diego State Aztecs,0.9432014,21.249605,55.98826,0
+401762868,14,2025-11-25T21:30Z,Bowling Green Falcons,Massachusetts Minutemen,32,21,Bowling Green Falcons,0.7570618,-11.137327,53.833424,0
+401762869,14,2025-11-26T00:30Z,Western Michigan Broncos,Eastern Michigan Eagles,31,23,Eastern Michigan Eagles,0.75329846,-7.4218693,53.793125,0
+401762516,14,2025-11-28T00:30Z,Navy Midshipmen,Memphis Tigers,26,40,Memphis Tigers,0.8453178,13.528493,66.37193,0
+401752788,14,2025-11-28T17:00Z,Ole Miss Rebels,Mississippi State Bulldogs,41,29,Ole Miss Rebels,0.92974305,-12.109472,70.35043,0
+401752916,14,2025-11-28T17:00Z,Iowa Hawkeyes,Nebraska Cornhuskers,22,23,Nebraska Cornhuskers,0.69816893,1.4242588,45.201515,0
+401756964,14,2025-11-28T17:00Z,Utah Utes,Kansas Jayhawks,34,22,Utah Utes,0.92136455,-12.050402,55.92767,0
+401762870,14,2025-11-28T17:00Z,Ohio Bobcats,Buffalo Bulls,26,23,Buffalo Bulls,0.6421747,-3.2976491,48.65637,0
+401762871,14,2025-11-28T17:00Z,Kent State Golden Flashes,Northern Illinois Huskies,22,31,Northern Illinois Huskies,0.622114,8.612518,53.198452,0
+401760421,14,2025-11-28T20:00Z,Air Force Falcons,Colorado State Rams,29,22,Air Force Falcons,0.6285579,-6.958312,50.6603,0
+401752786,14,2025-11-28T20:30Z,Georgia Bulldogs,Georgia Tech Yellow Jackets,16,25,Georgia Tech Yellow Jackets,0.6868424,9.620361,40.710644,1
+401760426,14,2025-11-28T20:30Z,San Diego State Aztecs,New Mexico Lobos,29,23,New Mexico Lobos,0.52139807,-6.2262454,52.71671,0
+401762442,14,2025-11-28T20:30Z,Temple Owls,North Texas Mean Green,24,45,North Texas Mean Green,0.93481964,21.701756,69.04649,0
+401760422,14,2025-11-28T21:00Z,Boise State Broncos,Utah State Aggies,32,26,Utah State Aggies,0.5494017,-5.3462434,57.908924,0
+401752792,14,2025-11-29T00:30Z,Texas A&M Aggies,Texas Longhorns,36,29,Texas A&M Aggies,0.79186916,-6.716033,64.57782,0
+401752924,14,2025-11-29T00:30Z,Indiana Hoosiers,Purdue Boilermakers,43,22,Indiana Hoosiers,0.98531026,-21.589724,65.29889,0
+401756961,14,2025-11-29T02:00Z,Arizona Wildcats,Arizona State Sun Devils,28,22,Arizona Wildcats,0.7034124,-6.669956,49.791996,0
+401752785,14,2025-11-29T05:00Z,Florida State Seminoles,Florida Gators,27,17,Florida State Seminoles,0.7696763,-10.217965,44.014904,0
+401752787,14,2025-11-29T17:00Z,Kentucky Wildcats,Louisville Cardinals,19,31,Louisville Cardinals,0.7949813,11.881091,49.48077,0
+401752790,14,2025-11-29T17:00Z,Clemson Tigers,South Carolina Gamecocks,26,20,Clemson Tigers,0.542631,-6.463464,45.660526,0
+401752921,14,2025-11-29T17:00Z,Ohio State Buckeyes,Michigan Wolverines,31,20,Ohio State Buckeyes,0.9319414,-10.762329,51.306087,0
+401756966,14,2025-11-29T17:00Z,Iowa State Cyclones,Oklahoma State Cowboys,35,21,Iowa State Cyclones,0.8471103,-13.764999,55.801907,0
+401762872,14,2025-11-29T17:00Z,Toledo Rockets,Central Michigan Chippewas,25,17,Toledo Rockets,0.7603553,-8.1494465,41.48647,0
+401762875,14,2025-11-29T17:00Z,Ball State Cardinals,Miami (OH) RedHawks,18,33,Miami (OH) RedHawks,0.8223071,14.036642,50.9792,0
+401757310,14,2025-11-29T18:00Z,UTEP Miners,Delaware Blue Hens,23,29,Delaware Blue Hens,0.77111924,6.1578226,52.4145,0
+401757311,14,2025-11-29T18:00Z,Florida International Panthers,Sam Houston Bearkats,34,25,Florida International Panthers,0.6050142,-9.565628,59.000816,0
+401761663,14,2025-11-29T18:30Z,Georgia Southern Eagles,Marshall Thundering Herd,30,34,Marshall Thundering Herd,0.788269,4.5627866,64.41109,0
+401757312,14,2025-11-29T19:00Z,Western Kentucky Hilltoppers,Jacksonville State Gamecocks,33,28,Western Kentucky Hilltoppers,0.56320596,-5.287469,60.35849,0
+401757314,14,2025-11-29T19:00Z,Louisiana Tech Bulldogs,Missouri State Bears,25,21,Missouri State Bears,0.7868326,-3.5590692,45.944744,0
+401761664,14,2025-11-29T19:00Z,Georgia State Panthers,Old Dominion Monarchs,22,45,Old Dominion Monarchs,0.94391173,23.293028,67.275116,0
+401761661,14,2025-11-29T19:30Z,Arkansas State Red Wolves,App State Mountaineers,30,25,App State Mountaineers,0.74491864,-4.290997,55.145008,0
+401754608,14,2025-11-29T20:00Z,Boston College Eagles,Syracuse Orange,26,28,Syracuse Orange,0.5314392,1.8398167,54.011566,0
+401757315,14,2025-11-29T20:00Z,Middle Tennessee Blue Raiders,New Mexico State Aggies,20,29,New Mexico State Aggies,0.6499132,9.360466,48.574715,0
+401761665,14,2025-11-29T20:00Z,UL Monroe Warhawks,Louisiana Ragin' Cajuns,22,35,Louisiana Ragin' Cajuns,0.7928681,13.352128,57.04007,0
+401761667,14,2025-11-29T20:00Z,South Alabama Jaguars,Texas State Bobcats,26,30,Texas State Bobcats,0.68993026,4.4864326,56.30463,0
+401762517,14,2025-11-29T20:00Z,UAB Blazers,Tulsa Golden Hurricane,27,32,Tulsa Golden Hurricane,0.63033956,5.251316,58.363083,0
+401752783,14,2025-11-29T20:30Z,Missouri Tigers,Arkansas Razorbacks,38,27,Missouri Tigers,0.9055669,-11.317144,65.071976,0
+401757313,14,2025-11-29T20:30Z,Kennesaw State Owls,Liberty Flames,30,24,Liberty Flames,0.51776,-5.7717047,54.74194,0
+401761666,14,2025-11-29T20:30Z,Troy Trojans,Southern Miss Golden Eagles,24,32,Southern Miss Golden Eagles,0.79749537,7.6230984,56.3568,0
+401762441,14,2025-11-29T20:30Z,Army Black Knights,UTSA Roadrunners,28,27,UTSA Roadrunners,0.80470645,-1.7539966,55.007065,0
+401761662,14,2025-11-29T20:45Z,James Madison Dukes,Coastal Carolina Chanticleers,36,24,James Madison Dukes,0.92379624,-12.335022,59.59209,0
+401752946,14,2025-11-29T23:30Z,Oregon State Beavers,Washington State Cougars,18,32,Washington State Cougars,0.80598706,13.827907,50.60159,0
+401752923,14,2025-11-30T00:00Z,Maryland Terrapins,Michigan State Spartans,18,14,Michigan State Spartans,0.6010206,-4.161862,31.1913,1
+401762520,14,2025-11-30T00:00Z,Rice Owls,South Florida Bulls,22,43,South Florida Bulls,0.92250955,21.297882,65.13191,0
+401752784,14,2025-11-30T00:30Z,Alabama Crimson Tide,Auburn Tigers,31,22,Alabama Crimson Tide,0.8154938,-8.880876,52.64075,0
+401754612,14,2025-11-30T00:30Z,North Carolina Tar Heels,NC State Wolfpack,26,27,NC State Wolfpack,0.84181803,1.1210445,53.110874,0
+401760425,14,2025-11-30T02:00Z,UNLV Rebels,Nevada Wolf Pack,40,28,UNLV Rebels,0.8398918,-11.445963,68.3197,0
+401754614,14,2025-11-30T03:30Z,Notre Dame Fighting Irish,Stanford Cardinal,35,20,Notre Dame Fighting Irish,0.92458093,-15.205254,54.571846,0
+401760423,14,2025-11-30T03:30Z,Fresno State Bulldogs,San José State Spartans,35,25,Fresno State Bulldogs,0.66951454,-9.7474575,59.305157,0
+401760424,14,2025-11-30T04:00Z,Wyoming Cowboys,Hawai'i Rainbow Warriors,19,32,Hawai'i Rainbow Warriors,0.90993303,12.884168,50.912792,0
+401777326,15,2025-12-05T05:00Z,TBD,TBD,17,44,TBD,0.9904975,27.008291,60.899166,0
+401777325,15,2025-12-06T00:00Z,TBD,TBD,17,44,TBD,0.9904975,27.008291,60.899166,0
+401777352,15,2025-12-06T00:00Z,TBD,TBD,17,44,TBD,0.9904975,27.008291,60.899166,0
+401777324,15,2025-12-06T01:00Z,TBD,TBD,17,44,TBD,0.9904975,27.008291,60.899166,0
+401777327,15,2025-12-06T17:00Z,TBD,TBD,1,32,TBD,0.99850816,31.376387,33.043865,1
+401777329,15,2025-12-06T17:00Z,TBD,TBD,1,32,TBD,0.99850816,31.376387,33.043865,1
+401777351,15,2025-12-06T21:00Z,TBD,TBD,1,32,TBD,0.99850816,31.376387,33.043865,1
+401777328,15,2025-12-07T01:00Z,TBD,TBD,1,32,TBD,0.99850816,31.376387,33.043865,1
+401777353,15,2025-12-07T01:00Z,TBD,TBD,1,32,TBD,0.99850816,31.376387,33.043865,1

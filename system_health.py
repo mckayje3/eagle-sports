@@ -234,7 +234,7 @@ def parse_daily_update_log() -> tuple[datetime | None, bool | None, list[str]]:
         # Look for the SUMMARY section - format is "  NBA: FAILED"
         if "SUMMARY" in content:
             # Use regex to find sport failures: "NBA: FAILED", "CBB: FAILED", etc.
-            for match in re.finditer(r'(NBA|CBB|NFL|CFB):\s*FAILED', content):
+            for match in re.finditer(r'(NBA|CBB|NFL|CFB|NHL):\s*FAILED', content):
                 sport = match.group(1)
                 if sport not in failures:
                     failures.append(sport)
@@ -258,7 +258,7 @@ def check_system_health(sports: list[str] | None = None) -> SystemHealth:
         SystemHealth object with overall status and per-sport details
     """
     if sports is None:
-        sports = ['nfl', 'cfb', 'nba', 'cbb']
+        sports = ['nfl', 'cfb', 'nba', 'cbb', 'nhl']
 
     sport_health = {sport.upper(): check_sport_health(sport) for sport in sports}
 

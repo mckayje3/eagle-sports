@@ -3,7 +3,7 @@ Complete workflow: Scrape odds and save to database with game matching
 """
 import json
 from game_matcher import GameMatcher
-from database import FootballDatabase
+from cfb_nfl_database import FootballDatabase
 from datetime import datetime
 
 

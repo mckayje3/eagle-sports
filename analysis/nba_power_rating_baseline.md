@@ -1,0 +1,186 @@
+# NBA Power Rating Model - Baseline Results
+
+**Date:** 2025-12-28
+**Model:** Simple PPG/PAPG Power Ratings
+**Code:** `nba_power_ratings.py`
+
+---
+
+## Model Architecture
+
+```
+TEAM POWER RATINGS
+├── Offensive Rating = Weighted PPG (exponential decay)
+├── Defensive Rating = Weighted PAPG (exponential decay)
+└── Blended with previous season (fades over games)
+
+PREDICTION
+├── Home Score = (Home_OFF + Away_DEF) / 2 + HCA/2
+└── Away Score = (Away_OFF + Home_DEF) / 2 - HCA/2
+```
+
+---
+
+## Optimized Parameters
+
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| decay | 0.93 | Weight decay per game (7% decay) |
+| prev_season_weight | 1.0 | Game 0 uses 100% previous season |
+| prev_season_half_life | 6 | Games until prev season weight halves |
+| hca | 2.0 | Home court advantage in points |
+
+### Parameter Tuning Results
+
+**Decay Rate (weight decay per game):**
+| Decay | Spread MAE | Winner Acc |
+|-------|------------|------------|
+| 0.90 | 11.48 | 63.8% |
+| 0.93 | 11.48 | 63.7% |
+| **0.95** | **11.49** | **63.8%** |
+| 0.97 | 11.51 | 63.4% |
+
+*Little sensitivity to decay rate*
+
+**Previous Season Half-Life (exponential decay from 100%):**
+| Half-Life | Spread MAE | Winner Acc |
+|-----------|------------|------------|
+| 4 | 11.42 | 65.0% |
+| **6** | **11.42** | **65.0%** |
+| 8 | 11.42 | 65.0% |
+| 10 | 11.42 | 64.9% |
+
+*Half-life 4-8 games all perform similarly (65.0%)*
+*Formula: blend = 1.0 * 0.5^(games_played / half_life)*
+
+**Step Function Decay (for comparison):**
+| Steps | Spread MAE | Winner Acc |
+|-------|------------|------------|
+| 4-game (100,75,50,25,0) | 11.46 | 64.4% |
+| 6-game gradual | 11.44 | 64.6% |
+| 10-game gradual | 11.44 | 64.8% |
+
+*Exponential decay (65.0%) beats step functions (64.4-64.8%)*
+
+**Home Court Advantage:**
+| HCA | Spread MAE | Winner Acc |
+|-----|------------|------------|
+| **2.0** | **11.46** | **64.9%** |
+| 2.5 | 11.47 | 64.1% |
+| 3.0 | 11.49 | 63.8% |
+| 3.5 | 11.52 | 63.0% |
+
+*HCA of 2.0 points is optimal (not 3.0)*
+
+---
+
+## Model Performance
+
+### Overall (3,326 games)
+
+| Metric | Optimized |
+|--------|-----------|
+| Winner Accuracy | **65.0%** |
+| Spread MAE | **11.42** |
+| Spread Correlation | 0.409 |
+| Total MAE | **15.20** |
+| Total Correlation | 0.385 |
+
+### Comparison with Vegas (1,873 games)
+
+| Metric | Model | Vegas | Gap |
+|--------|-------|-------|-----|
+| Winner Accuracy | 64.8% | 66.4% | -1.6% |
+| Spread MAE | 11.22 | 10.66 | +0.56 |
+| Spread Correlation | 0.401 | 0.455 | -0.054 |
+| Total MAE | 15.04 | 14.43 | +0.61 |
+| Total Correlation | 0.369 | 0.444 | -0.075 |
+
+### By Season
+
+| Season | Winner Acc | Spread MAE | Total MAE |
+|--------|------------|------------|-----------|
+| 2024 | 63.1% | 11.57 | 15.30 |
+| 2025 | 64.9% | 11.51 | 15.15 |
+| 2026 | 62.9% | 11.21 | 15.63 |
+
+---
+
+## Key Insights
+
+### What Works Well
+1. **Simple PPG/PAPG is surprisingly effective** - 65.0% winner accuracy
+2. **Exponential half-life decay (6 games) for previous season blending**
+3. **Home court advantage is ~2 points** - not 3 as commonly assumed
+4. **Smooth exponential decay beats step functions** - 65.0% vs 64.4%
+
+### Gap with Vegas
+1. **1.6% winner accuracy gap** - Vegas still better at picking winners
+2. **0.56 point spread MAE gap** - Vegas more accurate on margins
+3. **0.075 total correlation gap** - Vegas better at totals
+
+### Where to Improve
+1. **Add more features** - shooting efficiency, pace, recent form
+2. **Opponent adjustments** - strength of schedule
+3. **Situational factors** - back-to-backs, rest days, travel
+4. **Injury adjustments** - though correlation analysis showed weak impact
+
+---
+
+## Model Equations
+
+### Power Rating Calculation
+
+```
+weight_i = decay^(n - i)  # where n = total games, i = game number
+
+off_rating = Σ(ppg_i * weight_i) / Σ(weight_i)
+def_rating = Σ(papg_i * weight_i) / Σ(weight_i)
+
+# Season blending (starts at 100%, halves every 6 games)
+blend = 1.0 * 0.5^(games_played / half_life)  # half_life = 6
+# Game 0: 100%, Game 6: 50%, Game 12: 25%, Game 18: 12.5%
+
+final_off = blend * prev_off + (1 - blend) * curr_off
+final_def = blend * prev_def + (1 - blend) * curr_def
+```
+
+### Score Prediction
+
+```
+pred_home = (home_off + away_def) / 2 + hca/2
+pred_away = (away_off + home_def) / 2 - hca/2
+pred_total = pred_home + pred_away
+pred_spread = pred_away - pred_home
+```
+
+---
+
+## Next Steps for Improvement
+
+### Tier 1: Low-Hanging Fruit
+1. Add shooting efficiency (eFG%, TS%)
+2. Add pace/possessions adjustment
+3. Add recent form (last 5-10 games weighted higher)
+
+### Tier 2: Moderate Complexity
+4. Opponent-adjusted ratings (SOS)
+5. Home/away splits
+6. Rest days and back-to-backs
+
+### Tier 3: Advanced
+7. Lineup-based adjustments
+8. Injury impact (weak signal though)
+9. Venue-specific factors
+
+---
+
+## Files
+
+- **Model Code:** `nba_power_ratings.py`
+- **Database:** `nba_games.db`
+- **This Analysis:** `analysis/nba_power_rating_baseline.md`
+
+---
+
+*Analysis generated by Claude Code on 2025-12-28*

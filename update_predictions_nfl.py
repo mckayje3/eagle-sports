@@ -22,22 +22,53 @@ logger = logging.getLogger(__name__)
 
 
 def get_current_nfl_week():
-    """Calculate current NFL week based on date"""
+    """
+    Calculate current NFL week and season based on date.
+    Returns (week, season, is_playoffs).
+
+    NFL season convention:
+    - Season year = year the season STARTS (e.g., 2024 season runs Sept 2024 - Feb 2025)
+    - Regular season: Weeks 1-18 (Sept - Jan)
+    - Playoffs: Jan-Feb (stored as weeks 1-5 in DB for postseason)
+
+    Note: Database stores playoff weeks as 1-5, not 19-22.
+    """
     today = datetime.now()
 
-    if today.year == 2025:
-        season_start = datetime(2025, 9, 4)
+    # Determine season year (NFL season spans two calendar years)
+    # Jan-Feb = previous year's playoffs
+    # March-Aug = offseason
+    # Sept-Dec = current year's regular season
+    if today.month >= 9:
+        season = today.year
+    elif today.month <= 2:
+        # Jan/Feb = we're in the previous year's playoffs
+        season = today.year - 1
     else:
-        season_start = datetime(2024, 9, 5)
+        # March-August: offseason, use previous season for reference
+        season = today.year - 1
 
+    # Season start dates
+    season_starts = {
+        2024: datetime(2024, 9, 5),
+        2025: datetime(2025, 9, 4),
+        2026: datetime(2026, 9, 10),
+    }
+    season_start = season_starts.get(season, datetime(season, 9, 5))
+
+    # Calculate week number
     if today < season_start:
-        return 1, today.year
+        # Before season starts
+        return 1, season, False
 
     days_since_start = (today - season_start).days
     week = (days_since_start // 7) + 1
-    week = min(week, 18)
 
-    return week, season_start.year
+    # After week 18, we're in playoffs
+    # (This will be > 18 for Jan dates since we calculated from Sept)
+    is_playoffs = week > 18 or today.month in (1, 2)
+
+    return week, season, is_playoffs
 
 
 def fetch_latest_odds():
@@ -58,9 +89,51 @@ def fetch_latest_odds():
         return True
 
 
-def check_missing_vegas_lines(season, week):
+def get_upcoming_games(season: int, is_playoffs: bool = False):
     """
-    Check for games in the specified week missing Vegas lines.
+    Get upcoming NFL games from database.
+
+    For regular season: queries by week
+    For playoffs: queries by date (next 10 days of incomplete games, any season)
+
+    Returns list of game dicts with odds.
+    """
+    conn = sqlite3.connect('nfl_games.db')
+
+    if is_playoffs:
+        # Playoffs: get all upcoming incomplete games regardless of season/week
+        # This handles cases where system date doesn't match DB season
+        query = '''
+            SELECT g.game_id, g.date, g.week, g.season,
+                   g.home_team_id, g.away_team_id,
+                   ht.display_name as home_team, at.display_name as away_team,
+                   o.latest_spread as vegas_spread, o.latest_total as vegas_total
+            FROM games g
+            JOIN teams ht ON g.home_team_id = ht.team_id
+            JOIN teams at ON g.away_team_id = at.team_id
+            LEFT JOIN odds_and_predictions o ON g.game_id = o.game_id
+            WHERE g.completed = 0
+              AND g.date >= date('now')
+              AND g.date <= date('now', '+10 days')
+            ORDER BY g.date
+        '''
+        games = pd.read_sql_query(query, conn)
+    else:
+        # Regular season: handled by existing week-based logic
+        games = pd.DataFrame()
+
+    conn.close()
+    return games
+
+
+def check_missing_vegas_lines(season, week=None, is_playoffs=False):
+    """
+    Check for games missing Vegas lines.
+
+    Args:
+        season: NFL season year
+        week: Week number (for regular season)
+        is_playoffs: If True, check upcoming playoff games by date
 
     Returns:
         Tuple of (games_missing_lines, total_games)
@@ -68,24 +141,42 @@ def check_missing_vegas_lines(season, week):
     conn = sqlite3.connect('nfl_games.db')
     cursor = conn.cursor()
 
-    # Find games in this week without Vegas lines
-    cursor.execute('''
-        SELECT g.game_id, g.date,
-               ht.display_name as home_team, at.display_name as away_team,
-               o.latest_spread, o.latest_total
-        FROM games g
-        JOIN teams ht ON g.home_team_id = ht.team_id
-        JOIN teams at ON g.away_team_id = at.team_id
-        LEFT JOIN odds_and_predictions o ON g.game_id = o.game_id
-        WHERE g.season = ? AND g.week = ? AND g.completed = 0
-        ORDER BY g.date
-    ''', (season, week))
+    if is_playoffs:
+        # Playoffs: check by date, ignore season (handles date mismatches)
+        cursor.execute('''
+            SELECT g.game_id, g.date, g.week,
+                   ht.display_name as home_team, at.display_name as away_team,
+                   o.latest_spread, o.latest_total
+            FROM games g
+            JOIN teams ht ON g.home_team_id = ht.team_id
+            JOIN teams at ON g.away_team_id = at.team_id
+            LEFT JOIN odds_and_predictions o ON g.game_id = o.game_id
+            WHERE g.completed = 0
+              AND g.date >= date('now')
+              AND g.date <= date('now', '+10 days')
+            ORDER BY g.date
+        ''')
+        week_label = "Playoff"
+    else:
+        # Regular season: check by week
+        cursor.execute('''
+            SELECT g.game_id, g.date, g.week,
+                   ht.display_name as home_team, at.display_name as away_team,
+                   o.latest_spread, o.latest_total
+            FROM games g
+            JOIN teams ht ON g.home_team_id = ht.team_id
+            JOIN teams at ON g.away_team_id = at.team_id
+            LEFT JOIN odds_and_predictions o ON g.game_id = o.game_id
+            WHERE g.season = ? AND g.week = ? AND g.completed = 0
+            ORDER BY g.date
+        ''', (season, week))
+        week_label = f"Week {week}"
 
     games = cursor.fetchall()
     conn.close()
 
     missing_lines = []
-    for game_id, game_date, home, away, spread, total in games:
+    for game_id, game_date, game_week, home, away, spread, total in games:
         if spread is None or total is None:
             missing_lines.append({
                 'game_id': game_id,
@@ -111,15 +202,33 @@ def check_missing_vegas_lines(season, week):
         logger.warning("Consider fetching odds before generating predictions.")
         logger.warning("=" * 60)
     else:
-        logger.info(f"All {len(games)} Week {week} games have Vegas lines")
+        logger.info(f"All {len(games)} {week_label} games have Vegas lines")
 
     return len(missing_lines), len(games)
 
 
-def generate_predictions(season, week):
-    """Generate predictions for current week"""
-    logger.info(f"Generating Week {week} predictions...")
+def generate_predictions(season, week=None, is_playoffs=False):
+    """
+    Generate predictions for NFL games.
 
+    Args:
+        season: NFL season year
+        week: Week number (for regular season)
+        is_playoffs: If True, generate playoff predictions
+
+    Returns:
+        DataFrame of predictions or None
+    """
+    if is_playoffs:
+        logger.info("Generating Playoff predictions...")
+        return generate_playoff_predictions(season)
+    else:
+        logger.info(f"Generating Week {week} predictions...")
+        return generate_regular_season_predictions(season, week)
+
+
+def generate_regular_season_predictions(season, week):
+    """Generate predictions for regular season week."""
     try:
         from nfl_predictor import NFLPredictor
 
@@ -151,13 +260,108 @@ def generate_predictions(season, week):
         return None
 
 
-def save_to_database(predictions_df, season):
+def generate_playoff_predictions(season):
+    """
+    Generate predictions for playoff games using simple Ridge model.
+
+    Uses hardcoded PLAYOFF_GAMES from predict_nfl_playoffs.py since
+    playoff matchups aren't in database until each round completes.
+    """
+    try:
+        # Import the playoff model builder and games list
+        from predict_nfl_playoffs import build_model_state, predict_game, PLAYOFF_GAMES
+
+        if not PLAYOFF_GAMES:
+            logger.warning("No playoff games defined in predict_nfl_playoffs.py")
+            return None
+
+        logger.info(f"Found {len(PLAYOFF_GAMES)} playoff games to predict")
+
+        # Build model state
+        state = build_model_state()
+        logger.info(f"Model trained on {len(state['team_stats'])} teams")
+
+        predictions = []
+        for away_team, home_team, vegas_spread, game_date, time_slot in PLAYOFF_GAMES:
+            # Default total if not available
+            vegas_total = 44.0
+
+            pred, err = predict_game(
+                state,
+                away_team,
+                home_team,
+                vegas_spread,
+                game_date
+            )
+
+            if err:
+                logger.warning(f"Could not predict {away_team} @ {home_team}: {err}")
+                continue
+
+            # Calculate scores from spread and total
+            # spread = away - home, total = away + home
+            # Solving: home = (total - spread) / 2, away = (total + spread) / 2
+            pred_spread = pred['model_spread']
+            pred_home = (vegas_total - pred_spread) / 2
+            pred_away = (vegas_total + pred_spread) / 2
+
+            predictions.append({
+                'game_id': 0,  # No DB game_id for hardcoded games
+                'date': game_date,
+                'time_slot': time_slot,
+                'week': 'WC',  # Wild Card, will be DIV, CONF, SB for later rounds
+                'home_team': home_team,
+                'away_team': away_team,
+                'pred_home_score': round(pred_home, 1),
+                'pred_away_score': round(pred_away, 1),
+                'pred_spread': round(pred_spread, 1),
+                'pred_total': round(vegas_total, 1),
+                'vegas_spread': vegas_spread,
+                'vegas_total': vegas_total,
+                'edge': round(pred['edge'], 1),
+                'is_playoff': True,
+                # Include additional stats for display
+                'home_ppg': pred['home_ppg'],
+                'away_ppg': pred['away_ppg'],
+                'home_form': pred['home_form'],
+                'away_form': pred['away_form'],
+            })
+
+        if not predictions:
+            logger.warning("No predictions generated for playoff games")
+            return None
+
+        predictions_df = pd.DataFrame(predictions)
+        predictions_df.to_csv('nfl_current_predictions.csv', index=False)
+        predictions_df.to_csv('nfl_playoff_predictions.csv', index=False)
+
+        # Log summary
+        logger.info(f"Generated {len(predictions_df)} playoff predictions")
+        for _, p in predictions_df.iterrows():
+            edge_dir = "AWAY" if p['edge'] > 0 else "HOME"
+            logger.info(f"  {p['away_team']} @ {p['home_team']}: "
+                       f"Vegas {p['vegas_spread']:+.1f}, Model {p['pred_spread']:+.1f}, "
+                       f"Edge {p['edge']:+.1f} ({edge_dir})")
+
+        return predictions_df
+
+    except ImportError as e:
+        logger.error(f"Could not import playoff predictor: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Error generating playoff predictions: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+
+def save_to_database(predictions_df, season, is_playoff=False):
     """Save predictions to odds_and_predictions table"""
     conn = sqlite3.connect('nfl_games.db')
     cursor = conn.cursor()
 
     now = datetime.now().isoformat()
-    model_version = f'deep_eagle_nfl_{season}'
+    model_version = f'playoff_ridge_{season}' if is_playoff else f'deep_eagle_nfl_{season}'
 
     for _, row in predictions_df.iterrows():
         game_id = int(row['game_id'])
@@ -271,26 +475,40 @@ def sync_to_cache():
         return False, str(e)
 
 
-def update_predictions(force_week=None):
-    """Main function to update predictions with latest odds"""
+def update_predictions(force_week=None, force_playoffs=None):
+    """
+    Main function to update predictions with latest odds.
+
+    Args:
+        force_week: Force specific week number
+        force_playoffs: Force playoff mode (True/False), or None for auto-detect
+    """
     logger.info("=" * 60)
     logger.info("UPDATING NFL PREDICTIONS")
     logger.info("=" * 60)
 
-    current_week, season = get_current_nfl_week()
+    current_week, season, is_playoffs = get_current_nfl_week()
+
+    # Allow forcing week or playoff mode
     if force_week:
         current_week = force_week
+        is_playoffs = False  # Explicit week = regular season
+    if force_playoffs is not None:
+        is_playoffs = force_playoffs
 
-    logger.info(f"Season: {season}, Week: {current_week}")
+    if is_playoffs:
+        logger.info(f"Season: {season}, Mode: PLAYOFFS")
+    else:
+        logger.info(f"Season: {season}, Week: {current_week}")
 
     fetch_latest_odds()
 
     # Check for missing Vegas lines (warn but continue)
-    missing, total = check_missing_vegas_lines(season, current_week)
+    missing, total = check_missing_vegas_lines(season, week=current_week, is_playoffs=is_playoffs)
     if missing > 0:
         logger.warning(f"Proceeding with {missing}/{total} games missing lines...")
 
-    predictions_df = generate_predictions(season, current_week)
+    predictions_df = generate_predictions(season, week=current_week, is_playoffs=is_playoffs)
 
     if predictions_df is not None:
         # Sync to dashboard cache
@@ -317,14 +535,17 @@ def update_predictions(force_week=None):
 
 def main():
     force_week = None
+    force_playoffs = None
 
     for i, arg in enumerate(sys.argv[1:], 1):
         if arg == '--week' and i < len(sys.argv) - 1:
             force_week = int(sys.argv[i + 1])
         elif arg.startswith('--week='):
             force_week = int(arg.split('=')[1])
+        elif arg == '--playoffs':
+            force_playoffs = True
 
-    success, _ = update_predictions(force_week)
+    success, _ = update_predictions(force_week, force_playoffs)
     sys.exit(0 if success else 1)
 
 

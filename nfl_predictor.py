@@ -1,6 +1,7 @@
 """
-NFL Deep Eagle Predictor
-Makes predictions for upcoming NFL games using Deep Eagle model
+NFL Hybrid Predictor
+Uses Deep Eagle for spreads (58.4% ATS at 5+ pt edges)
+Uses Enhanced Ridge for totals (Deep Eagle overpredicts scoring)
 
 SPREAD CONVENTION (Vegas standard):
     spread = away_score - home_score
@@ -15,6 +16,7 @@ import numpy as np
 import pandas as pd
 import pickle
 import sqlite3
+from pathlib import Path
 from datetime import datetime, timedelta
 from spread_utils import validate_prediction_spread, get_predicted_winner
 
@@ -57,19 +59,41 @@ class DeepEagleModel(nn.Module):
 
 
 class NFLPredictor:
-    """Predict NFL game outcomes using Deep Eagle model"""
+    """Predict NFL game outcomes using hybrid approach:
+    - Deep Eagle for spreads (58.4% ATS at 5+ pt edges)
+    - Enhanced Ridge for totals (with fade UNDER strategy)
+    """
+
+    # Post-prediction adjustment constants (based on edge analysis backtest)
+    # NFL Deep Eagle: 58.4% ATS at 5+ pt edges, 63.0% at 7+ pt edges
+    BIG_FAVORITE_THRESHOLD = 7.0    # Vegas spread threshold for big underdog adjustment
+    UNDERDOG_ADJUSTMENT = 1.0       # Points to add toward underdog (more conservative than NBA)
+    REST_ADVANTAGE_THRESHOLD = 3    # Days of rest advantage for adjustment
+    REST_ADJUSTMENT = 0.5           # Points for significant rest advantage
+    POST_BYE_ADJUSTMENT = 1.0       # Points for team coming off bye week
+
+    # Totals adjustment constants (based on Ridge totals backtest)
+    # NFL Ridge UNDER is only 41.7% - fade it to OVER at 61.9% (5+ pt edge)
+    FADE_UNDER_THRESHOLD = 5.0      # Fade UNDER when model is 5+ pts below Vegas
+    FADE_UNDER_ADJUSTMENT = 10.0    # Add enough points to flip to OVER
 
     def __init__(self, model_path='models/deep_eagle_nfl_2025.pt',
                  scaler_path='models/deep_eagle_nfl_2025_scaler.pkl',
+                 ridge_path='models/nfl_enhanced_model.pkl',
                  db_path='nfl_games.db'):
         self.db_path = db_path
         self.model_path = model_path
         self.scaler_path = scaler_path
+        self.ridge_path = ridge_path
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.model = None
         self.scaler = None
         self.feature_cols = None
+        # Enhanced Ridge for totals
+        self.total_model = None
+        self.total_scaler = None
         self._load_model()
+        self._load_ridge_total_model()
 
     def _load_model(self):
         """Load trained model and scaler"""
@@ -94,6 +118,60 @@ class NFLPredictor:
             print(f"Model not found at {self.model_path}")
             print("Train a model first: py train_deep_eagle_nfl.py 2025 nfl_2025_deep_eagle_features.csv")
             self.model = None
+
+    def _load_ridge_total_model(self):
+        """Load Enhanced Ridge model for totals prediction."""
+        try:
+            with open(self.ridge_path, 'rb') as f:
+                data = pickle.load(f)
+            self.total_model = data.get('total_model')
+            self.total_scaler = data.get('total_scaler')
+            if self.total_model is not None:
+                print(f"Loaded Enhanced Ridge total model from {self.ridge_path}")
+            else:
+                print(f"Warning: No total_model found in {self.ridge_path}")
+        except FileNotFoundError:
+            print(f"Enhanced Ridge model not found at {self.ridge_path}")
+            print("  Falling back to Deep Eagle for totals")
+            self.total_model = None
+
+    def _extract_ridge_total_features(self, home_stats, away_stats, home_rest, away_rest,
+                                       week, is_dome=False):
+        """
+        Extract 14 features for Enhanced Ridge total prediction.
+        Must match nfl_enhanced_ridge.py extract_total_features().
+        """
+        # Get recent form (last 4 games margin average)
+        def recent_form(margins, n=4):
+            if len(margins) < n:
+                return 0.0
+            return float(np.mean(margins[-n:]))
+
+        h_form = recent_form(home_stats.get('margins', []))
+        a_form = recent_form(away_stats.get('margins', []))
+
+        # Build feature vector matching nfl_enhanced_ridge.py
+        return np.array([
+            home_stats.get('ppg', 22) + away_stats.get('ppg', 22),
+            home_stats.get('papg', 22) + away_stats.get('papg', 22),
+            home_stats.get('yards', 330) + away_stats.get('yards', 330),
+            home_stats.get('turnovers', 1.0) + away_stats.get('turnovers', 1.0),
+            # Drive efficiency
+            home_stats.get('ppd', 1.9) + away_stats.get('ppd', 1.9),
+            home_stats.get('scoring_pct', 0.35) + away_stats.get('scoring_pct', 0.35),
+            # Form volatility
+            abs(h_form) + abs(a_form),
+            # Post-bye indicators
+            1.0 if home_rest >= 13 else 0.0,
+            1.0 if away_rest >= 13 else 0.0,
+            # Context
+            1.0 if is_dome else 0.0,
+            min(week / 17.0, 1.0),  # Season progress
+            # Reliability
+            min(home_stats.get('games', 0) / 10.0, 1.0),
+            min(away_stats.get('games', 0) / 10.0, 1.0),
+            (home_stats.get('games', 0) + away_stats.get('games', 0)) / 34.0,
+        ])
 
     def get_current_week(self):
         """Calculate current NFL week based on date"""
@@ -397,6 +475,20 @@ class NFLPredictor:
         # Home/away PPG differential (for venue features)
         stats['home_away_ppg_diff'] = stats['home_ppg'] - stats['away_ppg']
 
+        # Get recent game margins for form calculation (needed for Ridge total model)
+        cursor.execute('''
+            SELECT
+                CASE WHEN home_team_id = ? THEN home_score - away_score
+                     ELSE away_score - home_score END as margin
+            FROM games
+            WHERE season = ? AND completed = 1
+                AND (home_team_id = ? OR away_team_id = ?)
+            ORDER BY date DESC
+            LIMIT 10
+        ''', (team_id, season, team_id, team_id))
+        margins_rows = cursor.fetchall()
+        stats['margins'] = [r[0] for r in reversed(margins_rows)] if margins_rows else []
+
         return stats
 
     def _empty_stats(self):
@@ -407,6 +499,7 @@ class NFLPredictor:
             'home_games': 0, 'home_ppg': 23, 'home_papg': 21, 'home_win_pct': 0.55,
             'away_games': 0, 'away_ppg': 21, 'away_papg': 23, 'away_win_pct': 0.45,
             'home_away_ppg_diff': 2.0,
+            'margins': [],  # Empty for form calculation
             '_missing_stats': True
         }
 
@@ -658,6 +751,100 @@ class NFLPredictor:
             'margin': ppg - papg
         }
 
+    def _apply_spread_adjustments(
+        self,
+        model_spread: float,
+        vegas_spread: float | None,
+        home_rest_days: int,
+        away_rest_days: int,
+        home_coming_off_bye: int,
+        away_coming_off_bye: int
+    ) -> tuple[float, list[str]]:
+        """
+        Apply post-prediction adjustments to the model spread.
+
+        Adjustments based on NFL Deep Eagle edge analysis backtest:
+        - 58.4% ATS at 5+ pt edges, 63.0% at 7+ pt edges
+
+        Adjustments applied:
+        1. Big underdog: +1.0 pts toward teams that are 7+ point underdogs
+        2. Rest advantage: +0.5 pts toward team with 3+ days extra rest
+        3. Post-bye boost: +1.0 pts toward team coming off bye week
+
+        Returns:
+            (adjusted_spread, list_of_adjustments_applied)
+        """
+        adjustments = []
+        adjusted_spread = model_spread
+
+        # 1. BIG UNDERDOG ADJUSTMENT
+        # NFL spreads are smaller than NBA, so use 7 pt threshold
+        # vegas_spread > 7 means away is big favorite (home is big dog)
+        # vegas_spread < -7 means home is big favorite (away is big dog)
+        if vegas_spread is not None:
+            if vegas_spread < -self.BIG_FAVORITE_THRESHOLD:
+                # Home is big favorite, away is big underdog - add toward away
+                adjusted_spread += self.UNDERDOG_ADJUSTMENT
+                adjustments.append(f"big_underdog_away:+{self.UNDERDOG_ADJUSTMENT}")
+            elif vegas_spread > self.BIG_FAVORITE_THRESHOLD:
+                # Away is big favorite, home is big underdog - add toward home
+                adjusted_spread -= self.UNDERDOG_ADJUSTMENT
+                adjustments.append(f"big_underdog_home:-{self.UNDERDOG_ADJUSTMENT}")
+
+        # 2. REST ADVANTAGE ADJUSTMENT
+        rest_diff = home_rest_days - away_rest_days
+        if rest_diff >= self.REST_ADVANTAGE_THRESHOLD:
+            # Home has rest advantage - lower spread (home does better)
+            adjusted_spread -= self.REST_ADJUSTMENT
+            adjustments.append(f"rest_advantage_home:-{self.REST_ADJUSTMENT}")
+        elif rest_diff <= -self.REST_ADVANTAGE_THRESHOLD:
+            # Away has rest advantage - raise spread (away does better)
+            adjusted_spread += self.REST_ADJUSTMENT
+            adjustments.append(f"rest_advantage_away:+{self.REST_ADJUSTMENT}")
+
+        # 3. POST-BYE ADJUSTMENT
+        # Team coming off bye typically performs better
+        if home_coming_off_bye and not away_coming_off_bye:
+            adjusted_spread -= self.POST_BYE_ADJUSTMENT
+            adjustments.append(f"post_bye_home:-{self.POST_BYE_ADJUSTMENT}")
+        elif away_coming_off_bye and not home_coming_off_bye:
+            adjusted_spread += self.POST_BYE_ADJUSTMENT
+            adjustments.append(f"post_bye_away:+{self.POST_BYE_ADJUSTMENT}")
+
+        return adjusted_spread, adjustments
+
+    def _apply_total_adjustments(
+        self,
+        model_total: float,
+        vegas_total: float | None,
+    ) -> tuple[float, list[str]]:
+        """
+        Apply post-prediction adjustments to the model total.
+
+        Based on NFL Ridge totals backtest:
+        - Ridge UNDER hits only 41.7% (terrible)
+        - Fading UNDER to OVER at 5+ pt edge: 61.9% win rate, +18% ROI
+
+        Strategy: When model predicts UNDER by 5+ points, fade to OVER.
+
+        Returns:
+            (adjusted_total, list_of_adjustments_applied)
+        """
+        adjustments = []
+        adjusted_total = model_total
+
+        if vegas_total is not None:
+            edge = model_total - vegas_total
+
+            # FADE UNDER: When model says UNDER by 5+ points, flip to OVER
+            # Model UNDER means edge < 0 (model total < vegas total)
+            if edge <= -self.FADE_UNDER_THRESHOLD:
+                # Add enough to flip from UNDER to OVER
+                adjusted_total = vegas_total + self.FADE_UNDER_ADJUSTMENT
+                adjustments.append(f"fade_under_to_over:+{self.FADE_UNDER_ADJUSTMENT:.0f}")
+
+        return adjusted_total, adjustments
+
     def predict(self, games_df, mc_passes=100):
         """Generate predictions for games using MC Dropout for uncertainty estimation"""
         if self.model is None:
@@ -709,19 +896,71 @@ class NFLPredictor:
                 # Negative spread (-7) = HOME favored by 7
                 # Positive spread (+7) = AWAY favored by 7
                 spreads = away_scores - home_scores
-                totals = home_scores + away_scores
 
-                # Calculate means
+                # Calculate means for spread (Deep Eagle)
                 home_score = np.mean(home_scores)
                 away_score = np.mean(away_scores)
                 spread = np.mean(spreads)
-                total = np.mean(totals)
 
-                # Calculate MOE (standard deviations) directly from passes
+                # Calculate MOE for spread (from MC passes)
                 home_moe = np.std(home_scores)
                 away_moe = np.std(away_scores)
                 spread_moe = np.std(spreads)
-                total_moe = np.std(totals)
+
+                # Use Enhanced Ridge for totals (Deep Eagle overpredicts scoring)
+                deep_eagle_total = home_score + away_score
+                deep_eagle_total_moe = np.std(home_scores + away_scores)
+
+                if self.total_model is not None and self.total_scaler is not None:
+                    # Get team stats for Ridge total features
+                    conn = sqlite3.connect(self.db_path)
+                    home_stats = self._get_team_stats(conn, game['home_team_id'], game.get('season', 2025))
+                    away_stats = self._get_team_stats(conn, game['away_team_id'], game.get('season', 2025))
+                    home_drive = self._get_drive_stats(conn, game['home_team_id'], game.get('season', 2025))
+                    away_drive = self._get_drive_stats(conn, game['away_team_id'], game.get('season', 2025))
+                    conn.close()
+
+                    # Combine stats with drive data for Ridge features
+                    home_stats_combined = {
+                        'ppg': home_stats.get('ppg', 22),
+                        'papg': home_stats.get('papg', 22),
+                        'yards': home_stats.get('ypg', 330),
+                        'turnovers': home_stats.get('turnover_pg', 1.0),
+                        'ppd': home_drive.get('ppd', 1.9),
+                        'scoring_pct': home_drive.get('scoring_pct', 0.35),
+                        'margins': home_stats.get('margins', []),
+                        'games': home_stats.get('games_played', 0),
+                    }
+                    away_stats_combined = {
+                        'ppg': away_stats.get('ppg', 22),
+                        'papg': away_stats.get('papg', 22),
+                        'yards': away_stats.get('ypg', 330),
+                        'turnovers': away_stats.get('turnover_pg', 1.0),
+                        'ppd': away_drive.get('ppd', 1.9),
+                        'scoring_pct': away_drive.get('scoring_pct', 0.35),
+                        'margins': away_stats.get('margins', []),
+                        'games': away_stats.get('games_played', 0),
+                    }
+
+                    # Extract Ridge total features
+                    ridge_features = self._extract_ridge_total_features(
+                        home_stats_combined,
+                        away_stats_combined,
+                        features.get('home_rest_days', 7),
+                        features.get('away_rest_days', 7),
+                        game.get('week', 10),
+                        is_dome=features.get('is_dome', 0)
+                    )
+
+                    # Predict total with Ridge model
+                    ridge_features = ridge_features.reshape(1, -1)
+                    ridge_features = self.total_scaler.transform(ridge_features)
+                    total = float(self.total_model.predict(ridge_features)[0])
+                    total_moe = 5.0  # Ridge doesn't provide uncertainty, use fixed estimate
+                else:
+                    # Fallback to Deep Eagle total
+                    total = deep_eagle_total
+                    total_moe = deep_eagle_total_moe
 
                 # Calculate home win probability from MC passes
                 # Home wins when spread is negative (away - home < 0 means home scored more)
@@ -737,9 +976,32 @@ class NFLPredictor:
                 odds = self._get_odds(conn, game['game_id'])
                 conn.close()
 
-                # Validate spread convention before saving
+                # Apply post-prediction adjustments for spread
+                raw_spread = spread
+                adjusted_spread, spread_adjustment_notes = self._apply_spread_adjustments(
+                    model_spread=spread,
+                    vegas_spread=odds['latest_spread'],
+                    home_rest_days=features.get('home_rest_days', 7),
+                    away_rest_days=features.get('away_rest_days', 7),
+                    home_coming_off_bye=features.get('home_coming_off_bye', 0),
+                    away_coming_off_bye=features.get('away_coming_off_bye', 0)
+                )
+                spread = adjusted_spread
+
+                # Apply post-prediction adjustments for total (fade UNDER strategy)
+                raw_total = total
+                adjusted_total, total_adjustment_notes = self._apply_total_adjustments(
+                    model_total=total,
+                    vegas_total=odds['latest_total'],
+                )
+                total = adjusted_total
+
+                # Combine all adjustment notes
+                all_adjustment_notes = spread_adjustment_notes + total_adjustment_notes
+
+                # Validate spread convention before saving (use raw spread for validation)
                 validate_prediction_spread(
-                    round(spread, 1), round(home_score, 1), round(away_score, 1),
+                    round(raw_spread, 1), round(home_score, 1), round(away_score, 1),
                     context=f"game_id={game['game_id']}"
                 )
 
@@ -752,16 +1014,19 @@ class NFLPredictor:
                     'pred_home_score': round(home_score, 1),
                     'pred_away_score': round(away_score, 1),
                     'pred_spread': round(spread, 1),
+                    'pred_spread_base': round(raw_spread, 1),  # Raw model spread before adjustments
                     'pred_total': round(total, 1),
+                    'pred_total_base': round(raw_total, 1),  # Raw model total before adjustments
                     'pred_home_MOE': round(home_moe, 2),
                     'pred_away_MOE': round(away_moe, 2),
                     'pred_spread_MOE': round(spread_moe, 2),
                     'pred_total_MOE': round(total_moe, 2),
+                    'adjustment_notes': '; '.join(all_adjustment_notes) if all_adjustment_notes else '',
                     'vegas_spread': odds['latest_spread'],
                     'vegas_total': odds['latest_total'],
                     'confidence': round(confidence, 3),
                     'pred_home_win_prob': round(home_win_prob, 3),
-                    # Use spread_utils for consistent convention enforcement
+                    # Use spread_utils for consistent convention enforcement (use adjusted spread)
                     'predicted_winner': get_predicted_winner(spread, game['home_team'], game['away_team'])
                 })
 

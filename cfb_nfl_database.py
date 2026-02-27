@@ -5,6 +5,8 @@ import sqlite3
 from datetime import datetime
 from typing import Optional
 
+from timezone_utils import utc_to_eastern_date
+
 
 class FootballDatabase:
     def __init__(self, db_path: str = 'cfb_games.db'):
@@ -199,18 +201,29 @@ class FootballDatabase:
     def insert_or_update_game(self, game_data: dict):
         """Insert or update game information"""
         cursor = self.conn.cursor()
+
+        # Calculate game_date_eastern from UTC date
+        date_str = game_data.get('date')
+        if date_str and 'T' in str(date_str):
+            # Has timestamp - convert UTC to Eastern date
+            game_date_eastern = utc_to_eastern_date(date_str)
+        else:
+            # Date-only format (CFB) - use as-is
+            game_date_eastern = date_str[:10] if date_str and len(str(date_str)) >= 10 else date_str
+
         cursor.execute('''
             INSERT OR REPLACE INTO games
-            (game_id, season, week, date, neutral_site, conference_game, completed,
+            (game_id, season, week, date, game_date_eastern, neutral_site, conference_game, completed,
              home_team_id, away_team_id, home_score, away_score, winner_team_id,
              attendance, venue_name, venue_city, venue_state, broadcast_network,
              postseason_type, temperature, wind_speed, conditions, is_dome, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ''', (
             game_data.get('game_id'),
             game_data.get('season'),
             game_data.get('week'),
             game_data.get('date'),
+            game_date_eastern,
             game_data.get('neutral_site', 0),
             game_data.get('conference_game', 0),
             game_data.get('completed', 0),

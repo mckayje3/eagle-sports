@@ -3,7 +3,7 @@ Push databases and predictions to GitHub after data updates.
 Run this after scraping or backfilling data to sync with Streamlit Cloud.
 
 Commits:
-- Database files (nfl_games.db, cfb_games.db, nba_games.db, cbb_games.db)
+- Database files (nfl_games.db, cfb_games.db, nba_games.db, cbb_games.db, nhl_games.db)
 - Prediction CSVs (*_predictions.csv, *_current_predictions.csv)
 """
 import os
@@ -38,7 +38,8 @@ def get_db_stats():
         'nfl_games.db': 'NFL',
         'cfb_games.db': 'CFB',
         'nba_games.db': 'NBA',
-        'cbb_games.db': 'CBB'
+        'cbb_games.db': 'CBB',
+        'nhl_games.db': 'NHL'
     }
 
     for db_file, name in dbs.items():
@@ -70,7 +71,7 @@ def main():
 
     # Stage database files
     print("\nStaging databases...")
-    db_files = ['nfl_games.db', 'cfb_games.db', 'nba_games.db', 'cbb_games.db']
+    db_files = ['nfl_games.db', 'cfb_games.db', 'nba_games.db', 'cbb_games.db', 'nhl_games.db']
     run_command(['git', 'add'] + db_files)
 
     # Stage prediction CSVs (keeps cloud app in sync with local)
@@ -83,6 +84,7 @@ def main():
         'nba_current_predictions.csv',
         'nba_predictions.csv',
         'cbb_predictions.csv',
+        'nhl_current_predictions.csv',
     ]
     # Only add CSVs that exist
     existing_csvs = [f for f in csv_files if os.path.exists(f)]

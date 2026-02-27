@@ -1,0 +1,10 @@
+game_id,prediction_date,week,home_team,away_team,predicted_winner,home_win_prob,confidence,spread,implied_spread,model_version
+,2025-11-18,13,Mustangs,Cardinals,Mustangs,0.60833365,0.60833365,-1.5,-4.333346,v1.0
+,2025-11-18,13,Owls,Bears,Owls,0.60833365,0.60833365,,-4.333346,v1.0
+,2025-11-18,13,Ducks,Trojans,Ducks,0.60833365,0.60833365,-14.5,-4.333346,v1.0
+,2025-11-18,13,Roadrunners,Pirates,Roadrunners,0.60833365,0.60833365,-4.0,-4.333346,v1.0
+,2025-11-18,13,Jaguars,Golden Eagles,Jaguars,0.60833365,0.60833365,-3.0,-4.333346,v1.0
+,2025-11-18,13,Cougars,Horned Frogs,Cougars,0.60833365,0.60833365,0.0,-4.333346,v1.0
+,2025-11-18,13,Yellow Jackets,Panthers,Yellow Jackets,0.60833365,0.60833365,-3.0,-4.333346,v1.0
+,2025-11-18,13,Gators,Volunteers,Gators,0.60833365,0.60833365,,-4.333346,v1.0
+,2025-11-18,13,Bearcats,Cougars,Bearcats,0.60833365,0.60833365,-3.5,-4.333346,v1.0

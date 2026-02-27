@@ -1014,7 +1014,7 @@ def _display_nfl_regular_season(predictions_df, week: int):
 def run_nfl_predictions_update(week: int = None):
     """Run the NFL predictions update - calls module directly"""
     try:
-        from update_predictions import update_predictions
+        from update_predictions_nfl import update_predictions
         success, predictions_df = update_predictions(force_week=week)
         if success:
             count = len(predictions_df) if predictions_df is not None else 0

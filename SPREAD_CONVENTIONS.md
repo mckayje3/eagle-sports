@@ -76,3 +76,56 @@ st.write(f"{spread:+.1f}")  # Shows "+7.0" or "-3.5"
 - `streamlit_app.py` - Display and comparison
 - `update_predictions_*.py` - Prediction sync (all 4 sports)
 - All database queries calculating `pred_spread`
+
+## Totals vs Spreads Reliability
+
+Spread edges are more reliable than totals edges of equal magnitude.
+
+**Rule of thumb:** Require ~1.5x edge on totals for equivalent confidence.
+- 4pt spread edge ~ 6pt totals edge
+
+**Why:**
+1. Lower variance on spreads (margin more stable than combined scoring)
+2. Spreads get more sharp action, close more efficiently
+3. Historical model performance: NFL 2024 playoffs 63.6% ATS vs 41.7% on totals
+
+## NBA Edge Adjustments
+
+The NBA model applies post-prediction "fade" adjustments to fix systematic biases:
+
+**Problem Found:** Middle-edge (2-6 pts) favorite bets hit only 35% ATS. Vegas is sharper in moderate disagreement spots.
+
+**Solution:** Flip middle-edge favorite bets to underdog bets.
+
+| Original Edge | Adjustment | Result |
+|---------------|------------|--------|
+| 2-6pt toward favorite | Flip to underdog | 65% ATS |
+| 4-6pt toward OVER | Flip to UNDER | 59% ATS |
+| 4-6pt toward UNDER | Flip to OVER | 56% ATS |
+
+See `MODEL_PARAMETERS.md` for full NBA adjustment details.
+
+## CBB Edge Adjustments
+
+The CBB model applies post-prediction adjustments to fix systematic biases:
+
+**Adjustments (applied in order):**
+
+1. **Big underdog adjustment:** +1.5 pts toward teams getting 10+ points
+2. **Fade close game edges:** Flip 6-8 pt edges when Vegas spread < 5
+
+| Adjustment | Condition | Result |
+|------------|-----------|--------|
+| Big underdog | Vegas spread >= 10 | +22 games |
+| Fade close games | 6-8 edge AND Vegas < 5 | +17 games |
+
+**Performance after adjustments (12,447 games):**
+- Overall: 56.4% ATS
+- 6+ pt edges: 71.9% ATS (very profitable)
+- 10+ pt edges: 79.9% ATS (extremely profitable)
+
+See `MODEL_PARAMETERS.md` for full CBB adjustment details.
+
+## Related Documentation
+
+See `MODEL_PARAMETERS.md` for sport-specific model parameters (DECAY, MIN_GAMES, etc.)

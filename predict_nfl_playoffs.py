@@ -17,12 +17,10 @@ DB_PATH = Path(__file__).parent / 'nfl_games.db'
 # Format: (away_team, home_team, vegas_spread, vegas_total, game_date, time_slot)
 # Convention: spread = away_score - home_score (positive = away favored)
 PLAYOFF_GAMES = [
-    # 2025 Season Divisional Round - Jan 17-18, 2026
-    # Lines as of Jan 16, 2026 (source: Covers.com, CBS Sports)
-    ('Bills', 'Broncos', -1.5, 46.5, '2026-01-17', 'SAT 4:30 PM'),       # Broncos (home) favored by 1.5
-    ('49ers', 'Seahawks', -7.0, 44.5, '2026-01-17', 'SAT 8:00 PM'),      # Seahawks (home) favored by 7
-    ('Texans', 'Patriots', -3.5, 40.5, '2026-01-18', 'SUN 3:00 PM'),     # Patriots (home) favored by 3.5
-    ('Rams', 'Bears', +3.5, 48.5, '2026-01-18', 'SUN 6:30 PM'),          # Rams (away) favored by 3.5
+    # 2025 Season Super Bowl LX - Feb 8, 2026 (New Orleans)
+    # Lines as of Jan 30, 2026 (source: ESPN/DraftKings)
+    # Seahawks are "away" (NFC), Patriots are "home" (AFC)
+    ('Seahawks', 'Patriots', +4.5, 45.5, '2026-02-08', 'SUN 6:30 PM'),   # SB: Seahawks favored by 4.5
 ]
 
 # NFL Simple model constants (optimized)
@@ -347,7 +345,7 @@ def predict_game(state, away_team, home_team, vegas_spread, game_date='2026-01-1
 
 def main():
     print("=" * 90)
-    print("NFL WILD CARD PREDICTIONS - 2025 Season Playoffs")
+    print("NFL DIVISIONAL ROUND PREDICTIONS - 2025 Season Playoffs")
     print("=" * 90)
     print()
 
@@ -375,7 +373,7 @@ def main():
             'game_id': 0,
             'date': date,
             'time_slot': time,
-            'week': 'WC',
+            'week': 'DIV',  # Update each round: WC, DIV, CONF, SB
             'home_team': home,
             'away_team': away,
             'pred_home_score': round((pred_total - pred['model_spread']) / 2, 1),

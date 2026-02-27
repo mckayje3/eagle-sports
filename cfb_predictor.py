@@ -1,6 +1,7 @@
 """
-CFB Deep Eagle Predictor
-Makes predictions for upcoming CFB games using Deep Eagle model
+CFB Hybrid Predictor
+Uses Deep Eagle for spreads (57.1% ATS at 5+ pt edges)
+Uses Enhanced Ridge for totals
 
 SPREAD CONVENTION (Vegas standard):
     spread = away_score - home_score
@@ -15,6 +16,7 @@ import numpy as np
 import pandas as pd
 import pickle
 import sqlite3
+from pathlib import Path
 from datetime import datetime
 from spread_utils import validate_prediction_spread, get_predicted_winner
 
@@ -57,11 +59,9 @@ class DeepEagleModel(nn.Module):
 
 
 class CFBPredictor:
-    """Predict CFB game outcomes using Deep Eagle model
-
-    CFB Deep Eagle walk-forward validation (2025 season):
-    - 57.1% ATS at 5+ pt edges (profitable)
-    - Better than Enhanced Ridge at 55.9%
+    """Predict CFB game outcomes using hybrid approach:
+    - Deep Eagle for spreads (57.1% ATS at 5+ pt edges)
+    - Enhanced Ridge for totals
     """
 
     # Post-prediction adjustment constants (based on edge analysis backtest)
@@ -70,15 +70,21 @@ class CFBPredictor:
 
     def __init__(self, model_path='models/deep_eagle_cfb_2025.pt',
                  scaler_path='models/deep_eagle_cfb_2025_scaler.pkl',
+                 ridge_path='models/cfb_enhanced_model.pkl',
                  db_path='cfb_games.db'):
         self.db_path = db_path
         self.model_path = model_path
         self.scaler_path = scaler_path
+        self.ridge_path = ridge_path
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.model = None
         self.scaler = None
         self.feature_cols = None
+        # Enhanced Ridge for totals
+        self.total_model = None
+        self.total_scaler = None
         self._load_model()
+        self._load_ridge_total_model()
 
     def _load_model(self):
         """Load trained model and scaler"""
@@ -103,6 +109,59 @@ class CFBPredictor:
             print(f"Model not found at {self.model_path}")
             print("Train a model first or check the model path")
             self.model = None
+
+    def _load_ridge_total_model(self):
+        """Load Enhanced Ridge model for totals prediction."""
+        try:
+            with open(self.ridge_path, 'rb') as f:
+                data = pickle.load(f)
+            self.total_model = data.get('total_model')
+            self.total_scaler = data.get('total_scaler')
+            if self.total_model is not None:
+                print(f"Loaded Enhanced Ridge total model from {self.ridge_path}")
+            else:
+                print(f"Warning: No total_model found in {self.ridge_path}")
+        except FileNotFoundError:
+            print(f"Enhanced Ridge model not found at {self.ridge_path}")
+            print("  Falling back to Deep Eagle for totals")
+            self.total_model = None
+
+    def _extract_ridge_total_features(self, home_stats, away_stats, home_rest, away_rest, week):
+        """
+        Extract 14 features for Enhanced Ridge total prediction.
+        Must match cfb_enhanced_ridge.py extract_total_features().
+        """
+        # Get recent form (last 4 games margin average)
+        def recent_form(margins, n=4):
+            if len(margins) < n:
+                return 0.0
+            return float(np.mean(margins[-n:]))
+
+        h_form = recent_form(home_stats.get('margins', []))
+        a_form = recent_form(away_stats.get('margins', []))
+
+        # Build feature vector matching cfb_enhanced_ridge.py
+        return np.array([
+            home_stats.get('ppg', 28) + away_stats.get('ppg', 28),
+            home_stats.get('papg', 28) + away_stats.get('papg', 28),
+            home_stats.get('yards', 400) + away_stats.get('yards', 400),
+            home_stats.get('turnovers', 1.5) + away_stats.get('turnovers', 1.5),
+            # Drive efficiency
+            home_stats.get('ppd', 2.2) + away_stats.get('ppd', 2.2),
+            home_stats.get('ypd', 32) + away_stats.get('ypd', 32),
+            home_stats.get('scoring_pct', 0.38) + away_stats.get('scoring_pct', 0.38),
+            # Form volatility
+            abs(h_form) + abs(a_form),
+            # Rest difference
+            min(home_rest, 10) - min(away_rest, 10),
+            # Context
+            min(week / 14.0, 1.0),  # Season progress (CFB weeks 1-14)
+            # Reliability
+            min(home_stats.get('games', 0) / 10.0, 1.0),
+            min(away_stats.get('games', 0) / 10.0, 1.0),
+            (home_stats.get('games', 0) + away_stats.get('games', 0)) / 24.0,
+            1.0,  # Placeholder for balance
+        ])
 
     def get_current_week(self):
         """Calculate current CFB week based on date"""
@@ -336,6 +395,13 @@ class CFBPredictor:
         season = int(season)
         current_week = int(current_week)
 
+        # Handle postseason games that span calendar years:
+        # Championship games in January are stored as week 1 of the new season,
+        # but stats come from the previous season. Use season-1 for week 1 games.
+        if current_week <= 1:
+            season = season - 1
+            current_week = 20  # Use all games from previous season
+
         # Get PPG and basic stats
         cursor.execute('''
             SELECT
@@ -410,6 +476,20 @@ class CFBPredictor:
         # Home/away PPG differential
         stats['home_away_ppg_diff'] = stats['home_ppg'] - stats['away_ppg']
 
+        # Get recent game margins for form calculation (needed for Ridge total model)
+        cursor.execute('''
+            SELECT
+                CASE WHEN home_team_id = ? THEN home_score - away_score
+                     ELSE away_score - home_score END as margin
+            FROM games
+            WHERE season = ? AND completed = 1 AND week < ?
+                AND (home_team_id = ? OR away_team_id = ?)
+            ORDER BY date DESC
+            LIMIT 10
+        ''', (team_id, season, current_week, team_id, team_id))
+        margins_rows = cursor.fetchall()
+        stats['margins'] = [r[0] for r in reversed(margins_rows)] if margins_rows else []
+
         return stats
 
     def _empty_stats(self):
@@ -420,6 +500,7 @@ class CFBPredictor:
             'home_games': 0, 'home_ppg': 30, 'home_papg': 26, 'home_win_pct': 0.6,
             'away_games': 0, 'away_ppg': 26, 'away_papg': 30, 'away_win_pct': 0.4,
             'home_away_ppg_diff': 4.0,
+            'margins': [],  # Empty for form calculation
             '_missing_stats': True
         }
 
@@ -634,19 +715,78 @@ class CFBPredictor:
                 away_scores = np.maximum(0, mc_predictions[:, 1])
                 # VEGAS CONVENTION: spread = away - home
                 spreads = away_scores - home_scores
-                totals = home_scores + away_scores
 
-                # Calculate means
+                # Calculate means for spread (Deep Eagle)
                 home_score = np.mean(home_scores)
                 away_score = np.mean(away_scores)
                 spread = np.mean(spreads)
-                total = np.mean(totals)
 
-                # Calculate MOE (standard deviations)
+                # Calculate MOE for spread (from MC passes)
                 home_moe = np.std(home_scores)
                 away_moe = np.std(away_scores)
                 spread_moe = np.std(spreads)
-                total_moe = np.std(totals)
+
+                # Use Enhanced Ridge for totals
+                deep_eagle_total = home_score + away_score
+                deep_eagle_total_moe = np.std(home_scores + away_scores)
+
+                if self.total_model is not None and self.total_scaler is not None:
+                    # Get team stats for Ridge total features
+                    conn = sqlite3.connect(self.db_path)
+                    season = game.get('season', 2025)
+                    week = game.get('week', 10)
+                    home_stats = self._get_team_stats(conn, game['home_team_id'], season, week)
+                    away_stats = self._get_team_stats(conn, game['away_team_id'], season, week)
+                    home_drive = self._get_drive_stats(conn, game['home_team_id'], season, week)
+                    away_drive = self._get_drive_stats(conn, game['away_team_id'], season, week)
+                    conn.close()
+
+                    # Combine stats with drive data for Ridge features
+                    home_stats_combined = {
+                        'ppg': home_stats.get('ppg', 28),
+                        'papg': home_stats.get('papg', 28),
+                        'yards': home_stats.get('ypg', 400),
+                        'turnovers': home_stats.get('turnover_pg', 1.5),
+                        'ppd': home_drive.get('ppd', 2.2),
+                        'ypd': home_drive.get('ypd', 32),
+                        'scoring_pct': home_drive.get('scoring_pct', 0.38),
+                        'margins': home_stats.get('margins', []),
+                        'games': home_stats.get('games_played', 0),
+                    }
+                    away_stats_combined = {
+                        'ppg': away_stats.get('ppg', 28),
+                        'papg': away_stats.get('papg', 28),
+                        'yards': away_stats.get('ypg', 400),
+                        'turnovers': away_stats.get('turnover_pg', 1.5),
+                        'ppd': away_drive.get('ppd', 2.2),
+                        'ypd': away_drive.get('ypd', 32),
+                        'scoring_pct': away_drive.get('scoring_pct', 0.38),
+                        'margins': away_stats.get('margins', []),
+                        'games': away_stats.get('games_played', 0),
+                    }
+
+                    # Get rest days
+                    home_rest = features.get('home_rest_days', 7) if 'home_rest_days' in features else 7
+                    away_rest = features.get('away_rest_days', 7) if 'away_rest_days' in features else 7
+
+                    # Extract Ridge total features
+                    ridge_features = self._extract_ridge_total_features(
+                        home_stats_combined,
+                        away_stats_combined,
+                        home_rest,
+                        away_rest,
+                        week
+                    )
+
+                    # Predict total with Ridge model
+                    ridge_features = ridge_features.reshape(1, -1)
+                    ridge_features = self.total_scaler.transform(ridge_features)
+                    total = float(self.total_model.predict(ridge_features)[0])
+                    total_moe = 6.0  # Ridge doesn't provide uncertainty, use fixed estimate (higher for CFB)
+                else:
+                    # Fallback to Deep Eagle total
+                    total = deep_eagle_total
+                    total_moe = deep_eagle_total_moe
 
                 # Home win probability from MC passes
                 home_wins = np.sum(spreads < 0)

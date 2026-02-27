@@ -1,0 +1,66 @@
+game_id,date,week,home_team,away_team,pred_home_score,pred_away_score,pred_spread,pred_total,vegas_spread,vegas_total,confidence,predicted_winner
+401772822,2025-12-09T01:15Z,14,Los Angeles Chargers,Philadelphia Eagles,15.1,17.6,-2.5,32.6,1.5,41.5,0.625,Philadelphia Eagles
+401772948,2025-12-12T01:15Z,15,Tampa Bay Buccaneers,Atlanta Falcons,15.5,15.6,-0.1,31.1,-5.0,48.0,0.507,Atlanta Falcons
+401772795,2025-12-14T18:00Z,15,New England Patriots,Buffalo Bills,16.1,15.4,0.7,31.6,5.0,47.0,0.535,New England Patriots
+401772796,2025-12-14T18:00Z,15,Cincinnati Bengals,Baltimore Ravens,16.6,15.9,0.7,32.4,2.5,50.5,0.533,Cincinnati Bengals
+401772797,2025-12-14T18:00Z,15,Jacksonville Jaguars,New York Jets,18.1,15.9,2.2,34.0,-4.2,43.5,0.61,Jacksonville Jaguars
+401772798,2025-12-14T18:00Z,15,Kansas City Chiefs,Los Angeles Chargers,15.6,15.2,0.5,30.8,-4.5,45.0,0.524,Kansas City Chiefs
+401772903,2025-12-14T18:00Z,15,Houston Texans,Arizona Cardinals,15.7,16.2,-0.6,31.9,-2.8,45.5,0.528,Arizona Cardinals
+401772904,2025-12-14T18:00Z,15,Chicago Bears,Cleveland Browns,17.1,13.9,3.1,31.0,-7.0,42.5,0.656,Chicago Bears
+401772905,2025-12-14T18:00Z,15,New York Giants,Washington Commanders,18.1,15.9,2.2,34.0,4.5,45.5,0.61,New York Giants
+401772906,2025-12-14T18:00Z,15,Philadelphia Eagles,Las Vegas Raiders,17.1,16.8,0.3,34.0,-10.2,44.5,0.514,Philadelphia Eagles
+401772799,2025-12-14T21:25Z,15,Seattle Seahawks,Indianapolis Colts,18.1,15.9,2.2,34.0,-3.3,44.5,0.61,Seattle Seahawks
+401772800,2025-12-14T21:25Z,15,Denver Broncos,Green Bay Packers,15.4,14.5,0.9,29.9,-1.5,44.5,0.543,Denver Broncos
+401772907,2025-12-14T21:25Z,15,San Francisco 49ers,Tennessee Titans,15.5,15.8,-0.3,31.2,-7.5,45.5,0.516,Tennessee Titans
+401772908,2025-12-14T21:25Z,15,New Orleans Saints,Carolina Panthers,18.1,15.9,2.2,34.0,1.2,43.5,0.61,New Orleans Saints
+401772909,2025-12-14T21:25Z,15,Los Angeles Rams,Detroit Lions,14.3,13.9,0.4,28.2,1.2,48.5,0.519,Los Angeles Rams
+401772933,2025-12-15T01:20Z,15,Dallas Cowboys,Minnesota Vikings,17.3,18.4,-1.1,35.7,1.8,45.5,0.553,Minnesota Vikings
+401772823,2025-12-16T01:15Z,15,Pittsburgh Steelers,Miami Dolphins,17.3,15.9,1.4,33.2,-3.0,44.5,0.57,Pittsburgh Steelers
+401772949,2025-12-19T01:15Z,16,Seattle Seahawks,Los Angeles Rams,16.0,14.2,1.8,30.2,2.0,44.5,0.591,Seattle Seahawks
+401772612,2025-12-20T05:00Z,16,Washington Commanders,Philadelphia Eagles,17.8,14.6,3.2,32.4,1.2,48.2,0.66,Washington Commanders
+401772613,2025-12-20T05:00Z,16,Chicago Bears,Green Bay Packers,15.3,14.5,0.8,29.9,1.8,45.2,0.541,Chicago Bears
+401772801,2025-12-21T18:00Z,16,New Orleans Saints,New York Jets,18.2,16.0,2.2,34.2,-1.2,41.5,0.609,New Orleans Saints
+401772802,2025-12-21T18:00Z,16,Cleveland Browns,Buffalo Bills,15.5,16.2,-0.7,31.7,8.5,43.5,0.533,Buffalo Bills
+401772803,2025-12-21T18:00Z,16,Tennessee Titans,Kansas City Chiefs,16.7,16.1,0.7,32.8,7.0,44.5,0.533,Tennessee Titans
+401772804,2025-12-21T18:00Z,16,Baltimore Ravens,New England Patriots,16.5,15.9,0.6,32.5,-8.8,46.5,0.53,Baltimore Ravens
+401772910,2025-12-21T18:00Z,16,Dallas Cowboys,Los Angeles Chargers,17.4,18.5,-1.1,35.9,1.8,46.5,0.554,Los Angeles Chargers
+401772911,2025-12-21T18:00Z,16,New York Giants,Minnesota Vikings,18.2,16.0,2.2,34.2,2.8,42.5,0.609,New York Giants
+401772912,2025-12-21T18:00Z,16,Carolina Panthers,Tampa Bay Buccaneers,15.5,14.8,0.7,30.3,3.5,47.5,0.536,Carolina Panthers
+401772913,2025-12-21T21:05Z,16,Denver Broncos,Jacksonville Jaguars,18.2,16.0,2.2,34.2,-5.8,45.0,0.609,Denver Broncos
+401772914,2025-12-21T21:05Z,16,Arizona Cardinals,Atlanta Falcons,18.2,16.0,2.2,34.2,-3.2,46.5,0.609,Arizona Cardinals
+401772805,2025-12-21T21:25Z,16,Houston Texans,Las Vegas Raiders,15.7,16.3,-0.6,32.0,-4.5,43.5,0.532,Las Vegas Raiders
+401772806,2025-12-21T21:25Z,16,Detroit Lions,Pittsburgh Steelers,15.2,14.5,0.6,29.7,-6.2,45.5,0.531,Detroit Lions
+401772934,2025-12-22T01:20Z,16,Miami Dolphins,Cincinnati Bengals,17.5,16.9,0.6,34.3,2.0,48.5,0.531,Miami Dolphins
+401772824,2025-12-23T01:15Z,16,Indianapolis Colts,San Francisco 49ers,15.2,14.5,0.7,29.7,3.0,46.0,0.533,Indianapolis Colts
+401772710,2025-12-25T18:00Z,17,Washington Commanders,Dallas Cowboys,14.8,12.6,2.3,27.4,0.0,0.0,0.613,Washington Commanders
+401772711,2025-12-25T21:30Z,17,Minnesota Vikings,Detroit Lions,14.7,14.1,0.6,28.8,0.0,0.0,0.528,Minnesota Vikings
+401772622,2025-12-26T01:15Z,17,Kansas City Chiefs,Denver Broncos,15.6,15.4,0.3,31.0,0.0,0.0,0.513,Kansas City Chiefs
+401772950,2025-12-27T05:00Z,17,Las Vegas Raiders,New York Giants,18.2,16.1,2.1,34.3,0.0,0.0,0.607,Las Vegas Raiders
+401772951,2025-12-27T05:00Z,17,Los Angeles Chargers,Houston Texans,15.8,14.7,1.2,30.5,0.0,0.0,0.558,Los Angeles Chargers
+401772952,2025-12-27T05:00Z,17,Carolina Panthers,Seattle Seahawks,18.2,16.1,2.1,34.3,0.0,0.0,0.607,Carolina Panthers
+401772953,2025-12-27T05:00Z,17,Green Bay Packers,Baltimore Ravens,15.5,16.0,-0.5,31.5,0.0,0.0,0.525,Baltimore Ravens
+401772954,2025-12-27T05:00Z,17,Cincinnati Bengals,Arizona Cardinals,18.2,16.1,2.1,34.3,0.0,0.0,0.607,Cincinnati Bengals
+401772807,2025-12-28T18:00Z,17,Cleveland Browns,Pittsburgh Steelers,15.4,15.6,-0.1,31.0,0.0,0.0,0.507,Pittsburgh Steelers
+401772808,2025-12-28T18:00Z,17,New York Jets,New England Patriots,18.2,16.1,2.1,34.3,0.0,0.0,0.607,New York Jets
+401772809,2025-12-28T18:00Z,17,Tennessee Titans,New Orleans Saints,18.2,16.1,2.1,34.3,0.0,0.0,0.607,Tennessee Titans
+401772915,2025-12-28T18:00Z,17,Indianapolis Colts,Jacksonville Jaguars,18.2,16.1,2.1,34.3,0.0,0.0,0.607,Indianapolis Colts
+401772916,2025-12-28T18:00Z,17,Miami Dolphins,Tampa Bay Buccaneers,14.7,14.8,-0.2,29.5,0.0,0.0,0.509,Tampa Bay Buccaneers
+401772917,2025-12-28T21:25Z,17,Buffalo Bills,Philadelphia Eagles,16.7,15.3,1.4,32.1,0.0,0.0,0.569,Buffalo Bills
+401772935,2025-12-29T01:20Z,17,San Francisco 49ers,Chicago Bears,15.4,15.9,-0.5,31.3,0.0,0.0,0.525,Chicago Bears
+401772825,2025-12-30T01:15Z,17,Atlanta Falcons,Los Angeles Rams,16.0,14.2,1.8,30.2,0.0,0.0,0.589,Atlanta Falcons
+401772955,2026-01-04T05:00Z,18,Los Angeles Rams,Arizona Cardinals,17.1,16.5,0.6,33.6,-4.0,45.5,0.529,Los Angeles Rams
+401772956,2026-01-04T05:00Z,18,Denver Broncos,Los Angeles Chargers,18.3,16.2,2.1,34.4,-2.5,42.5,0.605,Denver Broncos
+401772957,2026-01-04T05:00Z,18,Las Vegas Raiders,Kansas City Chiefs,16.6,16.0,0.6,32.6,6.0,0.0,0.529,Las Vegas Raiders
+401772958,2026-01-04T05:00Z,18,New England Patriots,Miami Dolphins,18.1,14.9,3.2,33.0,-2.5,0.0,0.66,New England Patriots
+401772959,2026-01-04T05:00Z,18,Philadelphia Eagles,Washington Commanders,17.2,17.0,0.2,34.2,-4.5,0.0,0.511,Philadelphia Eagles
+401772960,2026-01-04T05:00Z,18,Pittsburgh Steelers,Baltimore Ravens,16.1,16.5,-0.3,32.6,4.5,0.0,0.517,Baltimore Ravens
+401772961,2026-01-04T05:00Z,18,San Francisco 49ers,Seattle Seahawks,15.4,16.0,-0.6,31.4,-4.5,44.5,0.53,Seattle Seahawks
+401772962,2026-01-04T05:00Z,18,Houston Texans,Indianapolis Colts,15.7,16.6,-0.9,32.3,-4.5,0.0,0.543,Indianapolis Colts
+401772963,2026-01-04T05:00Z,18,New York Giants,Dallas Cowboys,14.8,12.6,2.2,27.4,1.5,0.0,0.611,New York Giants
+401772964,2026-01-04T05:00Z,18,Cincinnati Bengals,Cleveland Browns,16.9,14.0,3.0,30.9,-8.8,43.5,0.649,Cincinnati Bengals
+401772965,2026-01-04T05:00Z,18,Chicago Bears,Detroit Lions,14.7,14.2,0.5,28.9,1.5,0.0,0.526,Chicago Bears
+401772966,2026-01-04T05:00Z,18,Atlanta Falcons,New Orleans Saints,18.3,16.2,2.1,34.4,-4.5,0.0,0.605,Atlanta Falcons
+401772967,2026-01-04T05:00Z,18,Buffalo Bills,New York Jets,16.3,16.5,-0.2,32.8,-9.5,0.0,0.509,New York Jets
+401772968,2026-01-04T05:00Z,18,Minnesota Vikings,Green Bay Packers,15.3,14.5,0.7,29.8,1.2,44.5,0.536,Minnesota Vikings
+401772969,2026-01-04T05:00Z,18,Tampa Bay Buccaneers,Carolina Panthers,15.5,15.9,-0.4,31.4,-7.0,46.5,0.519,Carolina Panthers
+401772970,2026-01-04T05:00Z,18,Jacksonville Jaguars,Tennessee Titans,18.3,16.2,2.1,34.4,-4.5,43.5,0.605,Jacksonville Jaguars

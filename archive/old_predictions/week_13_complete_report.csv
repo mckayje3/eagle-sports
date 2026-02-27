@@ -1,0 +1,7 @@
+game_id,home_team,away_team,predicted_winner,confidence,predicted_spread,home_score,away_score,actual_winner,actual_margin,correct_winner,spread_error,vegas_spread,vegas_error,beat_vegas
+401762862,Falcons,Zips,Falcons,0.84139764,3.7899299,16,19,Zips,-3,False,6.789929900000001,-3.1,0.10000000000000009,False
+401762863,Bobcats,Minutemen,Bobcats,0.9989197,24.521173,42,14,Bobcats,28,True,3.478826999999999,-33.2,61.2,True
+401762864,Huskies,Broncos,Huskies,0.95918405,0.5851344,19,35,Broncos,-16,False,16.5851344,6.3,22.3,True
+401762865,Bulls,RedHawks,Bulls,0.9456481,3.3994746,20,37,RedHawks,-17,False,20.3994746,1.3,18.3,False
+401762866,Golden Flashes,Chippewas,Golden Flashes,0.9102694,0.1862413,16,28,Chippewas,-12,False,12.1862413,9.3,21.3,True
+401761655,Red Wolves,Ragin' Cajuns,Red Wolves,0.8714186,4.685879,30,34,Ragin' Cajuns,-4,False,8.685879,-2.8,1.2000000000000002,False

@@ -1,6 +1,6 @@
 """
 ESPN Unified Odds Scraper - Primary odds source for current season data
-Supports: NBA, NFL, CFB, CBB
+Supports: NBA, NFL, CFB, CBB, NHL
 
 This is the PRIMARY source for current season odds.
 For historical data (previous seasons), use TheOddsAPI.
@@ -40,6 +40,12 @@ class ESPNOddsScraper:
             'league': 'mens-college-basketball',
             'db_path': 'cbb_games.db',
             'season_field': 'season',
+        },
+        'nhl': {
+            'sport': 'hockey',
+            'league': 'nhl',
+            'db_path': 'nhl_games.db',
+            'season_field': 'season',
         }
     }
 
@@ -51,7 +57,7 @@ class ESPNOddsScraper:
             sport: One of 'nba', 'nfl', 'cfb'
         """
         if sport.lower() not in self.SPORTS_CONFIG:
-            raise ValueError(f"Unsupported sport: {sport}. Use: nba, nfl, cfb")
+            raise ValueError(f"Unsupported sport: {sport}. Use: nba, nfl, cfb, cbb, nhl")
 
         self.sport = sport.lower()
         self.config = self.SPORTS_CONFIG[self.sport]
@@ -359,10 +365,10 @@ class ESPNOddsScraper:
 
     def scrape_recent(self, days: int = 7, update_cache: bool = True) -> tuple:
         """
-        Scrape odds for games in the past N days and upcoming games
+        Scrape odds for games in the past N days and upcoming N days
 
         Args:
-            days: Number of days to look back (also looks 3 days ahead)
+            days: Number of days to look back AND forward
             update_cache: Whether to update prediction_cache
 
         Returns:
@@ -376,22 +382,22 @@ class ESPNOddsScraper:
         columns = [col[1] for col in cursor.fetchall()]
         has_eastern_date = 'game_date_eastern' in columns
 
-        # Look back N days and forward 3 days to catch upcoming games
+        # Look back N days and forward N days
         if has_eastern_date:
             cursor.execute('''
                 SELECT game_id FROM games
                 WHERE game_date_eastern >= date('now', ?)
-                AND game_date_eastern <= date('now', '+3 days')
+                AND game_date_eastern <= date('now', ?)
                 ORDER BY date
-            ''', (f'-{days} days',))
+            ''', (f'-{days} days', f'+{days} days'))
         else:
             # NFL/CFB use date column directly
             cursor.execute('''
                 SELECT game_id FROM games
                 WHERE date(date) >= date('now', ?)
-                AND date(date) <= date('now', '+3 days')
+                AND date(date) <= date('now', ?)
                 ORDER BY date
-            ''', (f'-{days} days',))
+            ''', (f'-{days} days', f'+{days} days'))
 
         games = cursor.fetchall()
         conn.close()
@@ -470,7 +476,7 @@ def sync_odds_to_prediction_cache(sport: str):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='ESPN Unified Odds Scraper')
-    parser.add_argument('sport', choices=['nba', 'nfl', 'cfb', 'cbb'], help='Sport to scrape')
+    parser.add_argument('sport', choices=['nba', 'nfl', 'cfb', 'cbb', 'nhl'], help='Sport to scrape')
     parser.add_argument('--season', type=int, help='Season year to scrape')
     parser.add_argument('--days', type=int, default=7, help='Days to look back (default: 7)')
     parser.add_argument('--sync', action='store_true', help='Sync existing odds to prediction_cache')

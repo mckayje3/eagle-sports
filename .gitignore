@@ -50,3 +50,24 @@ ENV/
 # Backup files
 *.bak
 *.backup
+
+# Secrets and credentials - NEVER commit these
+.env
+.env.*
+*.env
+odds_api_config.json
+secrets.json
+credentials.json
+*_secret*
+*_key*
+
+# Local development
+.vscode/settings.json
+.claude/
+.chromedriver/
+.streamlit/
+SESSION_STATE_*.txt
+tmpclaude-*
+*.sqbpro
+My Bets.csv
+nul

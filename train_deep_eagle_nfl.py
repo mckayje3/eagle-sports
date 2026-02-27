@@ -3,9 +3,21 @@ Train Deep-Eagle LSTM Model for NFL Spread and Total Prediction
 """
 import sys
 import io
+import os
+from pathlib import Path
+
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-sys.path.insert(0, r'C:\Users\jbeast\documents\coding\deep')
+# Add deep-eagle library to path (relative to this file's location)
+DEEP_EAGLE_PATH = os.getenv('DEEP_EAGLE_PATH')
+if DEEP_EAGLE_PATH:
+    sys.path.insert(0, DEEP_EAGLE_PATH)
+else:
+    # Try relative path from this script's directory
+    script_dir = Path(__file__).parent.resolve()
+    deep_path = script_dir.parent / 'deep'
+    if deep_path.exists():
+        sys.path.insert(0, str(deep_path))
 
 import pandas as pd
 import numpy as np
