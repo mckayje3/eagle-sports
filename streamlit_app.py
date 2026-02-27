@@ -9,7 +9,6 @@ import sqlite3
 import plotly.express as px
 from datetime import datetime
 import hashlib
-import subprocess
 import os
 import requests
 from timezone_utils import now_eastern, today_eastern, EASTERN, UTC
@@ -152,14 +151,6 @@ def get_current_cfb_week():
 
 
 
-# Try to import deep-eagle module (with fallback)
-DEEP_EAGLE_AVAILABLE = False
-try:
-    import deep_eagle
-    DEEP_EAGLE_AVAILABLE = True
-except ImportError:
-    # Graceful fallback - app still works with statistical predictions
-    pass
 
 # Page configuration
 st.set_page_config(
@@ -298,6 +289,11 @@ migrate_database()
 # Database Functions
 # ============================================================================
 
+def get_current_season() -> int:
+    """Get current season year. CFB/NFL seasons start in Aug/Sep, so Jan-Jul = previous year."""
+    now = today_eastern()
+    return now.year if now.month >= 8 else now.year - 1
+
 @st.cache_resource
 def get_db_connection():
     """Create cached database connection"""
@@ -331,12 +327,13 @@ def load_database_stats():
     conn = get_db_connection()
     stats = {}
 
+    season = get_current_season()
     stats['total_games'] = pd.read_sql_query(
-        "SELECT COUNT(*) as count FROM games WHERE season = 2024", conn
+        "SELECT COUNT(*) as count FROM games WHERE season = ?", conn, params=(season,)
     ).iloc[0]['count']
 
     stats['completed_games'] = pd.read_sql_query(
-        "SELECT COUNT(*) as count FROM games WHERE completed = 1 AND season = 2024", conn
+        "SELECT COUNT(*) as count FROM games WHERE completed = 1 AND season = ?", conn, params=(season,)
     ).iloc[0]['count']
 
     stats['total_teams'] = pd.read_sql_query(
@@ -457,7 +454,7 @@ def load_nfl_stats():
 def login_page():
     """Display login page"""
     st.markdown('<h1 class="app-header">🦅 Eagle Eye Sports Tracker</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="app-subtitle">AI-Powered College Football Predictions</p>', unsafe_allow_html=True)
+    st.markdown('<p class="app-subtitle">AI-Powered Sports Predictions</p>', unsafe_allow_html=True)
     st.markdown("---")
     st.subheader("🔐 Beta Access Login")
 
@@ -557,7 +554,7 @@ def show_overview(user, db_stats):
         FROM games g
         JOIN teams ht ON g.home_team_id = ht.team_id
         JOIN teams at ON g.away_team_id = at.team_id
-        WHERE g.season = 2024
+        WHERE g.season = {get_current_season()}
         AND g.home_team_id > 0
         AND (g.home_score > 0 OR g.away_score > 0)
         ORDER BY g.date DESC
@@ -1260,256 +1257,12 @@ def is_fallback_predictions(df):
     return False
 
 
-def display_game_card(row, sport_emoji="🏈"):
-    """
-    Unified game display component for all sports.
-    Shows: Metric | Model | Vegas | Result columns with comparison tags.
-
-    row: DataFrame row with prediction data
-    sport_emoji: emoji for the sport (🏈 for NFL/CFB, 🏀 for NBA)
-    """
-    home_team = row['home_team']
-    away_team = row['away_team']
-
-    # Model predictions (handle None values from database)
-    model_home_score = row.get('predicted_home_score')
-    model_away_score = row.get('predicted_away_score')
-    model_spread = row.get('predicted_spread')
-    model_total = row.get('predicted_total')
-
-    # Handle None spread for games without predictions
-    if model_spread is None or pd.isna(model_spread):
-        model_spread = 0
-        model_winner = None  # No prediction
-    else:
-        # Vegas convention: spread = away - home
-        # Negative spread = HOME favored, Positive spread = AWAY favored
-        model_winner = home_team if model_spread < 0 else away_team
-    home_win_prob = row.get('home_win_probability', 0.5)
-    confidence = row.get('confidence', 0.5)
-
-    # Vegas lines
-    vegas_spread = row.get('vegas_spread')  # home team spread, negative = home favorite
-    vegas_total = row.get('vegas_total')
-    has_vegas = vegas_spread is not None and not pd.isna(vegas_spread) and vegas_spread != 0
-
-    # Calculate Vegas implied scores if available
-    vegas_home_score = None
-    vegas_away_score = None
-    vegas_winner = None
-    if has_vegas and vegas_total and not pd.isna(vegas_total):
-        vegas_home_score = vegas_total / 2 - vegas_spread / 2
-        vegas_away_score = vegas_total / 2 + vegas_spread / 2
-        vegas_winner = home_team if vegas_spread < 0 else away_team
-
-    # Actual results
-    game_completed = row.get('game_completed', 0)
-    actual_home = row.get('actual_home_score')
-    actual_away = row.get('actual_away_score')
-    has_result = game_completed and actual_home is not None and actual_away is not None
-
-    if has_result:
-        # Vegas convention: negative = home won by that amount
-        actual_spread = actual_away - actual_home
-        actual_total = actual_home + actual_away
-        actual_winner = home_team if actual_home > actual_away else (away_team if actual_away > actual_home else "Tie")
-
-    # Format spread for display
-    # Model spread now stored in Vegas convention: negative = home favored
-    def format_spread(spread_val):
-        """Format model spread for display.
-        Already in Vegas convention: negative = home favored."""
-        if spread_val is None or pd.isna(spread_val):
-            return "NL"
-        return f"{spread_val:+.1f}"
-
-    def format_vegas_spread(spread_val):
-        """Vegas spread already in correct convention.
-        Negative = home team favored, Positive = away team favored."""
-        if spread_val is None or pd.isna(spread_val):
-            return "NL"
-        return f"{spread_val:+.1f}"
-
-    # Build the expander title with postseason type and recommendation badge
-    conf_pct = (confidence if confidence else 0.5) * 100
-    postseason_type = row.get('postseason_type', '')
-
-    # Add recommendation badge if significant deviation from Vegas
-    rec_badge = ""
-    if has_vegas and model_spread is not None and not pd.isna(model_spread):
-        # Model spread is now in Vegas convention (away - home): negative = home favored
-        deviation = model_spread - vegas_spread
-        abs_dev = abs(deviation)
-
-        if abs_dev >= 7:
-            rec_badge = " 🟢"  # Strong edge
-        elif abs_dev >= 5:
-            rec_badge = " 🟡"  # Moderate edge
-        elif abs_dev >= 3:
-            rec_badge = " 🟠"  # Mild edge
-
-    if postseason_type and pd.notna(postseason_type):
-        title = f"{sport_emoji} [{postseason_type}] {away_team} @ {home_team}{rec_badge}"
-    else:
-        title = f"{sport_emoji} {away_team} @ {home_team}{rec_badge}"
-
-    with st.expander(title, expanded=False):
-        # Create 4 columns: Metric | Model | Vegas | Result
-        col1, col2, col3, col4 = st.columns([1.5, 1, 1, 1])
-
-        with col1:
-            st.markdown("**Metric**")
-            st.write(f"✈️ {away_team}")
-            st.write(f"🏠 {home_team}")
-            st.write("Spread")
-            st.write("Total")
-            st.write("Winner")
-
-        with col2:
-            st.markdown("**Model**")
-            has_prediction = model_home_score is not None and not pd.isna(model_home_score)
-            if has_prediction:
-                st.write(f"{model_away_score:.0f}")
-                st.write(f"{model_home_score:.0f}")
-                st.write(format_spread(model_spread))
-                st.write(f"{model_total:.1f}" if model_total else "-")
-                st.write(f"{model_winner} ({conf_pct:.0f}%)")
-            else:
-                st.write("NP")
-                st.write("NP")
-                st.write("NP")
-                st.write("NP")
-                st.write("NP")
-
-        with col3:
-            st.markdown("**Vegas**")
-            if has_vegas:
-                if vegas_home_score is not None:
-                    st.write(f"{vegas_away_score:.0f}")
-                    st.write(f"{vegas_home_score:.0f}")
-                else:
-                    st.write("-")
-                    st.write("-")
-                st.write(format_vegas_spread(vegas_spread))
-                st.write(f"{vegas_total:.1f}" if vegas_total else "-")
-                st.write(vegas_winner if vegas_winner else "-")
-            else:
-                st.write("NL")
-                st.write("NL")
-                st.write("NL")
-                st.write("NL")
-                st.write("NL")
-
-        with col4:
-            st.markdown("**Result**")
-            if has_result:
-                st.write(f"{actual_away:.0f}")
-                st.write(f"{actual_home:.0f}")
-                st.write(format_spread(actual_spread))
-                st.write(f"{actual_total:.0f}")
-                st.write(actual_winner)
-            else:
-                st.write("--")
-                st.write("--")
-                st.write("--")
-                st.write("--")
-                st.write("Pending")
-
-        # Confidence Intervals (if available)
-        spread_moe = row.get('predicted_spread_MOE') or row.get('spread_moe')
-        if spread_moe is not None and not pd.isna(spread_moe) and has_prediction:
-            st.markdown("---")
-            st.caption("**Confidence Intervals (Model Spread)**")
-            # Model spread is now in Vegas convention: negative = home favored
-            spread_val = model_spread if model_spread else 0
-            ci_68_low = spread_val - spread_moe
-            ci_68_high = spread_val + spread_moe
-            ci_95_low = spread_val - 2 * spread_moe
-            ci_95_high = spread_val + 2 * spread_moe
-
-            col1, col2 = st.columns(2)
-            with col1:
-                st.write(f"68% CI: {ci_68_low:+.1f} to {ci_68_high:+.1f}")
-            with col2:
-                st.write(f"95% CI: {ci_95_low:+.1f} to {ci_95_high:+.1f}")
-
-            # Vegas deviation indicator
-            if has_vegas:
-                deviation = model_spread - vegas_spread
-                if abs(deviation) >= 7:
-                    dev_icon = "🟢"
-                elif abs(deviation) >= 5:
-                    dev_icon = "🟡"
-                elif abs(deviation) >= 3:
-                    dev_icon = "🟠"
-                else:
-                    dev_icon = "⚪"
-                # Negative deviation = model favors home MORE than Vegas
-                direction = "HOME" if deviation < 0 else "AWAY"
-                st.write(f"{dev_icon} Vegas Deviation: {abs(deviation):.1f} pts ({direction} bias)")
-
-        # Comparison tags (only for completed games with predictions)
-        if has_result and has_prediction:
-            st.markdown("---")
-            tags = []
-
-            # Winner comparison (only if we have a model prediction)
-            model_winner_correct = (model_winner == actual_winner) if model_winner else False
-
-            if has_vegas:
-                vegas_winner_correct = (vegas_winner == actual_winner)
-
-                if model_winner_correct and vegas_winner_correct:
-                    tags.append("🎯 Both Got Winner")
-                elif model_winner_correct and not vegas_winner_correct:
-                    tags.append("✅ Model Beat Vegas (Winner)")
-                elif not model_winner_correct and vegas_winner_correct:
-                    tags.append("❌ Vegas Beat Model (Winner)")
-                else:
-                    tags.append("😬 Both Wrong (Winner)")
-            else:
-                # No Vegas lines - just show if model was correct
-                if model_winner_correct:
-                    tags.append("✅ Model Got Winner")
-                else:
-                    tags.append("❌ Model Wrong (Winner)")
-
-            if has_vegas:
-                # Spread comparison: who was closer to actual spread?
-                # All spreads now in Vegas convention (negative = home favored)
-                model_spread_diff = abs(actual_spread - model_spread)
-                vegas_spread_diff = abs(actual_spread - vegas_spread)
-
-                if model_spread_diff < vegas_spread_diff - 0.5:
-                    tags.append("✅ Model Beat Vegas (Spread)")
-                elif vegas_spread_diff < model_spread_diff - 0.5:
-                    tags.append("❌ Vegas Beat Model (Spread)")
-                else:
-                    tags.append("🤝 Spread Tie")
-
-                # Total comparison
-                if vegas_total and not pd.isna(vegas_total):
-                    model_total_diff = abs(actual_total - model_total)
-                    vegas_total_diff = abs(actual_total - vegas_total)
-
-                    if model_total_diff < vegas_total_diff - 0.5:
-                        tags.append("✅ Model Beat Vegas (Total)")
-                    elif vegas_total_diff < model_total_diff - 0.5:
-                        tags.append("❌ Vegas Beat Model (Total)")
-                    else:
-                        tags.append("🤝 Total Tie")
-
-            # Display tags
-            if tags:
-                st.write(" | ".join(tags))
-
-
 def display_prediction_freshness(predictions_df, game_dates=None, is_past_games=False, sport=None):
     """
     Display when predictions were generated and warn if stale (only for upcoming games).
 
     Args:
-        predictions_df: DataFrame with predictions (should have 'created_at' column)
+        predictions_df: DataFrame with predictions (should have 'prediction_created' column)
         game_dates: Optional list/series of game dates for comparison
         is_past_games: If True, games are in the past so don't warn about staleness
         sport: Optional sport identifier for session state timestamp lookup
@@ -1528,20 +1281,20 @@ def display_prediction_freshness(predictions_df, game_dates=None, is_past_games=
 
     # Fall back to database timestamp if no session state
     if latest_created is None:
-        # Check if created_at column exists and has data
-        if 'created_at' not in predictions_df.columns:
+        # Check if prediction_created column exists and has data
+        if 'prediction_created' not in predictions_df.columns:
             st.caption("Prediction timestamp not available")
             return
 
         # Get the most recent prediction timestamp
-        created_times = predictions_df['created_at'].dropna()
+        created_times = predictions_df['prediction_created'].dropna()
         if created_times.empty:
             st.caption("Prediction timestamp not available")
             return
 
         # Parse timestamps - handle various formats
         try:
-            # Try to get the latest created_at time
+            # Try to get the latest prediction_created time
             latest_created = pd.to_datetime(created_times).max()
             if pd.isna(latest_created):
                 st.caption("Prediction timestamp not available")
@@ -1673,12 +1426,10 @@ def display_top_picks(predictions_df, sport_emoji="🏈", max_picks=5, min_disag
                 is_3star_spread = False
             is_3star_total = False  # NBA totals not profitable
         elif sport == 'CBB':
-            # CBB walk-forward (2026 YTD, 353 games): SWEET SPOT at 2-4 pt edges
-            # 2-4 pt edges: 62.9% ATS (44/70), +20% ROI - VERY PROFITABLE
-            # 5+ pt edges: only 52.1% - degrades at high edges (opposite of other sports)
-            # Totals: ~50% at all thresholds - not profitable
-            is_3star_spread = (spread_edge >= 2) and (spread_edge < 5)
-            is_3star_total = False  # CBB totals not profitable
+            # CBB walk-forward (11,066 games, 2024-2026): NOT profitable at any threshold
+            # All edges ~50% ATS. Previous 62.9% claim was small-sample noise.
+            is_3star_spread = False
+            is_3star_total = False
         elif sport == 'NHL':
             # NHL: Use MONEYLINE strategy, not puck line!
             # Puck lines have lopsided juice (+200/-200), not -110 like other sports.
@@ -1762,7 +1513,7 @@ def display_top_picks(predictions_df, sport_emoji="🏈", max_picks=5, min_disag
     if sport == 'NBA':
         st.success("✅ NBA: Spreads 2+ stars = 64% ATS | Totals: Fade UNDER 7+ = 59% O/U")
     elif sport == 'CBB':
-        st.warning("⚠️ CBB 2-4 pt edges: 62.9% ATS (44/70) - promising but small sample. High edges (5+) degrade.")
+        st.info("ℹ️ CBB model does not beat Vegas at any threshold (~50% ATS across 11k games). Entertainment only.")
     elif sport == 'NHL':
         st.success("✅ NHL Home Underdogs: 52% win rate, +17.5% ROI (707 games, p=0.009). Best: +100-120 range.")
     else:
@@ -1793,11 +1544,6 @@ def display_top_picks(predictions_df, sport_emoji="🏈", max_picks=5, min_disag
                 st.write(f"**{pick['edge']:.1f}** pts")
 
     st.markdown("---")
-
-
-def show_nba_predictions():
-    """Show NBA predictions - coming soon placeholder (legacy function)"""
-    show_nba_predictions_live()
 
 
 def show_nba_predictions_live():
@@ -2238,11 +1984,11 @@ def show_cbb_predictions_live():
                 else:
                     st.error(msg)
 
-    # Load ALL games from database (with predictions if available)
+    # Load games for selected date from database
     try:
         conn = sqlite3.connect('cbb_games.db')
+        selected_date_str = selected_date.strftime('%Y-%m-%d')
 
-        # Get all games with predictions and odds (LEFT JOIN so games without predictions are included)
         games_query = """
             SELECT
                 g.game_id,
@@ -2265,32 +2011,34 @@ def show_cbb_predictions_live():
             JOIN teams ht ON g.home_team_id = ht.team_id
             JOIN teams at ON g.away_team_id = at.team_id
             LEFT JOIN odds_and_predictions o ON g.game_id = o.game_id
-            WHERE g.season = ?
+            WHERE g.game_date_eastern = ?
             ORDER BY g.date
         """
-        predictions_df = pd.read_sql_query(games_query, conn, params=(season,))
+        filtered_df = pd.read_sql_query(games_query, conn, params=(selected_date_str,))
         conn.close()
 
     except Exception as e:
         st.error(f"Error loading games from database: {e}")
         return
 
-    if predictions_df.empty:
-        st.warning("No games found in database.")
-        return
-
-    # Filter by selected date using pre-computed Eastern date
-    predictions_df['game_date'] = pd.to_datetime(predictions_df['game_date_eastern']).dt.date
-    filtered_df = predictions_df[predictions_df['game_date'] == selected_date]
-
     if filtered_df.empty:
         st.info(f"No games scheduled for {selected_date.strftime('%B %d, %Y')}")
-        # Show how many games on other days
-        games_by_date = predictions_df.groupby('game_date').size()
-        if not games_by_date.empty:
-            st.markdown("**Games available on other days:**")
-            for date, count in games_by_date.items():
-                st.write(f"• {date.strftime('%a %b %d')}: {count} games")
+        # Check nearby dates for games
+        try:
+            conn = sqlite3.connect('cbb_games.db')
+            nearby = pd.read_sql_query("""
+                SELECT game_date_eastern, COUNT(*) as cnt FROM games
+                WHERE game_date_eastern BETWEEN date(?, '-3 days') AND date(?, '+3 days')
+                GROUP BY game_date_eastern ORDER BY game_date_eastern
+            """, conn, params=(selected_date_str, selected_date_str))
+            conn.close()
+            games_by_date = {row['game_date_eastern']: row['cnt'] for _, row in nearby.iterrows()}
+            if games_by_date:
+                st.markdown("**Games available on nearby days:**")
+                for date_str, count in games_by_date.items():
+                    st.write(f"• {date_str}: {count} games")
+        except Exception:
+            pass
         return
 
     # Header with date
@@ -2443,16 +2191,9 @@ def show_cbb_predictions_live():
         if pd.isna(pred_spread):
             pred_spread = 0
 
-        # Spread confidence stars (CBB - Enhanced Ridge walk-forward 2026 YTD, 353 games)
-        # 2-4 pt edges: 62.9% ATS (44/70) - promising but small sample (p=0.02)
-        # High edges (5+) degrade to 52% - opposite pattern of other sports
-        abs_edge = abs(edge)
-        if abs_edge >= 2 and abs_edge < 5:
-            conf_stars = "⭐⭐⭐"  # 62.9% - promising (needs more data)
-        elif abs_edge >= 5:
-            conf_stars = "⭐"      # 52% - degrades at high edges
-        else:
-            conf_stars = "⭐"      # <2 pt - noise
+        # Spread confidence stars (CBB - walk-forward 11,066 games, 2024-2026)
+        # NOT profitable at any threshold (~50% ATS). Entertainment only.
+        conf_stars = "⭐"
 
         # Pick direction
         if edge > 0:
@@ -3569,14 +3310,36 @@ def show_database_explorer():
     """Database exploration interface"""
     st.markdown('<p class="main-header">Database Explorer</p>', unsafe_allow_html=True)
 
-    conn = get_db_connection()
+    db_options = {
+        "CFB": "cfb_games.db",
+        "NFL": "nfl_games.db",
+        "NBA": "nba_games.db",
+        "CBB": "cbb_games.db",
+        "NHL": "nhl_games.db",
+    }
+    col1, col2 = st.columns(2)
+    with col1:
+        selected_sport = st.selectbox("Select Sport", list(db_options.keys()))
+    with col2:
+        table = st.selectbox("Select Table", ["games", "teams", "team_game_stats", "odds_and_predictions"])
 
-    table = st.selectbox("Select Table", ["games", "teams", "team_game_stats"])
+    db_path = db_options[selected_sport]
+    conn = sqlite3.connect(db_path)
 
-    st.markdown(f"### {table.upper()} Table")
+    st.markdown(f"### {selected_sport} — {table.upper()} Table")
 
-    team_field = get_team_name_field()
+    # Detect team name field for this database
+    cursor = conn.cursor()
+    cursor.execute("PRAGMA table_info(teams)")
+    columns = [col[1] for col in cursor.fetchall()]
+    if 'display_name' in columns:
+        team_field = 'display_name'
+    elif 'school_name' in columns:
+        team_field = 'school_name'
+    else:
+        team_field = 'name'
 
+    season = get_current_season()
     if table == "games":
         query = f"""
             SELECT
@@ -3587,7 +3350,7 @@ def show_database_explorer():
             FROM games g
             JOIN teams ht ON g.home_team_id = ht.team_id
             JOIN teams at ON g.away_team_id = at.team_id
-            WHERE g.season = 2024
+            WHERE g.season = {season}
             AND g.home_team_id > 0
             AND g.away_team_id > 0
             ORDER BY g.date DESC
@@ -3603,15 +3366,23 @@ def show_database_explorer():
             ORDER BY tgs.game_id DESC
             LIMIT 100
         """
+    elif table == "odds_and_predictions":
+        query = """
+            SELECT * FROM odds_and_predictions
+            ORDER BY game_id DESC
+            LIMIT 100
+        """
 
     try:
         df = pd.read_sql_query(query, conn)
+        conn.close()
         st.markdown(f"Showing {len(df)} records")
         st.dataframe(df, use_container_width=True, hide_index=True)
 
         csv = df.to_csv(index=False)
-        st.download_button("Download CSV", data=csv, file_name=f"{table}_export.csv", mime="text/csv")
+        st.download_button("Download CSV", data=csv, file_name=f"{selected_sport}_{table}_export.csv", mime="text/csv")
     except Exception as e:
+        conn.close()
         st.error(f"Error querying database: {e}")
 
 # ============================================================================
@@ -3893,66 +3664,45 @@ def show_model_insights():
     # NBA TAB
     # =========================================================================
     with sport_tab[2]:
-        st.markdown("## NBA Model: Deep Eagle v1.0")
+        st.markdown("## NBA Model: Ridge V2 + Rule-Based Confidence")
 
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.metric("Model File", "deep_eagle_nba_2024.pt")
+            st.metric("Model File", "nba_ridge_v2.pkl")
         with col2:
-            st.metric("Total Features", "~50")
+            st.metric("Type", "Ridge Regression")
         with col3:
-            st.metric("Training Games", "~1,200")
+            st.metric("Walk-Forward Games", "1,615")
         with col4:
-            st.metric("Seasons", "2023-2024")
+            st.metric("Seasons", "2025-2026")
 
         st.markdown("""
         ### Architecture
-        - **Type:** Deep Neural Network (PyTorch)
-        - **Hidden Layers:** 256 → 128 → 64 neurons
-        - **Activation:** ReLU with Batch Normalization
-        - **Regularization:** Dropout (0.3)
-        - **Output:** Dual heads for home/away score prediction
+        - **Type:** Ridge Regression (pure model, no Vegas blend)
+        - **Key Feature:** SRS opponent-adjusted ratings
+        - **HCA:** Reduced to 1.5 pts (vs traditional 2.2)
+        - **Road Favorite Penalty:** +1.5 pts
+        - **Output:** Spread and total predictions
         """)
 
-        st.markdown("### Feature Categories")
-        nba_features = {
-            "Vegas Odds": {
-                "features": ["Opening Spread", "Latest Spread", "Opening Total", "Latest Total"],
-                "description": "Market consensus from sportsbooks"
-            },
-            "Team Statistics": {
-                "features": ["PPG", "Points Allowed", "FG%", "3P%", "Rebounds", "Assists", "Turnovers"],
-                "description": "Season-to-date team averages"
-            },
-            "Home/Away Performance": {
-                "features": ["Home Record", "Away Record", "Home PPG", "Away PPG"],
-                "description": "Venue-specific performance splits"
-            },
-            "Recent Form": {
-                "features": ["Last 5 Games PPG", "Last 10 Games Win %"],
-                "description": "Recent performance momentum"
-            }
-        }
-
-        for category, info in nba_features.items():
-            with st.expander(f"**{category}**"):
-                st.markdown(f"**Description:** {info['description']}")
-                st.markdown(f"**Key Features:** {', '.join(info['features'])}")
-
-        st.markdown("### Performance")
+        st.markdown("### Walk-Forward Results (2025-2026)")
         col1, col2 = st.columns(2)
         with col1:
-            st.metric("Spread MAE", "~10 points")
-            st.metric("Total MAE", "~15 points")
+            st.metric("5+ pt edges", "59.0% ATS (308/522)")
+            st.metric("2+ stars (rule filter)", "64.3% ATS (126/196)")
         with col2:
-            st.metric("Status", "Active")
-            st.metric("Last Updated", "December 2025")
+            st.metric("3+ stars", "63.1% ATS (41/65)")
+            st.metric("Fade UNDER 7+", "59% O/U (79-55)")
 
-        st.info("NBA model is actively being improved with additional historical data and features.")
-
-        # Feature importance
-        st.markdown("---")
-        display_feature_importance('models/deep_eagle_nba_2024.pt', 'NBA')
+        st.markdown("""
+        ### Rule-Based Scoring (5+ pt edge required)
+        1. **FADE road favorite picks** (bet home dog instead — 65% ATS)
+        2. +1 for home picks (62.5% vs 55.4%)
+        3. +1 for home favorites (67% ATS)
+        4. +1 for close games (Vegas < 4 pts)
+        5. -1 for blowouts (Vegas 10+ pts)
+        6. +1 for big edges (7+ pts)
+        """)
 
     # =========================================================================
     # CBB TAB
@@ -4440,7 +4190,7 @@ def main_page():
         st.markdown("---")
         # Prediction engine status
         st.success("🚀 Deep Eagle v2.0")
-        st.caption("LSTM Models Active")
+        st.caption("Ridge + Deep Eagle Models")
 
     # Load database stats
     db_stats = load_database_stats()
@@ -4448,7 +4198,7 @@ def main_page():
 
     # App Header
     st.markdown('<h1 class="app-header">🦅 Eagle Eye Sports Tracker</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="app-subtitle">AI-Powered CFB & NFL Predictions</p>', unsafe_allow_html=True)
+    st.markdown('<p class="app-subtitle">AI-Powered Sports Predictions</p>', unsafe_allow_html=True)
     st.markdown("---")
 
     # System health banner (cached for 5 minutes to avoid repeated checks)
