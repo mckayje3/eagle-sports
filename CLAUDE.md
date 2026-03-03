@@ -16,8 +16,9 @@ python cbb_predictor.py             # CBB predictions
 python nhl_predictor.py             # NHL predictions
 
 # Retrain models (after significant data updates)
-python nfl_simple_model.py          # Retrain NFL simple model
-python train_deep_eagle_nfl.py      # Retrain NFL deep model (requires deep-eagle lib)
+python nfl_ridge_v2.py              # Retrain NFL Ridge V2 (primary spread + total model)
+python nfl_simple_model.py          # Retrain NFL simple model (fallback)
+python cfb_ridge_v2.py              # Retrain CFB Ridge V2 (SRS model, totals only profitable)
 python cbb_enhanced_ridge.py        # Retrain CBB enhanced model
 python nba_enhanced_ridge.py        # Retrain NBA enhanced model
 
@@ -36,7 +37,8 @@ streamlit run streamlit_app.py      # Local: http://localhost:8501
 ```
 ├── *_games.db              # Per-sport SQLite databases (nfl, cfb, nba, cbb, nhl)
 ├── *_predictor.py          # Main prediction scripts per sport
-├── *_simple_model.py       # Ridge regression models (primary)
+├── *_ridge_v2.py           # Ridge V2 models with SRS ratings (NFL, CFB, NBA)
+├── *_simple_model.py       # Ridge regression models (fallback)
 ├── *_enhanced_ridge.py     # Ridge + form/HCA/drive features
 ├── *_edge_classifier.py    # Neural net meta-model for bet confidence
 ├── *_espn_scraper.py       # Per-sport ESPN data scrapers
@@ -145,8 +147,8 @@ COALESCE(o.avg_pred_total, o.predicted_home_score + o.predicted_away_score) as p
 **CRITICAL:** When improving a model's accuracy, always re-evaluate any existing fade logic.
 
 **Current fade strategies:**
-- NFL Ridge Totals: Fade UNDER at 5+ pts (61.9% when fading)
 - NBA Ridge V2 Totals: Fade UNDER at 7+ pts (59% when fading)
+- NFL Ridge V2 Totals: NOT profitable at any threshold (systematic testing confirmed)
 
 **Why this matters:** Fade strategies exist because a model consistently fails in one direction. If you improve the model and it no longer fails that way, the fade becomes counterproductive (you'd be betting opposite of a now-accurate prediction).
 
@@ -217,14 +219,29 @@ The CBB predictor uses an Enhanced Ridge model. Full walk-forward validation sho
 
 **Status:** Entertainment only. The model's +0.57 MAE gap vs Vegas doesn't translate to ATS profit.
 
-### NFL Post-Prediction Adjustments
-The NFL predictor (Deep Eagle) applies automatic adjustments after model prediction:
+### NFL Model (Ridge V2 + SRS Ratings - MARGINAL)
+The NFL predictor uses Ridge V2 (SRS + real drive data) as the primary spread model:
 
+**Ridge V2 Features:**
+- SRS opponent-adjusted ratings (iterative, recalculated every 30 games)
+- Real drive efficiency from drives table (scoring %, yards/drive)
+- Dynamic HCA shrunk toward 2.5 pts
+- Exponential decay weighting (0.96/game)
+- 18 spread features, 12 total features
+
+**Proper Walk-Forward Results (3 test seasons, 522 games):**
+- Per-season walk-forward: train on seasons < N, test on season N
+- **5+ pt edge: 56.9% ATS (58-44, +8.6% ROI)** - marginally profitable (p=0.098)
+- Consistent across all 3 test seasons (52.6%-62.5%)
+- **Totals: NOT profitable, confirmed by systematic testing**
+  - 6 feature configs x 6 alpha values tested (`nfl_totals_experiments.py`)
+  - Best result: Vegas-anchored 53.6% O/U (p=0.14, NOT significant, 95% CI includes losing)
+  - Pace, matchup, alpha tuning — none improved O/U reliably
+  - Original 65.9% OVER 3+ was one-season noise (2024: 80%/15 games, 2025: 45.7%/70 games)
+- Model files: `models/nfl_ridge_v2.pkl`
+
+**Post-Prediction Adjustments:**
 1. **Big underdog** (+1.0 pts): When team is 7+ point underdog
-2. **Rest advantage** (+0.5 pts): When team has 3+ days extra rest
-3. **Post-bye boost** (+1.0 pts): When team is coming off bye week
-
-NFL Deep Eagle backtest: 58.4% ATS at 5+ pt edges, 63.0% at 7+ pt edges.
 
 ### NHL Betting Strategy (MONEYLINE - NOT Puck Line!)
 
@@ -261,13 +278,16 @@ Each sport page shows a "⭐⭐⭐ 3-Star Plays" section at the top highlighting
 | NHL | **Moneyline** | Home dog +100-120 | 59.6% | 94 | **CONFIRMED** (+26% ROI, p=0.009) |
 | NBA | Spread | **2+ stars (rule-based)** | **64.3% ATS** | 196 | **BEST** - rule filter |
 | NBA | **Total** | **Fade UNDER 7+** | **59% O/U** | 134 | **PROFITABLE** - bet OVER |
-| NFL | Spread | 5+ pts | 55.3% ATS | - | **PROFITABLE** |
-| CFB | Spread | 5+ pts | 57.1% ATS | - | **PROFITABLE** |
+| NFL | Spread | 5+ pts | **56.9% ATS** | 102 | **MARGINAL** (p=0.098, consistent 3 seasons) |
+| NFL | Total | Any | ~50% | 522 | **NOT PROFITABLE** (OVER 3+ was one-season noise) |
+| CFB | Spread | Any | ~48% ATS | 1,317 | **NOT PROFITABLE** (Ridge V2 w/ SRS tested) |
+| CFB | Total | Any | ~50% O/U | 1,318 | **NOT PROFITABLE** (OVER/UNDER signal flips between seasons) |
 | CBB | Spread | Any | ~50% ATS | 11,066 | **NOT PROFITABLE** |
 
 **Note:** NHL uses MONEYLINE (not puck line) because puck lines have lopsided juice.
 **NBA Rule Filter:** Skip road fav picks; prefer home picks, home favs, close games.
 **NBA Totals:** Fade UNDER 7+ predictions = bet OVER (model has OVER bias).
+**CFB:** Ridge V2 w/ SRS tested — spreads ~48% ATS, totals signal flips between seasons (noise).
 **CBB:** Full walk-forward shows ~50% ATS at all thresholds - entertainment only.
 
 **Walk-forward validation** = train on season N, test on season N+1 (simulates real deployment).
@@ -304,29 +324,35 @@ Playoff predictions come from `predict_nfl_playoffs.py` and `nfl_playoff_predict
 
 ### Confidence Stars
 
-**NFL (Deep Eagle - profitability-based):**
+**NFL (Ridge V2 - marginal):**
 
-*Spreads:*
-| Edge | Stars | Win % | Profitable? |
-|------|-------|-------|-------------|
-| >= 5 pts | ⭐⭐⭐ | 58.4% | Yes |
-| < 5 pts | ⭐ | ~52% | No (below breakeven) |
+*Spreads (522 games, 3-season walk-forward):*
+| Edge | Stars | Win % | ROI | Notes |
+|------|-------|-------|-----|-------|
+| >= 5 pts | ⭐⭐⭐ | 56.9% | +8.6% | p=0.098, consistent across seasons |
+| < 5 pts | ⭐ | ~50% | Negative | Not profitable |
 
 *Totals:*
-| Edge | Stars | Win % | Profitable? |
-|------|-------|-------|-------------|
-| >= 7 pts | ⭐⭐⭐ | TBD | Needs analysis |
-| >= 4 pts | ⭐⭐ | TBD | Needs analysis |
-| < 4 pts | ⭐ | TBD | Needs analysis |
+| Condition | Stars | Win % | Notes |
+|-----------|-------|-------|-------|
+| All totals | ⭐ | ~50% | NOT profitable at any threshold |
 
-**CFB (not currently profitable):**
-| Spread Edge | Stars | Total Edge | Stars |
-|-------------|-------|------------|-------|
-| >= 5 pts | ⭐⭐⭐ | >= 8 pts | ⭐⭐⭐ |
-| >= 3 pts | ⭐⭐ | >= 5 pts | ⭐⭐ |
-| < 3 pts | ⭐ | < 5 pts | ⭐ |
+**Totals systematically tested:** 6 feature configs (pure, Vegas-anchored, pace, matchup, full, Vegas+full) x 6 alpha values. Best: 53.6% (p=0.14, not significant). Original OVER 3+ at 65.9% was one-season noise. NFL totals cannot be beaten with available data.
 
-Note: CFB models show ~50% ATS at all thresholds - not currently profitable.
+**CFB (Ridge V2 + SRS — NOT PROFITABLE):**
+
+*Spreads (1,317 games with Vegas lines, 2024-2025 walk-forward):*
+| Edge | Stars | Win % | Notes |
+|------|-------|-------|-------|
+| Any | ⭐ | ~48% | NOT profitable — model is ~1 pt worse MAE than Vegas |
+
+*Totals (1,318 games with Vegas totals, 2024-2025 walk-forward):*
+| Condition | Stars | Win % | Notes |
+|-----------|-------|-------|-------|
+| Any | ⭐ | ~50% | NOT profitable — signal flips between seasons |
+
+**CFB Note:** SRS diff is the strongest feature (coef=-5.04), confirming opponent-adjusted ratings matter in CFB's 245-team landscape. However, the model still can't beat Vegas on spreads (MAE 12.90 vs 11.89) or totals. OVER 5+ looked promising at 65.1% in 2024 but fell to 49.3% in 2025 (coin flip). UNDER 5+ showed the inverse pattern (46.8% in 2024, 59.4% in 2025). This direction-flipping is noise, not signal — same lesson as NFL OVER 3+.
+- Model files: `models/cfb_ridge_v2.pkl`
 
 **NBA (Ridge V2 + Rule-Based Confidence - PROFITABLE):**
 
