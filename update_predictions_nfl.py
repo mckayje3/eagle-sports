@@ -228,7 +228,173 @@ def generate_predictions(season, week=None, is_playoffs=False):
 
 
 def generate_regular_season_predictions(season, week):
-    """Generate predictions for regular season week."""
+    """Generate predictions for regular season week.
+
+    Model priority: Ridge V2 (preferred) -> Deep Eagle (fallback)
+    """
+    # Try Ridge V2 first (preferred model)
+    ridge_v2_preds = _try_ridge_v2_predictions(season, week)
+    if ridge_v2_preds is not None:
+        return ridge_v2_preds
+
+    # Fallback to Deep Eagle
+    logger.info("Falling back to Deep Eagle model...")
+    return _try_deep_eagle_predictions(season, week)
+
+
+def _try_ridge_v2_predictions(season, week):
+    """Generate predictions using NFL Ridge V2 model."""
+    try:
+        from nfl_ridge_v2 import NFLRidgeV2
+        from pathlib import Path
+
+        model_path = Path('models/nfl_ridge_v2.pkl')
+        if not model_path.exists():
+            logger.info("Ridge V2 model not found, skipping")
+            return None
+
+        model = NFLRidgeV2.load(model_path)
+        logger.info("Loaded NFL Ridge V2 model")
+
+        # Get upcoming games
+        conn = sqlite3.connect('nfl_games.db')
+        games = pd.read_sql_query('''
+            SELECT g.game_id, g.date, g.week, g.season,
+                   g.home_team_id, g.away_team_id,
+                   g.neutral_site, g.is_dome,
+                   ht.display_name as home_team, at.display_name as away_team,
+                   o.latest_spread as vegas_spread, o.latest_total as vegas_total
+            FROM games g
+            JOIN teams ht ON g.home_team_id = ht.team_id
+            JOIN teams at ON g.away_team_id = at.team_id
+            LEFT JOIN odds_and_predictions o ON g.game_id = o.game_id
+            WHERE g.completed = 0 AND g.week >= ?
+                AND g.season = ?
+            ORDER BY g.week, g.date
+        ''', conn, params=(week, season))
+        conn.close()
+
+        if games.empty:
+            logger.warning("No upcoming NFL games found")
+            return None
+
+        logger.info(f"Found {len(games)} upcoming games for Ridge V2 prediction")
+
+        predictions = []
+        for _, game in games.iterrows():
+            try:
+                preds = model.predict(
+                    home_id=int(game['home_team_id']),
+                    away_id=int(game['away_team_id']),
+                    season=int(game['season']),
+                    game_date=str(game['date']),
+                    week=int(game['week']),
+                    neutral_site=bool(game.get('neutral_site', 0)),
+                    is_dome=bool(game.get('is_dome', 0)),
+                    vegas_spread=game['vegas_spread'] if pd.notna(game['vegas_spread']) else None,
+                    vegas_total=game['vegas_total'] if pd.notna(game['vegas_total']) else None,
+                )
+
+                spread = preds['predicted_spread']
+                total = preds['predicted_total']
+
+                if spread is None:
+                    logger.warning(f"No spread prediction for {game['away_team']} @ {game['home_team']}")
+                    continue
+
+                # Apply post-prediction adjustments
+                vegas_spread = game['vegas_spread'] if pd.notna(game['vegas_spread']) else None
+                vegas_total = game['vegas_total'] if pd.notna(game['vegas_total']) else None
+
+                adj_spread, spread_notes = _apply_spread_adjustments(spread, vegas_spread)
+                adj_total, total_notes = _apply_total_adjustments(total, vegas_total)
+
+                # Calculate scores from adjusted values
+                if adj_total is not None and adj_spread is not None:
+                    home_score = (adj_total - adj_spread) / 2
+                    away_score = (adj_total + adj_spread) / 2
+                else:
+                    home_score = preds['home_score']
+                    away_score = preds['away_score']
+
+                predictions.append({
+                    'game_id': int(game['game_id']),
+                    'date': game['date'],
+                    'week': int(game['week']),
+                    'home_team': game['home_team'],
+                    'away_team': game['away_team'],
+                    'pred_home_score': round(home_score, 1) if home_score else None,
+                    'pred_away_score': round(away_score, 1) if away_score else None,
+                    'pred_spread': round(adj_spread, 1) if adj_spread else None,
+                    'pred_spread_base': round(spread, 1),
+                    'pred_total': round(adj_total, 1) if adj_total else None,
+                    'pred_total_base': round(total, 1) if total else None,
+                    'adjustment_notes': '; '.join(spread_notes + total_notes),
+                    'vegas_spread': vegas_spread,
+                    'vegas_total': vegas_total,
+                    'srs_diff': preds.get('srs_diff'),
+                    'dynamic_hca': preds.get('dynamic_hca'),
+                })
+
+            except Exception as e:
+                logger.warning(f"Error predicting {game.get('away_team', '?')} @ "
+                              f"{game.get('home_team', '?')}: {e}")
+                continue
+
+        if not predictions:
+            logger.warning("Ridge V2 produced no predictions")
+            return None
+
+        predictions_df = pd.DataFrame(predictions)
+        predictions_df.to_csv('nfl_current_predictions.csv', index=False)
+        predictions_df.to_csv(f'nfl_week{week}_predictions.csv', index=False)
+        save_to_database(predictions_df, season, model_name='ridge_v2')
+        logger.info(f"Generated {len(predictions_df)} Ridge V2 predictions")
+        return predictions_df
+
+    except ImportError:
+        logger.info("nfl_ridge_v2 module not available, skipping")
+        return None
+    except Exception as e:
+        logger.warning(f"Ridge V2 prediction failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+
+def _apply_spread_adjustments(model_spread, vegas_spread):
+    """Apply post-prediction adjustments to spread.
+
+    Based on NFL Ridge V2 backtest: 57.8% ATS at 5+ pt edges.
+    Adjustments carry forward from proven Deep Eagle adjustments.
+    """
+    adjustments = []
+    adjusted = model_spread
+
+    if vegas_spread is not None:
+        # Big underdog adjustment (+1.0 toward underdog)
+        if vegas_spread < -7.0:
+            adjusted += 1.0
+            adjustments.append("big_underdog_away:+1.0")
+        elif vegas_spread > 7.0:
+            adjusted -= 1.0
+            adjustments.append("big_underdog_home:-1.0")
+
+    return adjusted, adjustments
+
+
+def _apply_total_adjustments(model_total, vegas_total):
+    """Apply post-prediction adjustments to total.
+
+    NFL Ridge V2 totals are NOT reliably profitable at any threshold.
+    Walk-forward validation: OVER 3+ = 50.0% (original 65.9% was one-season noise).
+    No adjustments applied — pass through raw model total.
+    """
+    return model_total, []
+
+
+def _try_deep_eagle_predictions(season, week):
+    """Generate predictions using Deep Eagle model (fallback)."""
     try:
         from nfl_predictor import NFLPredictor
 
@@ -238,7 +404,7 @@ def generate_regular_season_predictions(season, week):
         )
 
         if predictor.model is None:
-            logger.warning("NFL model not loaded - no predictions generated")
+            logger.warning("NFL Deep Eagle model not loaded - no predictions generated")
             return None
 
         predictions_df = predictor.predict_upcoming(week=week)
@@ -247,14 +413,14 @@ def generate_regular_season_predictions(season, week):
             predictions_df.to_csv('nfl_current_predictions.csv', index=False)
             predictions_df.to_csv(f'nfl_week{week}_predictions.csv', index=False)
             save_to_database(predictions_df, season)
-            logger.info(f"Generated {len(predictions_df)} predictions")
+            logger.info(f"Generated {len(predictions_df)} Deep Eagle predictions")
             return predictions_df
 
         logger.warning("No upcoming NFL games found")
         return None
 
     except Exception as e:
-        logger.error(f"Error generating predictions: {e}")
+        logger.error(f"Error generating Deep Eagle predictions: {e}")
         import traceback
         traceback.print_exc()
         return None
@@ -355,52 +521,53 @@ def generate_playoff_predictions(season):
         return None
 
 
-def save_to_database(predictions_df, season, is_playoff=False):
-    """Save predictions to odds_and_predictions table"""
+def save_to_database(predictions_df, season, is_playoff=False, model_name=None):
+    """Save predictions to odds_and_predictions table.
+
+    Stores both raw scores (predicted_home/away_score) and adjusted
+    spread/total (avg_pred_spread, avg_pred_total) per CLAUDE.md convention.
+    """
     conn = sqlite3.connect('nfl_games.db')
     cursor = conn.cursor()
 
     now = datetime.now().isoformat()
-    model_version = f'playoff_ridge_{season}' if is_playoff else f'deep_eagle_nfl_{season}'
+    if model_name:
+        model_version = f'{model_name}_nfl_{season}'
+    elif is_playoff:
+        model_version = f'playoff_ridge_{season}'
+    else:
+        model_version = f'deep_eagle_nfl_{season}'
 
     for _, row in predictions_df.iterrows():
         game_id = int(row['game_id'])
 
-        # Check if odds entry exists for this game
-        cursor.execute('SELECT id FROM odds_and_predictions WHERE game_id = ?', (game_id,))
-        existing = cursor.fetchone()
+        # Use adjusted spread/total if available, else derive from scores
+        avg_pred_spread = row.get('pred_spread')
+        avg_pred_total = row.get('pred_total')
 
-        if existing:
-            # Update existing entry
-            cursor.execute('''
-                UPDATE odds_and_predictions
-                SET predicted_home_score = ?,
-                    predicted_away_score = ?,
-                    prediction_date = ?,
-                    model_version = ?
-                WHERE game_id = ?
-            ''', (
-                row.get('pred_home_score'),
-                row.get('pred_away_score'),
-                now,
-                model_version,
-                game_id
-            ))
-        else:
-            # Insert new entry with predictions
-            cursor.execute('''
-                INSERT INTO odds_and_predictions
-                (game_id, source, predicted_home_score, predicted_away_score,
-                 prediction_date, model_version)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (
-                game_id,
-                'deep_eagle',
-                row.get('pred_home_score'),
-                row.get('pred_away_score'),
-                now,
-                model_version
-            ))
+        cursor.execute('''
+            INSERT INTO odds_and_predictions (game_id, source,
+                predicted_home_score, predicted_away_score,
+                avg_pred_spread, avg_pred_total,
+                prediction_date, model_version)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(game_id) DO UPDATE SET
+                predicted_home_score = excluded.predicted_home_score,
+                predicted_away_score = excluded.predicted_away_score,
+                avg_pred_spread = excluded.avg_pred_spread,
+                avg_pred_total = excluded.avg_pred_total,
+                prediction_date = excluded.prediction_date,
+                model_version = excluded.model_version
+        ''', (
+            game_id,
+            model_name or 'deep_eagle',
+            row.get('pred_home_score'),
+            row.get('pred_away_score'),
+            avg_pred_spread,
+            avg_pred_total,
+            now,
+            model_version,
+        ))
 
     conn.commit()
     logger.info(f"Saved {len(predictions_df)} predictions to odds_and_predictions")
@@ -413,15 +580,15 @@ def sync_to_cache():
         nfl_conn = sqlite3.connect('nfl_games.db')
         users_conn = sqlite3.connect('users.db')
 
-        # Get predictions from odds_and_predictions table
+        # Get predictions — use avg_pred_spread (adjusted) when available
         query = '''
             SELECT
                 o.game_id, g.date, g.week, g.season,
                 ht.display_name as home_team, at.display_name as away_team,
                 o.predicted_home_score, o.predicted_away_score,
-                o.predicted_away_score - o.predicted_home_score as pred_spread,
-                o.predicted_home_score + o.predicted_away_score as pred_total,
-                o.prediction_date,
+                COALESCE(o.avg_pred_spread, o.predicted_away_score - o.predicted_home_score) as pred_spread,
+                COALESCE(o.avg_pred_total, o.predicted_home_score + o.predicted_away_score) as pred_total,
+                COALESCE(o.prediction_created, o.prediction_date) as prediction_date,
                 o.latest_spread as vegas_spread,
                 o.latest_total as vegas_total,
                 g.completed,

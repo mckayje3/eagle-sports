@@ -768,14 +768,13 @@ def show_nfl_predictions():
             vegas_spread = row.get('vegas_spread', 0)
             pred_spread = row.get('pred_spread', 0)
 
-            # Spread confidence stars (NFL - with Deep Eagle adjustments)
-            # Backtest: 5+ pt edges hit 58.4% ATS (profitable), <5 pts = ~52% (below breakeven)
-            # Breakeven at -110 vig is ~52.4%
+            # Spread confidence stars (NFL Ridge V2)
+            # Walk-forward: 5+ pt edges = 56.9% ATS (+8.6% ROI), p=0.098
             abs_edge = abs(edge)
             if abs_edge >= 5:
-                conf_stars = "⭐⭐⭐"  # 58.4% - profitable
+                conf_stars = "⭐⭐⭐"  # 56.9% ATS - marginal
             else:
-                conf_stars = "⭐"      # <53% - below breakeven
+                conf_stars = "⭐"      # Below breakeven
 
             # Pick direction
             if edge > 0:
@@ -799,20 +798,14 @@ def show_nfl_predictions():
             if pd.isna(vegas_total):
                 vegas_total = 44.0
             total_edge = pred_total - vegas_total if vegas_total else 0
-            total_pick = f"OVER {vegas_total:.1f}" if total_edge > 0 else f"UNDER {vegas_total:.1f}"
 
-            # Total confidence stars (NFL - Deep Eagle totals less reliable)
-            # Keep higher thresholds for totals
-            abs_total_edge = abs(total_edge)
-            if abs_total_edge >= 7:
-                total_stars = "⭐⭐⭐"
-            elif abs_total_edge >= 4:
-                total_stars = "⭐⭐"
-            else:
-                total_stars = "⭐"
+            # NFL totals: not reliably profitable at any threshold
+            # Walk-forward validation: OVER 3+ = 50.0%, FADE UNDER = 65% but n=20
+            total_pick = f"OVER {vegas_total:.1f}" if total_edge > 0 else f"UNDER {vegas_total:.1f}"
+            total_stars = "⭐"  # All totals 1 star (not profitable)
 
             # Check if game is completed
-            game_date = row.get('date', '')
+            game_date = str(row.get('date', ''))[:10]
             is_completed = game_date < today_str if game_date else False
 
             # Game card - new 3-row format
@@ -917,14 +910,13 @@ def _display_nfl_regular_season(predictions_df, week: int):
         if pd.isna(pred_spread):
             pred_spread = 0
 
-        # Spread confidence stars (NFL - with Deep Eagle adjustments)
-        # Backtest: 5+ pt edges hit 58.4% ATS (profitable), <5 pts = ~52% (below breakeven)
-        # Breakeven at -110 vig is ~52.4%
+        # Spread confidence stars (NFL Ridge V2)
+        # Walk-forward: 5+ pt edges = 56.9% ATS (+8.6% ROI), p=0.098
         abs_edge = abs(edge)
         if abs_edge >= 5:
-            conf_stars = "⭐⭐⭐"  # 58.4% - profitable
+            conf_stars = "⭐⭐⭐"  # 56.9% ATS - marginal
         else:
-            conf_stars = "⭐"      # <53% - below breakeven
+            conf_stars = "⭐"      # Below breakeven
 
         # Pick direction
         if edge > 0:
@@ -948,17 +940,11 @@ def _display_nfl_regular_season(predictions_df, week: int):
         if pd.isna(vegas_total):
             vegas_total = 0
         total_edge = pred_total - vegas_total if vegas_total else 0
-        total_pick = f"OVER {vegas_total:.1f}" if total_edge > 0 else f"UNDER {vegas_total:.1f}"
 
-        # Total confidence stars (NFL - Deep Eagle totals less reliable)
-        # Keep higher thresholds for totals
-        abs_total_edge = abs(total_edge)
-        if abs_total_edge >= 7:
-            total_stars = "⭐⭐⭐"
-        elif abs_total_edge >= 4:
-            total_stars = "⭐⭐"
-        else:
-            total_stars = "⭐"
+        # NFL totals: not reliably profitable at any threshold
+        # Walk-forward validation: OVER 3+ = 50.0%, FADE UNDER = 65% but n=20
+        total_pick = f"OVER {vegas_total:.1f}" if total_edge > 0 else f"UNDER {vegas_total:.1f}"
+        total_stars = "⭐"  # All totals 1 star (not profitable)
 
         # Check if game is completed
         game_date = str(row.get('date', ''))[:10]
@@ -1448,8 +1434,15 @@ def display_top_picks(predictions_df, sport_emoji="🏈", max_picks=5, min_disag
             else:
                 is_3star_spread = False  # Not a home underdog
             is_3star_total = False  # NHL totals not profitable
+        elif sport == 'NFL':
+            # NFL Ridge V2 proper walk-forward (3 seasons, 522 games):
+            # 5+ pt spread edge: 56.9% ATS (58-44), p=0.098 marginal
+            # Consistent across all 3 test seasons (52.6%-62.5%)
+            # Totals NOT profitable at any threshold (OVER 3+ = 50.0% coin flip)
+            is_3star_spread = spread_edge >= 5
+            is_3star_total = False  # Totals not reliably profitable
         else:
-            # NFL/CFB
+            # CFB
             is_3star_spread = spread_edge >= 5
             is_3star_total = total_edge >= 8
 
@@ -1516,6 +1509,8 @@ def display_top_picks(predictions_df, sport_emoji="🏈", max_picks=5, min_disag
         st.info("ℹ️ CBB model does not beat Vegas at any threshold (~50% ATS across 11k games). Entertainment only.")
     elif sport == 'NHL':
         st.success("✅ NHL Home Underdogs: 52% win rate, +17.5% ROI (707 games, p=0.009). Best: +100-120 range.")
+    elif sport == 'NFL':
+        st.success("✅ NFL: Spreads 5+ edge = 56.9% ATS (marginal, p=0.098). Totals not profitable.")
     else:
         st.caption("Highest confidence picks based on historical profitability")
 
@@ -3481,11 +3476,11 @@ def display_feature_importance(model_path: str, sport_name: str):
 
 
 def show_model_insights():
-    """Display Deep Eagle model transparency and explainability information"""
-    st.markdown('<p class="main-header">Deep Eagle Model Insights</p>', unsafe_allow_html=True)
+    """Display model transparency and explainability information"""
+    st.markdown('<p class="main-header">Model Insights</p>', unsafe_allow_html=True)
 
     st.markdown("""
-    This page provides transparency into how the Deep Eagle prediction models work for each sport,
+    This page provides transparency into how the prediction models work for each sport,
     including the features used, architecture, and performance metrics.
     """)
 
@@ -3496,58 +3491,53 @@ def show_model_insights():
     # NFL TAB
     # =========================================================================
     with sport_tab[0]:
-        st.markdown("## NFL Model: Deep Eagle v2.0")
+        st.markdown("## NFL Model: Ridge V2 (SRS + Drive Efficiency)")
 
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.metric("Model File", "deep_eagle_nfl_2025.pt")
+            st.metric("Model File", "nfl_ridge_v2.pkl")
         with col2:
-            st.metric("Total Features", "78")
+            st.metric("Spread Features", "18")
         with col3:
-            st.metric("Training Games", "~500")
+            st.metric("Total Features", "14")
         with col4:
-            st.metric("Seasons", "2024-2025")
+            st.metric("Walk-Forward", "2024-2025")
 
         st.markdown("""
         ### Architecture
-        - **Type:** Deep Neural Network (PyTorch)
-        - **Hidden Layers:** 256 → 128 → 64 neurons
-        - **Activation:** ReLU with Batch Normalization
-        - **Regularization:** Dropout (0.3), Early Stopping
-        - **Output:** Dual heads for home/away score prediction
+        - **Type:** Ridge Regression with StandardScaler
+        - **Validation:** Walk-forward (train on seasons < N, test on season N)
+        - **SRS Ratings:** Iterative opponent-adjusted (10 iterations, recalc every 30 games)
+        - **Decay:** 0.96 per game (higher than NBA's 0.93 — fewer games = more recency)
+        - **HCA:** Dynamic per-team, shrunk toward 2.5 pts base
         """)
 
-        st.markdown("### Feature Categories (78 total)")
+        st.markdown("### Feature Categories")
         nfl_features = {
-            "Vegas Odds": {
-                "features": ["Opening Spread", "Latest Spread", "Opening Total", "Latest Total", "Moneylines"],
-                "count": 8,
-                "description": "Market consensus from major sportsbooks"
+            "Opponent-Adjusted Ratings": {
+                "features": ["SRS Diff", "PPG Diff (decay-weighted)", "PAPG Diff"],
+                "count": 3,
+                "description": "Simple Rating System — iterative opponent adjustment like basketball analytics"
             },
-            "Historical Team Stats": {
-                "features": ["PPG", "Points Allowed", "Yards/Game", "Turnovers/Game", "Win %"],
-                "count": 12,
-                "description": "Season-to-date averages (home and away teams)"
+            "Box Score Stats": {
+                "features": ["Yards/Game Diff", "Rush Yards Diff", "Turnover Diff", "3rd Down % Diff", "First Downs Diff"],
+                "count": 5,
+                "description": "Traditional box score differentials with exponential decay weighting"
             },
-            "Home/Away Splits": {
-                "features": ["Home PPG", "Away PPG", "Home Win %", "Away Win %", "Home/Away PPG Differential"],
-                "count": 18,
-                "description": "Venue-specific performance metrics"
+            "Drive Efficiency (Real Data)": {
+                "features": ["Scoring % Diff", "Yards/Drive Diff"],
+                "count": 2,
+                "description": "Real per-game drive data from drives table (not estimates)"
             },
-            "Drive Efficiency": {
-                "features": ["Points/Drive", "Yards/Drive", "Scoring %", "3-and-Out %", "Red Zone %"],
-                "count": 26,
-                "description": "Offensive and defensive efficiency per possession"
+            "Form & Momentum": {
+                "features": ["Recent Form (4-game)", "Momentum", "Win/Loss Streak"],
+                "count": 3,
+                "description": "Dampened recent performance indicators"
             },
-            "Game Context": {
-                "features": ["Week", "Neutral Site", "Conference Game", "Dome/Outdoor"],
-                "count": 7,
-                "description": "Situational factors"
-            },
-            "Matchup Differentials": {
-                "features": ["PPG Diff", "Win % Diff", "PPD Diff", "Venue PPG Diff"],
-                "count": 7,
-                "description": "Head-to-head statistical comparisons"
+            "Situational Factors": {
+                "features": ["Rest Days Diff", "Post-Bye", "Dynamic HCA", "Home/Away Reliability"],
+                "count": 5,
+                "description": "NFL-specific scheduling and venue factors"
             }
         }
 
@@ -3556,18 +3546,24 @@ def show_model_insights():
                 st.markdown(f"**Description:** {info['description']}")
                 st.markdown(f"**Key Features:** {', '.join(info['features'])}")
 
-        st.markdown("### Performance")
+        st.markdown("### Walk-Forward Performance (3 seasons, 522 games)")
+        st.caption("Proper per-season walk-forward: train on seasons < N, test on season N")
         col1, col2 = st.columns(2)
         with col1:
-            st.metric("Spread MAE", "~11 points")
-            st.metric("Total MAE", "~14 points")
+            st.metric("Spread MAE", "~10.3 pts")
+            st.metric("5+ Edge ATS", "56.9% (58-44)")
         with col2:
-            st.metric("Home Score MAE", "~10 points")
-            st.metric("Away Score MAE", "~10 points")
+            st.metric("Spread ROI (5+ edge)", "+8.6%")
+            st.metric("P-value", "0.098 (marginal)")
 
-        # Feature importance
-        st.markdown("---")
-        display_feature_importance('models/deep_eagle_nfl_2025.pt', 'NFL')
+        st.markdown("""
+        ### Key Findings
+        - **Spreads:** 5+ pt edges = 56.9% ATS, consistent across all 3 test seasons
+        - **Totals:** Not reliably profitable at any threshold (OVER 3+ = 50.0% on proper validation)
+        - **Post-Prediction Adjustments:** Big underdog (+1.0 at 7+ dog)
+        - **Validation note:** Original 65.9% OVER 3+ was driven by one 15-game season at 80%;
+          2025 season (70 games) was 45.7%. Always per-season validate.
+        """)
 
     # =========================================================================
     # CFB TAB
