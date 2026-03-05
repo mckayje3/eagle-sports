@@ -80,6 +80,10 @@ class CFBRidgeV2:
         self.spread_scaler: StandardScaler | None = None
         self.total_scaler: StandardScaler | None = None
 
+        # Score-based model (predicts individual team scores, derives spread/total)
+        self.score_model: Ridge | None = None
+        self.score_scaler: StandardScaler | None = None
+
         # Team state tracking
         self.team_games: dict = defaultdict(lambda: defaultdict(lambda: {
             'ppg': [], 'ppg_wts': [],
@@ -403,6 +407,58 @@ class CFBRidgeV2:
             min(aws['games'] / 10.0, 1.0),                  # 11: Away reliability
         ])
 
+    def extract_score_features(self, team_id: int, opp_id: int, season: int,
+                               game_date: str, week: int = 7,
+                               is_home: bool = True,
+                               neutral: bool = False) -> np.ndarray | None:
+        """
+        Extract 20 features for predicting one team's score.
+
+        Each game produces 2 rows (home→home_score, away→away_score).
+        This doubles the training data and lets spread/total emerge from score predictions.
+        """
+        ts = self._get_team_stats(team_id, season)
+        ops = self._get_team_stats(opp_id, season)
+
+        if ts['games'] < MIN_GAMES or ops['games'] < MIN_GAMES:
+            return None
+
+        team_srs = self._get_team_srs(team_id, season)
+        opp_srs = self._get_team_srs(opp_id, season)
+        rest = self._get_rest_days(team_id, game_date)
+
+        # HCA: positive for home team, 0 for away/neutral
+        if neutral:
+            hca_val = 0.0
+        elif is_home:
+            hca_val = self._get_dynamic_hca(team_id, season)
+        else:
+            hca_val = 0.0
+
+        return np.array([
+            # Team offensive profile
+            ts['ppg'],                                           #  0
+            ts['yards'], ts['pass_yards'], ts['rush_yards'],    #  1-3
+            ts['turnovers'],                                     #  4
+            ts['first_downs'],                                   #  5
+            ts['scoring_pct'], ts['ypd'],                        #  6-7
+            # Opponent defensive profile
+            ops['papg'],                                         #  8
+            ops['turnovers'],                                    #  9
+            ops['scoring_pct'],                                  # 10
+            ops['ypd'],                                          # 11
+            # Strength ratings
+            team_srs, opp_srs,                                   # 12-13
+            # Form
+            self._recent_form(ts['margins']),                    # 14
+            self._momentum(ts['margins']),                       # 15
+            self._streak(ts['wins']),                            # 16
+            # Context
+            min(rest, 14),                                       # 17
+            hca_val,                                             # 18
+            min(week / 14.0, 1.0),                               # 19
+        ])
+
     # -- State Updates --------------------------------------------------------
 
     def update_team(self, team_id: int, opponent_id: int, season: int,
@@ -505,8 +561,8 @@ class CFBRidgeV2:
                 game_date: str, week: int = 7,
                 neutral_site: bool = False, is_conf_game: bool = False,
                 vegas_spread: float = None, vegas_total: float = None) -> dict:
-        """Make pure model predictions (no Vegas blend)."""
-        if self.spread_model is None:
+        """Make pure model predictions. Uses score model (primary) or spread/total (fallback)."""
+        if self.score_model is None and self.spread_model is None:
             raise ValueError("Model not trained -- call train() first")
 
         # Recalculate SRS for current predictions
@@ -514,37 +570,59 @@ class CFBRidgeV2:
         if current_srs:
             self.team_srs[season] = current_srs
 
-        spread_features = self.extract_spread_features(
-            home_id, away_id, season, game_date, week,
-            neutral_site=neutral_site, is_conf_game=is_conf_game
-        )
-        total_features = self.extract_total_features(
-            home_id, away_id, season, game_date, week
-        )
-
+        home_score = None
+        away_score = None
         spread = None
         total = None
 
-        if spread_features is not None:
-            spread_scaled = self.spread_scaler.transform(spread_features.reshape(1, -1))
-            spread = float(self.spread_model.predict(spread_scaled)[0])
+        # Primary: score-based model (predicts individual team scores)
+        if self.score_model is not None and self.score_scaler is not None:
+            home_feat = self.extract_score_features(
+                home_id, away_id, season, game_date, week,
+                is_home=not neutral_site, neutral=neutral_site
+            )
+            away_feat = self.extract_score_features(
+                away_id, home_id, season, game_date, week,
+                is_home=False, neutral=neutral_site
+            )
+            if home_feat is not None and away_feat is not None:
+                home_scaled = self.score_scaler.transform(home_feat.reshape(1, -1))
+                away_scaled = self.score_scaler.transform(away_feat.reshape(1, -1))
+                home_score = max(0, float(self.score_model.predict(home_scaled)[0]))
+                away_score = max(0, float(self.score_model.predict(away_scaled)[0]))
+                spread = away_score - home_score
+                total = home_score + away_score
 
-        if total_features is not None:
-            total_scaled = self.total_scaler.transform(total_features.reshape(1, -1))
-            total = float(self.total_model.predict(total_scaled)[0])
+        # Fallback: spread/total models (backward compat)
+        if spread is None and self.spread_model is not None:
+            spread_features = self.extract_spread_features(
+                home_id, away_id, season, game_date, week,
+                neutral_site=neutral_site, is_conf_game=is_conf_game
+            )
+            if spread_features is not None:
+                spread_scaled = self.spread_scaler.transform(spread_features.reshape(1, -1))
+                spread = float(self.spread_model.predict(spread_scaled)[0])
 
-        # Derive scores from spread and total
-        home_score = None
-        away_score = None
-        if spread is not None and total is not None:
+        if total is None and self.total_model is not None:
+            total_features = self.extract_total_features(
+                home_id, away_id, season, game_date, week
+            )
+            if total_features is not None:
+                total_scaled = self.total_scaler.transform(total_features.reshape(1, -1))
+                total = float(self.total_model.predict(total_scaled)[0])
+
+        # Derive scores from spread+total if score model didn't produce them
+        if home_score is None and spread is not None and total is not None:
             home_score = (total - spread) / 2
             away_score = (total + spread) / 2
 
+        # SRS diff and HCA for diagnostics
         srs_diff = None
         hca = None
-        if spread_features is not None:
-            srs_diff = spread_features[2]
-            hca = spread_features[15]
+        home_srs = self._get_team_srs(home_id, season)
+        away_srs = self._get_team_srs(away_id, season)
+        srs_diff = home_srs - away_srs
+        hca = 0.0 if neutral_site else self._get_dynamic_hca(home_id, season)
 
         return {
             'predicted_spread': spread,
@@ -638,6 +716,13 @@ class CFBRidgeV2:
         # -- Walk-forward training --------------------------------------------
         X_spread, y_spread = [], []
         X_total, y_total = [], []
+        # Score-based model data (2 rows per game: home→home_score, away→away_score)
+        X_score, y_score = [], []
+        score_game_idx = []  # Maps score rows back to game index
+        score_game_counter = 0
+        score_seasons = []  # Season per game (not per row)
+        score_vegas_s, score_vegas_t = [], []
+        score_actual_spread, score_actual_total = [], []
         vegas_spreads_list = []
         vegas_totals_list = []
         total_seasons = []
@@ -709,6 +794,38 @@ class CFBRidgeV2:
                         )
                         total_seasons.append(season)
 
+                    # Score-based features (2 rows per game)
+                    home_score_feat = self.extract_score_features(
+                        hid, aid, season, g['date'], week,
+                        is_home=not neutral, neutral=neutral
+                    )
+                    away_score_feat = self.extract_score_features(
+                        aid, hid, season, g['date'], week,
+                        is_home=False, neutral=neutral
+                    )
+                    if home_score_feat is not None and away_score_feat is not None:
+                        vs = g['vegas_spread'] if pd.notna(g['vegas_spread']) else np.nan
+                        vt = g['vegas_total'] if pd.notna(g['vegas_total']) else np.nan
+                        # Home row
+                        X_score.append(home_score_feat)
+                        y_score.append(g['home_score'])
+                        score_game_idx.append(score_game_counter)
+                        score_seasons.append(season)
+                        score_vegas_s.append(vs)
+                        score_vegas_t.append(vt)
+                        score_actual_spread.append(actual_spread)
+                        score_actual_total.append(actual_total)
+                        # Away row
+                        X_score.append(away_score_feat)
+                        y_score.append(g['away_score'])
+                        score_game_idx.append(score_game_counter)
+                        score_seasons.append(season)
+                        score_vegas_s.append(vs)
+                        score_vegas_t.append(vt)
+                        score_actual_spread.append(actual_spread)
+                        score_actual_total.append(actual_total)
+                        score_game_counter += 1
+
                 # Update team states
                 self.update_team(
                     hid, aid, season, g['date'],
@@ -765,7 +882,31 @@ class CFBRidgeV2:
         vegas_totals_arr = vegas_totals_arr[~total_nan]
         total_seasons_arr = total_seasons_arr[~total_nan]
 
+        # Convert score arrays
+        X_score = np.array(X_score)
+        y_score = np.array(y_score)
+        score_game_idx = np.array(score_game_idx)
+        score_seasons = np.array(score_seasons)
+        score_vegas_s = np.array(score_vegas_s)
+        score_vegas_t = np.array(score_vegas_t)
+        score_actual_spread = np.array(score_actual_spread)
+        score_actual_total = np.array(score_actual_total)
+
+        # Drop NaN score rows
+        if len(X_score) > 0:
+            score_nan = np.isnan(X_score).any(axis=1) | np.isnan(y_score)
+            log.info(f"Dropping {score_nan.sum()} score rows with NaN features")
+            X_score = X_score[~score_nan]
+            y_score = y_score[~score_nan]
+            score_game_idx = score_game_idx[~score_nan]
+            score_seasons = score_seasons[~score_nan]
+            score_vegas_s = score_vegas_s[~score_nan]
+            score_vegas_t = score_vegas_t[~score_nan]
+            score_actual_spread = score_actual_spread[~score_nan]
+            score_actual_total = score_actual_total[~score_nan]
+
         log.info(f"\nSpread samples: {len(X_spread)}, Total samples: {len(X_total)}")
+        log.info(f"Score samples: {len(X_score)} (from {score_game_counter} games)")
 
         # -- Walk-forward: train on first 2 seasons, test on last 2 ----------
         test_seasons = sorted(set(game_seasons))[-2:]
@@ -817,7 +958,96 @@ class CFBRidgeV2:
         self.total_model = Ridge(alpha=1.0)
         self.total_model.fit(X_train_t_scaled, y_train_t)
 
-        # -- Evaluate ---------------------------------------------------------
+        # -- Train score model ------------------------------------------------
+        # All score arrays are per-row (2 per game). Use row-level season mask.
+        score_test_seasons_list = sorted(set(score_seasons))[-2:]
+        score_train_rows = ~np.isin(score_seasons, score_test_seasons_list)
+        score_test_rows = np.isin(score_seasons, score_test_seasons_list)
+
+        self.score_scaler = StandardScaler()
+        X_train_sc = self.score_scaler.fit_transform(X_score[score_train_rows])
+        X_test_sc = self.score_scaler.transform(X_score[score_test_rows])
+
+        self.score_model = Ridge(alpha=1.0)
+        self.score_model.fit(X_train_sc, y_score[score_train_rows])
+
+        log.info(f"\nScore -- Train: {score_train_rows.sum()} rows, "
+                 f"Test: {score_test_rows.sum()} rows (seasons {score_test_seasons_list})")
+
+        # Map score predictions back to game-level spread/total
+        score_preds = self.score_model.predict(X_test_sc)
+        test_game_idx_arr = score_game_idx[score_test_rows]
+        unique_test_games = np.unique(test_game_idx_arr)
+        n_test_games = len(unique_test_games)
+
+        score_spread_pred = np.zeros(n_test_games)
+        score_total_pred = np.zeros(n_test_games)
+        game_actual_s = np.zeros(n_test_games)
+        game_actual_t = np.zeros(n_test_games)
+        game_vegas_s = np.full(n_test_games, np.nan)
+        game_vegas_t = np.full(n_test_games, np.nan)
+
+        # Per-row test arrays for indexing
+        test_actual_s = score_actual_spread[score_test_rows]
+        test_actual_t = score_actual_total[score_test_rows]
+        test_vs = score_vegas_s[score_test_rows]
+        test_vt = score_vegas_t[score_test_rows]
+
+        for i, gidx in enumerate(unique_test_games):
+            row_indices = np.where(test_game_idx_arr == gidx)[0]
+            if len(row_indices) == 2:
+                home_pred = max(0, score_preds[row_indices[0]])
+                away_pred = max(0, score_preds[row_indices[1]])
+                score_spread_pred[i] = away_pred - home_pred
+                score_total_pred[i] = home_pred + away_pred
+            # Actuals/vegas are same for both rows of a game — take first
+            game_actual_s[i] = test_actual_s[row_indices[0]]
+            game_actual_t[i] = test_actual_t[row_indices[0]]
+            game_vegas_s[i] = test_vs[row_indices[0]]
+            game_vegas_t[i] = test_vt[row_indices[0]]
+
+        # Score model evaluation (game-level)
+        score_actual_s = game_actual_s
+        score_actual_t = game_actual_t
+        score_vs = game_vegas_s
+        score_vt = game_vegas_t
+
+        score_spread_mae = np.abs(score_spread_pred - score_actual_s).mean()
+        score_total_mae = np.abs(score_total_pred - score_actual_t).mean()
+
+        log.info("\n" + "=" * 70)
+        log.info("SCORE MODEL RESULTS")
+        log.info("=" * 70)
+        log.info(f"Score-based Spread MAE: {score_spread_mae:.2f}")
+        log.info(f"Score-based Total MAE:  {score_total_mae:.2f}")
+
+        has_score_vs = ~np.isnan(score_vs)
+        has_score_vt = ~np.isnan(score_vt)
+        if has_score_vs.sum() > 0:
+            vegas_s_mae = np.abs(score_vs[has_score_vs] - score_actual_s[has_score_vs]).mean()
+            log.info(f"Vegas Spread MAE:       {vegas_s_mae:.2f}")
+        if has_score_vt.sum() > 0:
+            vegas_t_mae = np.abs(score_vt[has_score_vt] - score_actual_t[has_score_vt]).mean()
+            log.info(f"Vegas Total MAE:        {vegas_t_mae:.2f}")
+
+        # Score model coefficients
+        score_feat_names = [
+            'team_ppg', 'team_yards', 'team_pass_yds', 'team_rush_yds',
+            'team_turnovers', 'team_first_downs',
+            'team_scoring_pct', 'team_ypd',
+            'opp_papg', 'opp_turnovers', 'opp_scoring_pct', 'opp_ypd',
+            'team_srs', 'opp_srs',
+            'team_form', 'team_momentum', 'team_streak',
+            'team_rest', 'is_home_hca', 'season_progress',
+        ]
+        log.info("\nScore Model Coefficients:")
+        coefs = list(zip(score_feat_names, self.score_model.coef_))
+        coefs.sort(key=lambda x: abs(x[1]), reverse=True)
+        for name, coef in coefs:
+            log.info(f"  {name:<22} {coef:+.4f}")
+        log.info(f"  Intercept: {self.score_model.intercept_:+.4f}")
+
+        # -- Evaluate spread/total models (existing) -------------------------
         model_spread = self.spread_model.predict(X_test_s_scaled)
         model_total = self.total_model.predict(X_test_t_scaled)
 
@@ -829,10 +1059,12 @@ class CFBRidgeV2:
         )
 
         return {
-            'spread_mae': np.abs(model_spread - y_test_s).mean(),
-            'vegas_spread_mae': np.nanmean(np.abs(vegas_test_s - y_test_s)),
-            'total_mae': np.abs(model_total - y_test_t).mean(),
-            'vegas_total_mae': np.nanmean(np.abs(vegas_test_t - y_test_t)),
+            'spread_mae': score_spread_mae,
+            'vegas_spread_mae': np.nanmean(np.abs(score_vs[has_score_vs] - score_actual_s[has_score_vs])) if has_score_vs.sum() > 0 else np.nan,
+            'total_mae': score_total_mae,
+            'vegas_total_mae': np.nanmean(np.abs(score_vt[has_score_vt] - score_actual_t[has_score_vt])) if has_score_vt.sum() > 0 else np.nan,
+            'diff_spread_mae': np.abs(model_spread - y_test_s).mean(),
+            'diff_total_mae': np.abs(model_total - y_test_t).mean(),
         }
 
     def _print_evaluation(self, model_spread, y_test_s, vegas_test_s,
@@ -1100,6 +1332,8 @@ class CFBRidgeV2:
             'total_model': self.total_model,
             'spread_scaler': self.spread_scaler,
             'total_scaler': self.total_scaler,
+            'score_model': self.score_model,
+            'score_scaler': self.score_scaler,
             'team_games': team_games_dict,
             'team_hca_data': hca_data_dict,
             'team_srs': srs_dict,
@@ -1129,6 +1363,8 @@ class CFBRidgeV2:
         model.total_model = model_data['total_model']
         model.spread_scaler = model_data['spread_scaler']
         model.total_scaler = model_data['total_scaler']
+        model.score_model = model_data.get('score_model')
+        model.score_scaler = model_data.get('score_scaler')
 
         # Restore team state with proper defaultdict factories
         model.team_games = defaultdict(
@@ -1168,10 +1404,16 @@ def main():
     log.info("\n" + "=" * 70)
     log.info("SUMMARY")
     log.info("=" * 70)
-    log.info(f"Ridge V2 Spread MAE: {results['spread_mae']:.2f}")
-    log.info(f"Vegas Spread MAE:    {results['vegas_spread_mae']:.2f}")
-    log.info(f"Ridge V2 Total MAE:  {results['total_mae']:.2f}")
-    log.info(f"Vegas Total MAE:     {results['vegas_total_mae']:.2f}")
+    log.info(f"Score Model Spread MAE:  {results['spread_mae']:.2f}")
+    log.info(f"Score Model Total MAE:   {results['total_mae']:.2f}")
+    log.info(f"Diff Model Spread MAE:   {results['diff_spread_mae']:.2f}")
+    log.info(f"Diff Model Total MAE:    {results['diff_total_mae']:.2f}")
+    vegas_s = results.get('vegas_spread_mae')
+    vegas_t = results.get('vegas_total_mae')
+    if vegas_s is not None and not np.isnan(vegas_s):
+        log.info(f"Vegas Spread MAE:        {vegas_s:.2f}")
+    if vegas_t is not None and not np.isnan(vegas_t):
+        log.info(f"Vegas Total MAE:         {vegas_t:.2f}")
 
 
 if __name__ == '__main__':

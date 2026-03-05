@@ -18,7 +18,7 @@ python nhl_predictor.py             # NHL predictions
 # Retrain models (after significant data updates)
 python nfl_ridge_v2.py              # Retrain NFL Ridge V2 (primary spread + total model)
 python nfl_simple_model.py          # Retrain NFL simple model (fallback)
-python cfb_ridge_v2.py              # Retrain CFB Ridge V2 (SRS model, totals only profitable)
+python cfb_ridge_v2.py              # Retrain CFB Ridge V2 (score-based model with SRS ratings)
 python cbb_enhanced_ridge.py        # Retrain CBB enhanced model
 python nba_enhanced_ridge.py        # Retrain NBA enhanced model
 
@@ -339,19 +339,23 @@ Playoff predictions come from `predict_nfl_playoffs.py` and `nfl_playoff_predict
 
 **Totals systematically tested:** 6 feature configs (pure, Vegas-anchored, pace, matchup, full, Vegas+full) x 6 alpha values. Best: 53.6% (p=0.14, not significant). Original OVER 3+ at 65.9% was one-season noise. NFL totals cannot be beaten with available data.
 
-**CFB (Ridge V2 + SRS — NOT PROFITABLE):**
+**CFB (Ridge V2 Score Model + SRS — NOT PROFITABLE):**
 
-*Spreads (1,317 games with Vegas lines, 2024-2025 walk-forward):*
+Uses score-based prediction (predicts each team's score individually, derives spread/total). Best total MAE of all architectures tested (12.80 vs 12.98 differential, Vegas 12.51).
+
+*Spreads (1,332 games with Vegas lines, 2024-2025 walk-forward):*
 | Edge | Stars | Win % | Notes |
 |------|-------|-------|-------|
-| Any | ⭐ | ~48% | NOT profitable — model is ~1 pt worse MAE than Vegas |
+| Any | ⭐ | ~48% | NOT profitable — model is ~1.1 pt worse MAE than Vegas |
 
-*Totals (1,318 games with Vegas totals, 2024-2025 walk-forward):*
+*Totals (1,332 games with Vegas totals, 2024-2025 walk-forward):*
 | Condition | Stars | Win % | Notes |
 |-----------|-------|-------|-------|
 | Any | ⭐ | ~50% | NOT profitable — signal flips between seasons |
 
-**CFB Note:** SRS diff is the strongest feature (coef=-5.04), confirming opponent-adjusted ratings matter in CFB's 245-team landscape. However, the model still can't beat Vegas on spreads (MAE 12.90 vs 11.89) or totals. OVER 5+ looked promising at 65.1% in 2024 but fell to 49.3% in 2025 (coin flip). UNDER 5+ showed the inverse pattern (46.8% in 2024, 59.4% in 2025). This direction-flipping is noise, not signal — same lesson as NFL OVER 3+.
+**CFB Note:** Score model uses 20 features (team offense + opponent defense + SRS + form). `opp_papg` is strongest coefficient (+2.82). 2x training data (each game → 2 rows). Total MAE closes the gap to Vegas (12.80 vs 12.51), but OVER/UNDER signal still flips between 2024 and 2025. Architectures tested: differential, asymmetric, score-based, ensemble — all ~48% ATS on spreads.
+- Pipeline: `cfb_ridge_v2.py` → `update_predictions_cfb.py` → `streamlit_app.py`
+- Fallback: Deep Eagle (if Ridge V2 pkl missing)
 - Model files: `models/cfb_ridge_v2.pkl`
 
 **NBA (Ridge V2 + Rule-Based Confidence - PROFITABLE):**

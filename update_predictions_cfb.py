@@ -142,9 +142,115 @@ def check_missing_vegas_lines(season, week):
     return len(missing_lines), len(games)
 
 def generate_predictions(season, week):
-    """Generate predictions using Deep Eagle model"""
+    """Generate predictions using Ridge V2 score model (primary) or Deep Eagle (fallback)."""
     logger.info(f"Generating Week {week} CFB predictions...")
 
+    # Try Ridge V2 first
+    predictions_df = _generate_ridge_v2_predictions(season, week)
+
+    if predictions_df is None:
+        # Fallback to Deep Eagle
+        predictions_df = _generate_deep_eagle_predictions(season, week)
+
+    if predictions_df is not None and len(predictions_df) > 0:
+        predictions_df.to_csv('cfb_current_predictions.csv', index=False)
+        predictions_df.to_csv(f'cfb_week{week}_predictions.csv', index=False)
+        save_to_database(predictions_df, season)
+        logger.info(f"Generated {len(predictions_df)} predictions")
+        return predictions_df
+
+    logger.warning("No upcoming CFB games found")
+    return None
+
+
+def _generate_ridge_v2_predictions(season, week):
+    """Generate predictions using CFB Ridge V2 score model."""
+    try:
+        from cfb_ridge_v2 import CFBRidgeV2
+        model = CFBRidgeV2.load()
+        if model.score_model is None and model.spread_model is None:
+            logger.warning("Ridge V2 model has no trained models")
+            return None
+        logger.info("Using Ridge V2 score model for predictions")
+    except FileNotFoundError:
+        logger.warning("Ridge V2 model not found, trying Deep Eagle fallback")
+        return None
+    except Exception as e:
+        logger.warning(f"Failed to load Ridge V2: {e}")
+        return None
+
+    # Load upcoming games
+    conn = sqlite3.connect('cfb_games.db')
+    try:
+        games = pd.read_sql_query('''
+            SELECT g.game_id, g.date, g.week, g.season,
+                   g.home_team_id, g.away_team_id,
+                   ht.name as home_team, at.name as away_team,
+                   g.neutral_site, g.conference_game,
+                   o.latest_spread as vegas_spread, o.latest_total as vegas_total
+            FROM games g
+            JOIN teams ht ON g.home_team_id = ht.team_id
+            JOIN teams at ON g.away_team_id = at.team_id
+            LEFT JOIN odds_and_predictions o ON g.game_id = o.game_id
+            WHERE g.completed = 0 AND g.week = ? AND g.season = ?
+            ORDER BY g.date
+        ''', conn, params=(week, season))
+    finally:
+        conn.close()
+
+    if games.empty:
+        return None
+
+    predictions = []
+    for _, game in games.iterrows():
+        try:
+            result = model.predict(
+                home_id=int(game['home_team_id']),
+                away_id=int(game['away_team_id']),
+                season=int(game['season']),
+                game_date=game['date'],
+                week=int(game['week']),
+                neutral_site=bool(game['neutral_site']),
+                is_conf_game=bool(game['conference_game']),
+                vegas_spread=game['vegas_spread'] if pd.notna(game['vegas_spread']) else None,
+                vegas_total=game['vegas_total'] if pd.notna(game['vegas_total']) else None,
+            )
+
+            if result['home_score'] is None:
+                logger.warning(f"No prediction for {game['away_team']} @ {game['home_team']}")
+                continue
+
+            predictions.append({
+                'game_id': game['game_id'],
+                'date': game['date'],
+                'week': game['week'],
+                'home_team': game['home_team'],
+                'away_team': game['away_team'],
+                'pred_home_score': round(result['home_score'], 1),
+                'pred_away_score': round(result['away_score'], 1),
+                'pred_spread': round(result['predicted_spread'], 1) if result['predicted_spread'] else None,
+                'pred_total': round(result['predicted_total'], 1) if result['predicted_total'] else None,
+                'pred_home_MOE': None,
+                'pred_away_MOE': None,
+                'pred_spread_MOE': None,
+                'pred_total_MOE': None,
+                'pred_home_win_prob': None,
+                'confidence': 0.7,
+                'vegas_spread': game['vegas_spread'] if pd.notna(game['vegas_spread']) else None,
+                'vegas_total': game['vegas_total'] if pd.notna(game['vegas_total']) else None,
+            })
+        except Exception as e:
+            logger.warning(f"Error predicting {game['away_team']} @ {game['home_team']}: {e}")
+            continue
+
+    if predictions:
+        logger.info(f"Ridge V2 generated {len(predictions)} predictions")
+        return pd.DataFrame(predictions)
+    return None
+
+
+def _generate_deep_eagle_predictions(season, week):
+    """Fallback: generate predictions using Deep Eagle model."""
     try:
         from cfb_deep_eagle_predictor import CFBDeepEaglePredictor
 
@@ -154,27 +260,14 @@ def generate_predictions(season, week):
         )
 
         if predictor.model is None:
-            logger.warning("CFB model not loaded - no predictions generated")
+            logger.warning("Deep Eagle model not loaded")
             return None
 
-        predictions_df = predictor.predict_upcoming(week=week)
-
-        if predictions_df is not None and len(predictions_df) > 0:
-            # Save predictions
-            predictions_df.to_csv('cfb_current_predictions.csv', index=False)
-            predictions_df.to_csv(f'cfb_week{week}_predictions.csv', index=False)
-
-            # Save to database
-            save_to_database(predictions_df, season)
-
-            logger.info(f"Generated {len(predictions_df)} predictions")
-            return predictions_df
-
-        logger.warning("No upcoming CFB games found")
-        return None
+        logger.info("Using Deep Eagle fallback for predictions")
+        return predictor.predict_upcoming(week=week)
 
     except Exception as e:
-        logger.error(f"Error generating predictions: {e}")
+        logger.error(f"Deep Eagle fallback failed: {e}")
         import traceback
         traceback.print_exc()
         return None
@@ -183,69 +276,67 @@ def generate_predictions(season, week):
 def save_to_database(predictions_df, season):
     """Save predictions to odds_and_predictions table in cfb_games.db"""
     conn = sqlite3.connect('cfb_games.db')
-    cursor = conn.cursor()
+    try:
+        cursor = conn.cursor()
+        now = datetime.now().isoformat()
 
-    now = datetime.now().isoformat()
+        for _, row in predictions_df.iterrows():
+            game_id = int(row['game_id'])
 
-    for _, row in predictions_df.iterrows():
-        game_id = int(row['game_id'])
+            cursor.execute('SELECT id FROM odds_and_predictions WHERE game_id = ?', (game_id,))
+            existing = cursor.fetchone()
 
-        # Check if row exists for this game
-        cursor.execute('SELECT id FROM odds_and_predictions WHERE game_id = ?', (game_id,))
-        existing = cursor.fetchone()
+            if existing:
+                cursor.execute('''
+                    UPDATE odds_and_predictions SET
+                        predicted_home_score = ?,
+                        predicted_away_score = ?,
+                        predicted_home_MOE = ?,
+                        predicted_away_MOE = ?,
+                        predicted_spread_MOE = ?,
+                        predicted_total_MOE = ?,
+                        home_win_probability = ?,
+                        confidence = ?,
+                        prediction_created = ?
+                    WHERE game_id = ?
+                ''', (
+                    row.get('pred_home_score'),
+                    row.get('pred_away_score'),
+                    row.get('pred_home_MOE'),
+                    row.get('pred_away_MOE'),
+                    row.get('pred_spread_MOE'),
+                    row.get('pred_total_MOE'),
+                    row.get('pred_home_win_prob'),
+                    row.get('confidence'),
+                    now,
+                    game_id
+                ))
+            else:
+                cursor.execute('''
+                    INSERT INTO odds_and_predictions
+                    (game_id, source, predicted_home_score, predicted_away_score,
+                     predicted_home_MOE, predicted_away_MOE,
+                     predicted_spread_MOE, predicted_total_MOE,
+                     home_win_probability, confidence, prediction_created)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    game_id,
+                    'RidgeV2',
+                    row.get('pred_home_score'),
+                    row.get('pred_away_score'),
+                    row.get('pred_home_MOE'),
+                    row.get('pred_away_MOE'),
+                    row.get('pred_spread_MOE'),
+                    row.get('pred_total_MOE'),
+                    row.get('pred_home_win_prob'),
+                    row.get('confidence'),
+                    now
+                ))
 
-        if existing:
-            # Update existing row with predictions
-            cursor.execute('''
-                UPDATE odds_and_predictions SET
-                    predicted_home_score = ?,
-                    predicted_away_score = ?,
-                    predicted_home_MOE = ?,
-                    predicted_away_MOE = ?,
-                    predicted_spread_MOE = ?,
-                    predicted_total_MOE = ?,
-                    home_win_probability = ?,
-                    confidence = ?,
-                    prediction_created = ?
-                WHERE game_id = ?
-            ''', (
-                row.get('pred_home_score'),
-                row.get('pred_away_score'),
-                row.get('pred_home_MOE'),
-                row.get('pred_away_MOE'),
-                row.get('pred_spread_MOE'),
-                row.get('pred_total_MOE'),
-                row.get('pred_home_win_prob'),
-                row.get('confidence'),
-                now,
-                game_id
-            ))
-        else:
-            # Insert new row with predictions (odds may be added later)
-            cursor.execute('''
-                INSERT INTO odds_and_predictions
-                (game_id, source, predicted_home_score, predicted_away_score,
-                 predicted_home_MOE, predicted_away_MOE,
-                 predicted_spread_MOE, predicted_total_MOE,
-                 home_win_probability, confidence, prediction_created)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                game_id,
-                'DeepEagle',
-                row.get('pred_home_score'),
-                row.get('pred_away_score'),
-                row.get('pred_home_MOE'),
-                row.get('pred_away_MOE'),
-                row.get('pred_spread_MOE'),
-                row.get('pred_total_MOE'),
-                row.get('pred_home_win_prob'),
-                row.get('confidence'),
-                now
-            ))
-
-    conn.commit()
-    conn.close()
-    logger.info(f"Saved {len(predictions_df)} predictions to odds_and_predictions table")
+        conn.commit()
+        logger.info(f"Saved {len(predictions_df)} predictions to odds_and_predictions table")
+    finally:
+        conn.close()
 
 
 def sync_to_cache():
