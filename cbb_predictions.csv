@@ -1,22 +1,6 @@
 game_id,date,home_team,away_team,pred_home_score,pred_away_score,pred_spread,pred_spread_base,pred_total,vegas_spread,confidence,adjustments,predicted_winner
-401851206,2026-03-14T15:00Z,UMBC Retrievers,Vermont Catamounts,72.6,70.2,-2.4,-2.4,142.8,-3.5,0.553,enhanced_model,UMBC Retrievers
-401851435,2026-03-14T15:00Z,Yale Bulldogs,Cornell Big Red,93.3,81.1,-12.2,-12.2,174.4,-4.5,0.885,enhanced_model,Yale Bulldogs
-401851275,2026-03-14T17:00Z,Saint Louis Billikens,Dayton Flyers,83.3,68.4,-14.9,-14.9,151.8,-5.5,0.95,enhanced_model,Saint Louis Billikens
-401851384,2026-03-14T17:00Z,Michigan Wolverines,Wisconsin Badgers,90.2,75.4,-14.9,-14.9,165.6,-12.5,0.618,enhanced_model,Michigan Wolverines
-401851477,2026-03-14T17:00Z,Howard Bison,North Carolina Central Eagles,76.6,70.3,-6.3,-6.3,146.9,-12.5,0.809,enhanced_model,Howard Bison
-401851569,2026-03-14T17:00Z,Florida Gators,Vanderbilt Commodores,86.5,82.5,-4.1,-4.1,169.0,-8.5,0.722,enhanced_model,Florida Gators
-401851436,2026-03-14T18:00Z,Harvard Crimson,Pennsylvania Quakers,74.3,70.1,-4.2,-4.2,144.3,-2.5,0.583,enhanced_model,Harvard Crimson
-401851227,2026-03-14T19:00Z,South Florida Bulls,Charlotte 49ers,89.3,76.6,-12.7,-12.7,166.0,-14.5,0.588,enhanced_model,South Florida Bulls
-401851276,2026-03-14T19:30Z,VCU Rams,Saint Joseph's Hawks,83.5,70.9,-12.6,-12.6,154.4,-6.5,0.805,enhanced_model,VCU Rams
-401851386,2026-03-14T19:30Z,UCLA Bruins,Purdue Boilermakers,73.4,75.1,1.7,1.7,148.5,7.5,0.791,enhanced_model,Purdue Boilermakers
-401851570,2026-03-14T19:30Z,Arkansas Razorbacks,Ole Miss Rebels,83.7,75.3,-8.4,-8.4,159.0,-9.5,0.557,enhanced_model,Arkansas Razorbacks
-401851228,2026-03-14T21:30Z,Wichita State Shockers,Tulsa Golden Hurricane,77.6,79.3,1.8,1.8,156.9,-1.5,0.663,enhanced_model,Tulsa Golden Hurricane
-401851306,2026-03-14T22:00Z,Arizona Wildcats,Houston Cougars,77.0,72.5,-4.6,-4.6,149.5,-2.5,0.603,enhanced_model,Arizona Wildcats
-401851505,2026-03-14T22:00Z,Utah State Aggies,San Diego State Aztecs,80.2,72.7,-7.5,-7.5,152.9,-1.5,0.799,enhanced_model,Utah State Aggies
-401851317,2026-03-14T22:30Z,St. John's Red Storm,UConn Huskies,75.2,71.7,-3.5,-3.5,146.8,3.5,0.849,enhanced_model,St. John's Red Storm
-401851726,2026-03-14T23:30Z,Southern Jaguars,Prairie View A&M Panthers,81.4,77.2,-4.2,-4.2,158.6,-3.5,0.537,enhanced_model,Southern Jaguars
-401858192,2026-03-15T00:00Z,Akron Zips,Toledo Rockets,93.7,80.4,-13.4,-13.4,174.1,-7.5,0.793,enhanced_model,Akron Zips
-401851183,2026-03-15T00:30Z,Duke Blue Devils,Virginia Cavaliers,78.3,70.6,-7.7,-7.7,148.9,-8.5,0.538,enhanced_model,Duke Blue Devils
-401851415,2026-03-15T00:30Z,Louisiana Tech Bulldogs,Kennesaw State Owls,72.7,72.5,-0.2,-0.2,145.2,1.5,0.585,enhanced_model,Louisiana Tech Bulldogs
-401851398,2026-03-15T02:00Z,UC Irvine Anteaters,Hawai'i Rainbow Warriors,71.9,70.7,-1.2,-1.2,142.7,-1.5,0.516,enhanced_model,UC Irvine Anteaters
-401851739,2026-03-15T03:59Z,Utah Valley Wolverines,California Baptist Lancers,79.6,67.6,-12.0,-12.0,147.3,-1.5,0.95,enhanced_model,Utah Valley Wolverines
+401851437,2026-03-15T16:00Z,Yale Bulldogs,Pennsylvania Quakers,85.7,70.9,-14.8,-14.8,156.6,-9.5,0.767,enhanced_model,Yale Bulldogs
+401851277,2026-03-15T17:00Z,VCU Rams,Dayton Flyers,80.2,73.2,-6.9,-6.9,153.4,-3.5,0.672,enhanced_model,VCU Rams
+401851571,2026-03-15T17:00Z,Arkansas Razorbacks,Vanderbilt Commodores,85.4,84.8,-0.6,-0.6,170.2,1.5,0.603,enhanced_model,Arkansas Razorbacks
+401851229,2026-03-15T19:15Z,South Florida Bulls,Wichita State Shockers,86.0,79.6,-6.4,-6.4,165.6,-6.5,0.505,enhanced_model,South Florida Bulls
+401851388,2026-03-15T19:30Z,Michigan Wolverines,Purdue Boilermakers,84.0,75.9,-8.1,-8.1,159.9,-6.5,0.578,enhanced_model,Michigan Wolverines
