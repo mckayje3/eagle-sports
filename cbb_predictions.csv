@@ -1,6 +1,4 @@
 game_id,date,home_team,away_team,pred_home_score,pred_away_score,pred_spread,pred_spread_base,pred_total,vegas_spread,confidence,adjustments,predicted_winner
-401856574,2026-03-28T22:09Z,Illinois Fighting Illini,Iowa Hawkeyes,75.2,69.1,-6.1,-6.1,144.3,-6.5,0.519,enhanced_model,Illinois Fighting Illini
-401856575,2026-03-29T00:49Z,Arizona Wildcats,Purdue Boilermakers,83.6,76.7,-6.9,-6.9,160.3,-6.5,0.519,enhanced_model,Arizona Wildcats
 401856576,2026-03-29T18:15Z,Michigan Wolverines,Tennessee Volunteers,85.9,74.4,-11.5,-11.5,160.3,-7.5,0.7,enhanced_model,Michigan Wolverines
 401856577,2026-03-29T21:05Z,Duke Blue Devils,UConn Huskies,74.8,67.0,-7.8,-7.8,141.8,-5.5,0.615,enhanced_model,Duke Blue Devils
 401858379,2026-04-02T00:00Z,Colorado Buffaloes,Oklahoma Sooners,78.7,81.7,3.0,3.0,160.4,6.5,0.677,enhanced_model,Oklahoma Sooners
