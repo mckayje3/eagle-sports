@@ -1,9 +1,9 @@
 game_id,date,home_team,away_team,pred_home_score,pred_away_score,pred_spread,pred_spread_base,pred_total,vegas_spread,confidence,adjustments,predicted_winner
-401856576,2026-03-29T18:15Z,Michigan Wolverines,Tennessee Volunteers,85.9,74.4,-11.5,-11.5,160.3,-7.5,0.7,enhanced_model,Michigan Wolverines
-401856577,2026-03-29T21:05Z,Duke Blue Devils,UConn Huskies,74.8,67.0,-7.8,-7.8,141.8,-5.5,0.615,enhanced_model,Duke Blue Devils
-401858379,2026-04-02T00:00Z,Colorado Buffaloes,Oklahoma Sooners,78.7,81.7,3.0,3.0,160.4,6.5,0.677,enhanced_model,Oklahoma Sooners
+401858379,2026-04-02T00:00Z,Colorado Buffaloes,Oklahoma Sooners,78.7,81.7,3.0,3.0,160.4,8.5,0.777,enhanced_model,Oklahoma Sooners
 401858380,2026-04-02T02:30Z,Minnesota Golden Gophers,Baylor Bears,71.6,77.2,5.6,5.6,148.8,3.5,0.606,enhanced_model,Baylor Bears
-401858361,2026-04-02T23:00Z,Tulsa Golden Hurricane,New Mexico Lobos,79.4,77.1,-2.3,-2.3,156.5,4.5,0.841,enhanced_model,Tulsa Golden Hurricane
+401858361,2026-04-02T23:00Z,Tulsa Golden Hurricane,New Mexico Lobos,79.4,77.1,-2.3,-2.3,156.5,3.5,0.791,enhanced_model,Tulsa Golden Hurricane
 401858381,2026-04-03T00:00Z,West Virginia Mountaineers,Stanford Cardinal,74.0,65.7,-8.3,-8.3,139.7,1.5,0.95,enhanced_model,West Virginia Mountaineers
-401858362,2026-04-03T01:30Z,Auburn Tigers,Illinois State Redbirds,77.8,78.8,1.0,1.0,156.6,-7.5,0.924,enhanced_model,Illinois State Redbirds
+401858362,2026-04-03T01:30Z,Auburn Tigers,Illinois State Redbirds,77.8,78.8,1.0,1.0,156.6,-6.5,0.874,enhanced_model,Illinois State Redbirds
 401858382,2026-04-03T02:30Z,Creighton Bluejays,Rutgers Scarlet Knights,81.4,69.7,-11.7,-11.7,151.1,-4.5,0.862,enhanced_model,Creighton Bluejays
+401856598,2026-04-04T22:09Z,UConn Huskies,Illinois Fighting Illini,71.5,70.0,-1.5,-1.5,141.5,2.5,0.702,enhanced_model,UConn Huskies
+401856599,2026-04-05T00:49Z,Arizona Wildcats,Michigan Wolverines,84.7,81.9,-2.8,-2.8,166.6,1.5,0.716,enhanced_model,Arizona Wildcats
