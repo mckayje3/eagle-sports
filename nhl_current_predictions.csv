@@ -1,71 +1,57 @@
 game_id,date,home_team,away_team,pred_spread,pred_total,vegas_spread,vegas_total,edge,ml_home,ml_away,ml_play,ml_stars,completed
-401803542,2026-04-02,Ottawa Senators,Buffalo Sabres,0.21,6.1,-1.5,6.5,1.71,-120.0,100.0,,0,0
-401803543,2026-04-02,Tampa Bay Lightning,Pittsburgh Penguins,-0.58,6.11,-1.5,6.5,0.92,-180.0,150.0,,0,0
-401803544,2026-04-02,Florida Panthers,Boston Bruins,0.7,6.11,1.5,6.5,-0.8,136.0,-162.0,Florida Panthers ML +136,2,0
-401803546,2026-04-02,New York Rangers,Montreal Canadiens,0.4,6.11,1.5,6.5,-1.1,124.0,-148.0,New York Rangers ML +124,2,0
-401803547,2026-04-02,Philadelphia Flyers,Detroit Red Wings,-0.55,6.08,-1.5,5.5,0.95,-115.0,-105.0,,0,0
-401803548,2026-04-02,Carolina Hurricanes,Columbus Blue Jackets,-0.75,6.08,-1.5,6.5,0.75,-185.0,154.0,,0,0
-401803545,2026-04-02,New Jersey Devils,Washington Capitals,0.11,6.1,-1.5,6.5,1.61,-115.0,-105.0,,0,0
-401803549,2026-04-02,Dallas Stars,Winnipeg Jets,-0.71,6.15,-1.5,5.5,0.79,-166.0,140.0,,0,0
-401803550,2026-04-02,Minnesota Wild,Vancouver Canucks,-2.35,6.2,-1.5,6.5,-0.85,-425.0,330.0,,0,0
-401803551,2026-04-02,Edmonton Oilers,Chicago Blackhawks,-1.55,6.07,-1.5,6.5,-0.05,-245.0,200.0,,0,0
-401803552,2026-04-02,Vegas Golden Knights,Calgary Flames,-1.06,6.11,-1.5,6.5,0.44,-250.0,205.0,,0,0
-401803553,2026-04-02,San Jose Sharks,Toronto Maple Leafs,-0.25,6.06,-1.5,6.5,1.25,-120.0,100.0,,0,0
-401803554,2026-04-02,Seattle Kraken,Utah Mammoth,0.34,6.05,1.5,6.5,-1.16,114.0,-135.0,Seattle Kraken ML +114,3,0
-401803555,2026-04-02,Los Angeles Kings,Nashville Predators,0.44,6.01,-1.5,5.5,1.94,-125.0,105.0,,0,0
-401803556,2026-04-03,New York Islanders,Philadelphia Flyers,-0.66,6.12,0.0,5.5,-0.66,,,,0,0
-401803557,2026-04-03,Anaheim Ducks,St. Louis Blues,-0.74,6.13,0.0,5.5,-0.74,,,,0,0
-401803558,2026-04-04,New York Rangers,Detroit Red Wings,-0.79,6.08,0.0,5.5,-0.79,,,,0,0
-401803559,2026-04-04,Ottawa Senators,Minnesota Wild,-0.04,6.03,0.0,5.5,-0.04,,,,0,0
-401803560,2026-04-04,Dallas Stars,Colorado Avalanche,-0.18,6.16,0.0,5.5,-0.18,,,,0,0
-401803561,2026-04-04,Tampa Bay Lightning,Boston Bruins,-0.74,6.12,0.0,5.5,-0.74,,,,0,0
+401803556,2026-04-03,New York Islanders,Philadelphia Flyers,-0.8,6.16,-1.5,5.5,0.7,-142.0,120.0,,0,0
+401803557,2026-04-03,Anaheim Ducks,St. Louis Blues,-0.59,6.13,-1.5,6.5,0.91,-142.0,120.0,,0,0
+401803558,2026-04-04,New York Rangers,Detroit Red Wings,-0.7,6.09,0.0,5.5,-0.7,,,,0,0
+401803559,2026-04-04,Ottawa Senators,Minnesota Wild,-0.52,6.12,0.0,5.5,-0.52,,,,0,0
+401803560,2026-04-04,Dallas Stars,Colorado Avalanche,0.11,6.09,0.0,5.5,0.11,,,,0,0
+401803561,2026-04-04,Tampa Bay Lightning,Boston Bruins,-0.78,6.12,0.0,5.5,-0.78,,,,0,0
 401803562,2026-04-04,Pittsburgh Penguins,Florida Panthers,-1.68,6.1,0.0,5.5,-1.68,,,,0,0
-401803563,2026-04-04,New Jersey Devils,Montreal Canadiens,0.65,6.11,0.0,5.5,0.65,,,,0,0
-401803564,2026-04-04,Washington Capitals,Buffalo Sabres,0.12,6.08,0.0,5.5,0.12,,,,0,0
-401803565,2026-04-04,Carolina Hurricanes,New York Islanders,-1.18,6.09,0.0,5.5,-1.18,,,,0,0
-401803566,2026-04-04,Columbus Blue Jackets,Winnipeg Jets,-1.06,6.16,0.0,5.5,-1.06,,,,0,0
-401803567,2026-04-04,Vancouver Canucks,Utah Mammoth,1.33,6.03,0.0,5.5,1.33,,,,0,0
-401803568,2026-04-04,Los Angeles Kings,Toronto Maple Leafs,-0.04,6.05,0.0,5.5,-0.04,,,,0,0
-401803569,2026-04-04,Edmonton Oilers,Vegas Golden Knights,-0.8,6.07,0.0,5.5,-0.8,,,,0,0
-401803570,2026-04-04,Anaheim Ducks,Calgary Flames,-0.89,6.07,0.0,5.5,-0.89,,,,0,0
-401803571,2026-04-04,San Jose Sharks,Nashville Predators,-0.07,6.02,0.0,5.5,-0.07,,,,0,0
-401803572,2026-04-04,Seattle Kraken,Chicago Blackhawks,-1.21,6.1,0.0,5.5,-1.21,,,,0,0
-401803573,2026-04-05,Detroit Red Wings,Minnesota Wild,0.23,6.05,0.0,5.5,0.23,,,,0,0
+401803563,2026-04-04,New Jersey Devils,Montreal Canadiens,0.53,6.1,0.0,5.5,0.53,,,,0,0
+401803564,2026-04-04,Washington Capitals,Buffalo Sabres,0.11,6.08,0.0,5.5,0.11,,,,0,0
+401803565,2026-04-04,Carolina Hurricanes,New York Islanders,-0.94,6.05,0.0,5.5,-0.94,,,,0,0
+401803566,2026-04-04,Columbus Blue Jackets,Winnipeg Jets,-1.05,6.16,0.0,5.5,-1.05,,,,0,0
+401803567,2026-04-04,Vancouver Canucks,Utah Mammoth,0.99,6.13,0.0,5.5,0.99,,,,0,0
+401803568,2026-04-04,Los Angeles Kings,Toronto Maple Leafs,-0.34,6.09,0.0,5.5,-0.34,,,,0,0
+401803569,2026-04-04,Edmonton Oilers,Vegas Golden Knights,-0.96,6.08,0.0,5.5,-0.96,,,,0,0
+401803570,2026-04-04,Anaheim Ducks,Calgary Flames,-1.35,6.12,0.0,5.5,-1.35,,,,0,0
+401803571,2026-04-04,San Jose Sharks,Nashville Predators,-0.69,6.09,0.0,5.5,-0.69,,,,0,0
+401803572,2026-04-04,Seattle Kraken,Chicago Blackhawks,-1.24,6.1,0.0,5.5,-1.24,,,,0,0
+401803573,2026-04-05,Detroit Red Wings,Minnesota Wild,-0.15,6.11,0.0,5.5,-0.15,,,,0,0
 401803574,2026-04-05,Pittsburgh Penguins,Florida Panthers,-1.68,6.1,0.0,5.5,-1.68,,,,0,0
-401803575,2026-04-05,Philadelphia Flyers,Boston Bruins,0.28,6.1,0.0,5.5,0.28,,,,0,0
-401803576,2026-04-05,Ottawa Senators,Carolina Hurricanes,-0.1,6.12,0.0,5.5,-0.1,,,,0,0
-401803577,2026-04-05,Montreal Canadiens,New Jersey Devils,-1.77,6.09,0.0,5.5,-1.77,,,,0,0
-401803578,2026-04-05,New York Rangers,Washington Capitals,-0.45,6.09,0.0,5.5,-0.45,,,,0,0
+401803575,2026-04-05,Philadelphia Flyers,Boston Bruins,0.3,6.1,0.0,5.5,0.3,,,,0,0
+401803576,2026-04-05,Ottawa Senators,Carolina Hurricanes,-0.12,6.11,0.0,5.5,-0.12,,,,0,0
+401803577,2026-04-05,Montreal Canadiens,New Jersey Devils,-1.65,6.1,0.0,5.5,-1.65,,,,0,0
+401803578,2026-04-05,New York Rangers,Washington Capitals,-0.5,6.08,0.0,5.5,-0.5,,,,0,0
 401803579,2026-04-05,Colorado Avalanche,St. Louis Blues,-1.41,6.11,0.0,5.5,-1.41,,,,0,0
-401803580,2026-04-06,Buffalo Sabres,Tampa Bay Lightning,-0.41,6.11,0.0,5.5,-0.41,,,,0,0
-401803581,2026-04-06,Winnipeg Jets,Seattle Kraken,-0.47,6.06,0.0,5.5,-0.47,,,,0,0
-401803582,2026-04-06,San Jose Sharks,Chicago Blackhawks,-1.09,6.07,0.0,5.5,-1.09,,,,0,0
-401803583,2026-04-06,Los Angeles Kings,Nashville Predators,0.03,6.05,0.0,5.5,0.03,,,,0,0
-401803584,2026-04-07,Montreal Canadiens,Florida Panthers,-1.73,6.08,0.0,5.5,-1.73,,,,0,0
-401803585,2026-04-07,Ottawa Senators,Tampa Bay Lightning,0.21,6.11,0.0,5.5,0.21,,,,0,0
-401803586,2026-04-07,Detroit Red Wings,Columbus Blue Jackets,-0.03,6.09,0.0,5.5,-0.03,,,,0,0
-401803587,2026-04-07,New Jersey Devils,Philadelphia Flyers,-0.25,6.1,0.0,5.5,-0.25,,,,0,0
-401803588,2026-04-07,Carolina Hurricanes,Boston Bruins,-0.44,6.1,0.0,5.5,-0.44,,,,0,0
+401803580,2026-04-06,Buffalo Sabres,Tampa Bay Lightning,-0.31,6.12,0.0,5.5,-0.31,,,,0,0
+401803581,2026-04-06,Winnipeg Jets,Seattle Kraken,-0.41,6.07,0.0,5.5,-0.41,,,,0,0
+401803582,2026-04-06,San Jose Sharks,Chicago Blackhawks,-1.41,6.07,0.0,5.5,-1.41,,,,0,0
+401803583,2026-04-06,Los Angeles Kings,Nashville Predators,-0.22,6.09,0.0,5.5,-0.22,,,,0,0
+401803584,2026-04-07,Montreal Canadiens,Florida Panthers,-1.7,6.08,0.0,5.5,-1.7,,,,0,0
+401803585,2026-04-07,Ottawa Senators,Tampa Bay Lightning,0.19,6.1,0.0,5.5,0.19,,,,0,0
+401803586,2026-04-07,Detroit Red Wings,Columbus Blue Jackets,-0.23,6.07,0.0,5.5,-0.23,,,,0,0
+401803587,2026-04-07,New Jersey Devils,Philadelphia Flyers,-0.37,6.1,0.0,5.5,-0.37,,,,0,0
+401803588,2026-04-07,Carolina Hurricanes,Boston Bruins,-0.47,6.11,0.0,5.5,-0.47,,,,0,0
 401803589,2026-04-07,St. Louis Blues,Colorado Avalanche,0.3,6.09,0.0,5.5,0.3,,,,0,0
-401803590,2026-04-07,Dallas Stars,Calgary Flames,-1.19,6.12,0.0,5.5,-1.19,,,,0,0
-401803591,2026-04-07,Minnesota Wild,Seattle Kraken,-0.85,6.1,0.0,5.5,-0.85,,,,0,0
-401803592,2026-04-07,Utah Mammoth,Edmonton Oilers,-0.44,6.12,0.0,5.5,-0.44,,,,0,0
-401803593,2026-04-07,Vancouver Canucks,Vegas Golden Knights,0.68,6.09,0.0,5.5,0.68,,,,0,0
-401803594,2026-04-07,Anaheim Ducks,Nashville Predators,-0.5,6.08,0.0,5.5,-0.5,,,,0,0
-401803595,2026-04-08,New York Rangers,Buffalo Sabres,0.23,6.07,0.0,5.5,0.23,,,,0,0
-401803596,2026-04-08,Toronto Maple Leafs,Washington Capitals,-0.34,6.11,0.0,5.5,-0.34,,,,0,0
-401803597,2026-04-08,San Jose Sharks,Edmonton Oilers,-0.08,6.12,0.0,5.5,-0.08,,,,0,0
-401803603,2026-04-09,New York Islanders,Toronto Maple Leafs,-0.66,6.1,0.0,5.5,-0.66,,,,0,0
-401803598,2026-04-09,Buffalo Sabres,Columbus Blue Jackets,-1.06,6.1,0.0,5.5,-1.06,,,,0,0
-401803599,2026-04-09,Montreal Canadiens,Tampa Bay Lightning,-0.43,6.07,0.0,5.5,-0.43,,,,0,0
-401803600,2026-04-09,Ottawa Senators,Florida Panthers,-1.08,6.11,0.0,5.5,-1.08,,,,0,0
-401803601,2026-04-09,Detroit Red Wings,Philadelphia Flyers,-0.41,6.12,0.0,5.5,-0.41,,,,0,0
-401803602,2026-04-09,New Jersey Devils,Pittsburgh Penguins,0.6,6.09,0.0,5.5,0.6,,,,0,0
-401803604,2026-04-09,St. Louis Blues,Winnipeg Jets,-0.51,6.1,0.0,5.5,-0.51,,,,0,0
-401803606,2026-04-09,Chicago Blackhawks,Carolina Hurricanes,0.73,6.13,0.0,5.5,0.73,,,,0,0
+401803590,2026-04-07,Dallas Stars,Calgary Flames,-1.35,6.09,0.0,5.5,-1.35,,,,0,0
+401803591,2026-04-07,Minnesota Wild,Seattle Kraken,-0.98,6.09,0.0,5.5,-0.98,,,,0,0
+401803592,2026-04-07,Utah Mammoth,Edmonton Oilers,-0.5,6.12,0.0,5.5,-0.5,,,,0,0
+401803593,2026-04-07,Vancouver Canucks,Vegas Golden Knights,0.65,6.12,0.0,5.5,0.65,,,,0,0
+401803594,2026-04-07,Anaheim Ducks,Nashville Predators,-0.74,6.12,0.0,5.5,-0.74,,,,0,0
+401803595,2026-04-08,New York Rangers,Buffalo Sabres,0.17,6.06,0.0,5.5,0.17,,,,0,0
+401803596,2026-04-08,Toronto Maple Leafs,Washington Capitals,-0.25,6.09,0.0,5.5,-0.25,,,,0,0
+401803597,2026-04-08,San Jose Sharks,Edmonton Oilers,-0.11,6.11,0.0,5.5,-0.11,,,,0,0
+401803603,2026-04-09,New York Islanders,Toronto Maple Leafs,-0.82,6.12,0.0,5.5,-0.82,,,,0,0
+401803598,2026-04-09,Buffalo Sabres,Columbus Blue Jackets,-1.1,6.1,0.0,5.5,-1.1,,,,0,0
+401803599,2026-04-09,Montreal Canadiens,Tampa Bay Lightning,-0.37,6.08,0.0,5.5,-0.37,,,,0,0
+401803600,2026-04-09,Ottawa Senators,Florida Panthers,-1.14,6.11,0.0,5.5,-1.14,,,,0,0
+401803601,2026-04-09,Detroit Red Wings,Philadelphia Flyers,-0.53,6.11,0.0,5.5,-0.53,,,,0,0
+401803602,2026-04-09,New Jersey Devils,Pittsburgh Penguins,0.52,6.09,0.0,5.5,0.52,,,,0,0
+401803604,2026-04-09,St. Louis Blues,Winnipeg Jets,-0.6,6.09,0.0,5.5,-0.6,,,,0,0
+401803606,2026-04-09,Chicago Blackhawks,Carolina Hurricanes,0.82,6.13,0.0,5.5,0.82,,,,0,0
 401803605,2026-04-09,Dallas Stars,Minnesota Wild,-0.35,6.09,0.0,5.5,-0.35,,,,0,0
-401803607,2026-04-09,Colorado Avalanche,Calgary Flames,-1.82,6.09,0.0,5.5,-1.82,,,,0,0
-401803608,2026-04-09,Utah Mammoth,Nashville Predators,-0.95,6.11,0.0,5.5,-0.95,,,,0,0
-401803609,2026-04-09,Anaheim Ducks,San Jose Sharks,-0.6,6.1,0.0,5.5,-0.6,,,,0,0
-401803610,2026-04-09,Seattle Kraken,Vegas Golden Knights,-0.45,6.11,0.0,5.5,-0.45,,,,0,0
-401803611,2026-04-09,Los Angeles Kings,Vancouver Canucks,-1.21,6.08,0.0,5.5,-1.21,,,,0,0
+401803607,2026-04-09,Colorado Avalanche,Calgary Flames,-1.89,6.08,0.0,5.5,-1.89,,,,0,0
+401803608,2026-04-09,Utah Mammoth,Nashville Predators,-1.08,6.09,0.0,5.5,-1.08,,,,0,0
+401803609,2026-04-09,Anaheim Ducks,San Jose Sharks,-0.48,6.12,0.0,5.5,-0.48,,,,0,0
+401803610,2026-04-09,Seattle Kraken,Vegas Golden Knights,-0.35,6.12,0.0,5.5,-0.35,,,,0,0
+401803611,2026-04-09,Los Angeles Kings,Vancouver Canucks,-1.24,6.08,0.0,5.5,-1.24,,,,0,0
