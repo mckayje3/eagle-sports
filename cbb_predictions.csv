@@ -1,4 +1,2 @@
 game_id,date,home_team,away_team,pred_home_score,pred_away_score,pred_spread,pred_spread_base,pred_total,vegas_spread,confidence,adjustments,predicted_winner
-401858385,2026-04-05T21:30Z,West Virginia Mountaineers,Oklahoma Sooners,75.4,74.0,-1.4,-1.4,149.4,3.5,0.747,enhanced_model,West Virginia Mountaineers
-401858363,2026-04-06T00:00Z,Auburn Tigers,Tulsa Golden Hurricane,82.3,83.3,1.0,1.0,165.7,-5.5,0.824,enhanced_model,Tulsa Golden Hurricane
-401856600,2026-04-07T00:50Z,Michigan Wolverines,UConn Huskies,79.8,69.7,-10.1,-10.1,149.6,-7.5,0.63,enhanced_model,Michigan Wolverines
+401856600,2026-04-07T00:50Z,Michigan Wolverines,UConn Huskies,79.8,69.7,-10.1,-10.1,149.6,-6.5,0.68,enhanced_model,Michigan Wolverines
