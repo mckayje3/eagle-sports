@@ -1,29 +1,28 @@
 game_id,date,home_team,away_team,pred_spread,pred_total,vegas_spread,vegas_total,edge,ml_home,ml_away,ml_play,ml_stars,completed
-401869721,2026-04-19,Colorado Avalanche,Los Angeles Kings,-1.27,6.1,-1.5,5.5,0.23,-278.0,225.0,,0,0
-401869718,2026-04-19,Tampa Bay Lightning,Montreal Canadiens,-0.47,6.1,-1.5,6.5,1.03,-185.0,154.0,,0,0
-401869719,2026-04-19,Buffalo Sabres,Boston Bruins,-0.7,6.06,-1.5,6.5,0.8,-166.0,140.0,,0,0
-401869720,2026-04-19,Vegas Golden Knights,Utah Mammoth,-0.33,6.07,-1.5,6.5,1.17,-155.0,130.0,,0,0
 401869794,2026-04-20,Pittsburgh Penguins,Philadelphia Flyers,-0.99,6.14,-1.5,6.5,0.51,-155.0,130.0,,0,0
-401869781,2026-04-20,Carolina Hurricanes,Ottawa Senators,-0.79,6.1,-1.5,5.5,0.71,-148.0,124.0,,0,0
+401869781,2026-04-20,Carolina Hurricanes,Ottawa Senators,-0.79,6.1,-1.5,5.5,0.71,-155.0,130.0,,0,0
 401869780,2026-04-20,Dallas Stars,Minnesota Wild,-0.09,6.09,-1.5,5.5,1.41,-135.0,114.0,,0,0
-401869722,2026-04-20,Edmonton Oilers,Anaheim Ducks,-0.85,6.09,-1.5,6.5,0.65,-180.0,150.0,,0,0
-401869769,2026-04-21,Tampa Bay Lightning,Montreal Canadiens,-0.62,6.1,0.0,5.5,-0.62,,,,0,0
-401869757,2026-04-21,Buffalo Sabres,Boston Bruins,-0.85,6.06,0.0,5.5,-0.85,,,,0,0
-401869756,2026-04-21,Vegas Golden Knights,Utah Mammoth,-0.48,6.07,0.0,5.5,-0.48,,,,0,0
-401869792,2026-04-21,Colorado Avalanche,Los Angeles Kings,-1.42,6.1,0.0,5.5,-1.42,,,,0,0
+401869722,2026-04-20,Edmonton Oilers,Anaheim Ducks,-0.85,6.09,-1.5,6.5,0.65,-175.0,145.0,,0,0
+401869769,2026-04-21,Tampa Bay Lightning,Montreal Canadiens,-0.64,6.11,-1.5,5.5,0.86,-192.0,160.0,,0,0
+401869757,2026-04-21,Buffalo Sabres,Boston Bruins,-0.83,6.08,-1.5,6.5,0.67,-170.0,142.0,,0,0
+401869756,2026-04-21,Vegas Golden Knights,Utah Mammoth,-0.45,6.06,-1.5,6.5,1.05,-155.0,130.0,,0,0
+401869792,2026-04-21,Colorado Avalanche,Los Angeles Kings,-1.32,6.09,-1.5,5.5,0.18,-278.0,225.0,,0,0
 401869796,2026-04-22,Philadelphia Flyers,Pittsburgh Penguins,0.02,6.06,0.0,5.5,0.02,,,,0,0
 401869782,2026-04-22,Minnesota Wild,Dallas Stars,-0.87,6.11,0.0,5.5,-0.87,,,,0,0
 401869768,2026-04-22,Edmonton Oilers,Anaheim Ducks,-1.0,6.09,0.0,5.5,-1.0,,,,0,0
-401869759,2026-04-23,Boston Bruins,Buffalo Sabres,-0.13,6.12,0.0,5.5,-0.13,,,,0,0
+401869759,2026-04-23,Boston Bruins,Buffalo Sabres,-0.14,6.12,0.0,5.5,-0.14,,,,0,0
 401869783,2026-04-23,Ottawa Senators,Carolina Hurricanes,-0.17,6.11,0.0,5.5,-0.17,,,,0,0
-401869793,2026-04-23,Los Angeles Kings,Colorado Avalanche,0.3,6.1,0.0,5.5,0.3,,,,0,0
-401869771,2026-04-24,Montreal Canadiens,Tampa Bay Lightning,-0.36,6.08,0.0,5.5,-0.36,,,,0,0
-401869758,2026-04-24,Utah Mammoth,Vegas Golden Knights,-0.64,6.13,0.0,5.5,-0.64,,,,0,0
+401869793,2026-04-23,Los Angeles Kings,Colorado Avalanche,0.36,6.11,0.0,5.5,0.36,,,,0,0
+401869771,2026-04-24,Montreal Canadiens,Tampa Bay Lightning,-0.33,6.09,0.0,5.5,-0.33,,,,0,0
+401869758,2026-04-24,Utah Mammoth,Vegas Golden Knights,-0.51,6.14,0.0,5.5,-0.51,,,,0,0
 401869770,2026-04-24,Anaheim Ducks,Edmonton Oilers,-0.12,6.11,0.0,5.5,-0.12,,,,0,0
 401869786,2026-04-25,Ottawa Senators,Carolina Hurricanes,-0.17,6.11,0.0,5.5,-0.17,,,,0,0
 401869784,2026-04-25,Minnesota Wild,Dallas Stars,-0.87,6.11,0.0,5.5,-0.87,,,,0,0
 401869799,2026-04-25,Philadelphia Flyers,Pittsburgh Penguins,0.02,6.06,0.0,5.5,0.02,,,,0,0
-401869762,2026-04-26,Boston Bruins,Buffalo Sabres,-0.13,6.12,0.0,5.5,-0.13,,,,0,0
-401869795,2026-04-26,Los Angeles Kings,Colorado Avalanche,0.3,6.1,0.0,5.5,0.3,,,,0,0
-401869773,2026-04-26,Montreal Canadiens,Tampa Bay Lightning,-0.36,6.08,0.0,5.5,-0.36,,,,0,0
+401869762,2026-04-26,Boston Bruins,Buffalo Sabres,-0.14,6.12,0.0,5.5,-0.14,,,,0,0
+401869795,2026-04-26,Los Angeles Kings,Colorado Avalanche,0.36,6.11,0.0,5.5,0.36,,,,0,0
+401869773,2026-04-26,Montreal Canadiens,Tampa Bay Lightning,-0.33,6.09,0.0,5.5,-0.33,,,,0,0
 401869772,2026-04-26,Anaheim Ducks,Edmonton Oilers,-0.12,6.11,0.0,5.5,-0.12,,,,0,0
+401869760,2026-04-27,Utah Mammoth,Vegas Golden Knights,-0.51,6.14,0.0,5.5,-0.51,,,,0,0
+401869788,2026-04-27,Carolina Hurricanes,Ottawa Senators,-0.94,6.1,0.0,5.5,-0.94,,,,0,0
+401869801,2026-04-27,Pittsburgh Penguins,Philadelphia Flyers,-1.14,6.14,0.0,5.5,-1.14,,,,0,0
