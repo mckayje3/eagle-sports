@@ -1,28 +1,27 @@
 game_id,date,home_team,away_team,pred_spread,pred_total,vegas_spread,vegas_total,edge,ml_home,ml_away,ml_play,ml_stars,completed
-401869794,2026-04-20,Pittsburgh Penguins,Philadelphia Flyers,-0.99,6.14,-1.5,6.5,0.51,-155.0,130.0,,0,0
-401869781,2026-04-20,Carolina Hurricanes,Ottawa Senators,-0.79,6.1,-1.5,5.5,0.71,-155.0,130.0,,0,0
-401869780,2026-04-20,Dallas Stars,Minnesota Wild,-0.09,6.09,-1.5,5.5,1.41,-135.0,114.0,,0,0
-401869722,2026-04-20,Edmonton Oilers,Anaheim Ducks,-0.85,6.09,-1.5,6.5,0.65,-175.0,145.0,,0,0
 401869769,2026-04-21,Tampa Bay Lightning,Montreal Canadiens,-0.64,6.11,-1.5,5.5,0.86,-192.0,160.0,,0,0
-401869757,2026-04-21,Buffalo Sabres,Boston Bruins,-0.83,6.08,-1.5,6.5,0.67,-170.0,142.0,,0,0
+401869757,2026-04-21,Buffalo Sabres,Boston Bruins,-0.83,6.08,-1.5,6.5,0.67,-175.0,145.0,,0,0
 401869756,2026-04-21,Vegas Golden Knights,Utah Mammoth,-0.45,6.06,-1.5,6.5,1.05,-155.0,130.0,,0,0
-401869792,2026-04-21,Colorado Avalanche,Los Angeles Kings,-1.32,6.09,-1.5,5.5,0.18,-278.0,225.0,,0,0
-401869796,2026-04-22,Philadelphia Flyers,Pittsburgh Penguins,0.02,6.06,0.0,5.5,0.02,,,,0,0
-401869782,2026-04-22,Minnesota Wild,Dallas Stars,-0.87,6.11,0.0,5.5,-0.87,,,,0,0
-401869768,2026-04-22,Edmonton Oilers,Anaheim Ducks,-1.0,6.09,0.0,5.5,-1.0,,,,0,0
+401869792,2026-04-21,Colorado Avalanche,Los Angeles Kings,-1.32,6.09,-1.5,5.5,0.18,-298.0,240.0,,0,0
+401869796,2026-04-22,Philadelphia Flyers,Pittsburgh Penguins,-0.06,6.03,-1.5,5.5,1.44,-115.0,-105.0,,0,0
+401869782,2026-04-22,Minnesota Wild,Dallas Stars,-0.67,6.11,-1.5,5.5,0.83,-130.0,110.0,,0,0
+401869768,2026-04-22,Edmonton Oilers,Anaheim Ducks,-0.82,6.09,-1.5,6.5,0.68,-198.0,164.0,,0,0
 401869759,2026-04-23,Boston Bruins,Buffalo Sabres,-0.14,6.12,0.0,5.5,-0.14,,,,0,0
-401869783,2026-04-23,Ottawa Senators,Carolina Hurricanes,-0.17,6.11,0.0,5.5,-0.17,,,,0,0
+401869783,2026-04-23,Ottawa Senators,Carolina Hurricanes,0.0,6.11,-1.5,5.5,1.5,-122.0,102.0,,0,0
 401869793,2026-04-23,Los Angeles Kings,Colorado Avalanche,0.36,6.11,0.0,5.5,0.36,,,,0,0
 401869771,2026-04-24,Montreal Canadiens,Tampa Bay Lightning,-0.33,6.09,0.0,5.5,-0.33,,,,0,0
 401869758,2026-04-24,Utah Mammoth,Vegas Golden Knights,-0.51,6.14,0.0,5.5,-0.51,,,,0,0
-401869770,2026-04-24,Anaheim Ducks,Edmonton Oilers,-0.12,6.11,0.0,5.5,-0.12,,,,0,0
-401869786,2026-04-25,Ottawa Senators,Carolina Hurricanes,-0.17,6.11,0.0,5.5,-0.17,,,,0,0
-401869784,2026-04-25,Minnesota Wild,Dallas Stars,-0.87,6.11,0.0,5.5,-0.87,,,,0,0
-401869799,2026-04-25,Philadelphia Flyers,Pittsburgh Penguins,0.02,6.06,0.0,5.5,0.02,,,,0,0
+401869770,2026-04-24,Anaheim Ducks,Edmonton Oilers,-0.14,6.11,0.0,5.5,-0.14,,,,0,0
+401869786,2026-04-25,Ottawa Senators,Carolina Hurricanes,-0.15,6.11,0.0,5.5,-0.15,,,,0,0
+401869784,2026-04-25,Minnesota Wild,Dallas Stars,-0.82,6.11,0.0,5.5,-0.82,,,,0,0
+401869799,2026-04-25,Philadelphia Flyers,Pittsburgh Penguins,-0.21,6.03,0.0,5.5,-0.21,,,,0,0
 401869762,2026-04-26,Boston Bruins,Buffalo Sabres,-0.14,6.12,0.0,5.5,-0.14,,,,0,0
 401869795,2026-04-26,Los Angeles Kings,Colorado Avalanche,0.36,6.11,0.0,5.5,0.36,,,,0,0
 401869773,2026-04-26,Montreal Canadiens,Tampa Bay Lightning,-0.33,6.09,0.0,5.5,-0.33,,,,0,0
-401869772,2026-04-26,Anaheim Ducks,Edmonton Oilers,-0.12,6.11,0.0,5.5,-0.12,,,,0,0
+401869772,2026-04-26,Anaheim Ducks,Edmonton Oilers,-0.14,6.11,0.0,5.5,-0.14,,,,0,0
 401869760,2026-04-27,Utah Mammoth,Vegas Golden Knights,-0.51,6.14,0.0,5.5,-0.51,,,,0,0
-401869788,2026-04-27,Carolina Hurricanes,Ottawa Senators,-0.94,6.1,0.0,5.5,-0.94,,,,0,0
-401869801,2026-04-27,Pittsburgh Penguins,Philadelphia Flyers,-1.14,6.14,0.0,5.5,-1.14,,,,0,0
+401869788,2026-04-27,Carolina Hurricanes,Ottawa Senators,-0.97,6.09,0.0,5.5,-0.97,,,,0,0
+401869801,2026-04-27,Pittsburgh Penguins,Philadelphia Flyers,-0.9,6.17,0.0,5.5,-0.9,,,,0,0
+401869764,2026-04-28,Buffalo Sabres,Boston Bruins,-0.98,6.08,0.0,5.5,-0.98,,,,0,0
+401869774,2026-04-28,Edmonton Oilers,Anaheim Ducks,-0.97,6.09,0.0,5.5,-0.97,,,,0,0
+401869785,2026-04-28,Dallas Stars,Minnesota Wild,-0.3,6.09,0.0,5.5,-0.3,,,,0,0
