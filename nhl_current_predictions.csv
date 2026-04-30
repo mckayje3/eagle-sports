@@ -1,20 +1,16 @@
 game_id,date,home_team,away_team,pred_spread,pred_total,vegas_spread,vegas_total,edge,ml_home,ml_away,ml_play,ml_stars,completed
-401869797,2026-04-29,Colorado Avalanche,Los Angeles Kings,-1.76,6.06,0.0,5.5,-1.76,,,,0,0
-401869775,2026-04-29,Tampa Bay Lightning,Montreal Canadiens,-0.67,6.1,-1.5,5.5,0.83,-170.0,142.0,,0,0
-401869802,2026-04-29,Philadelphia Flyers,Pittsburgh Penguins,0.2,6.07,-1.5,5.5,1.7,-122.0,102.0,,0,0
-401869761,2026-04-29,Vegas Golden Knights,Utah Mammoth,-0.24,6.09,-1.5,5.5,1.26,-166.0,140.0,,0,0
 401869790,2026-04-30,Ottawa Senators,Carolina Hurricanes,-0.02,6.12,0.0,5.5,-0.02,,,,0,0
 401869787,2026-04-30,Minnesota Wild,Dallas Stars,-0.86,6.08,-1.5,5.5,0.64,-122.0,102.0,,0,0
 401869776,2026-04-30,Anaheim Ducks,Edmonton Oilers,-0.17,6.09,1.5,6.5,-1.67,110.0,-130.0,Anaheim Ducks ML +110,3,0
 401869798,2026-05-01,Los Angeles Kings,Colorado Avalanche,0.65,6.15,0.0,5.5,0.65,,,,0,0
-401869777,2026-05-01,Montreal Canadiens,Tampa Bay Lightning,-0.29,6.1,0.0,5.5,-0.29,,,,0,0
+401869777,2026-05-01,Montreal Canadiens,Tampa Bay Lightning,-0.19,6.09,1.5,5.5,-1.69,-105.0,-115.0,,0,0
 401869765,2026-05-01,Boston Bruins,Buffalo Sabres,0.07,6.12,1.5,5.5,-1.43,-102.0,-118.0,,0,0
-401869763,2026-05-01,Utah Mammoth,Vegas Golden Knights,-0.73,6.11,0.0,5.5,-0.73,,,,0,0
+401869763,2026-05-01,Utah Mammoth,Vegas Golden Knights,-0.62,6.11,1.5,5.5,-2.12,100.0,-120.0,Utah Mammoth ML +100,3,0
 401869778,2026-05-02,Edmonton Oilers,Anaheim Ducks,-0.8,6.11,0.0,5.5,-0.8,,,,0,0
 401869789,2026-05-02,Dallas Stars,Minnesota Wild,-0.1,6.12,0.0,5.5,-0.1,,,,0,0
 401869791,2026-05-02,Carolina Hurricanes,Ottawa Senators,-1.09,6.08,0.0,5.5,-1.09,,,,0,0
-401869803,2026-05-02,Pittsburgh Penguins,Philadelphia Flyers,-1.17,6.13,0.0,5.5,-1.17,,,,0,0
+401869803,2026-05-02,Pittsburgh Penguins,Philadelphia Flyers,-1.15,6.13,0.0,5.5,-1.15,,,,0,0
 401869766,2026-05-03,Buffalo Sabres,Boston Bruins,-1.03,6.08,0.0,5.5,-1.03,,,,0,0
-401869767,2026-05-03,Vegas Golden Knights,Utah Mammoth,-0.39,6.09,0.0,5.5,-0.39,,,,0,0
-401869779,2026-05-03,Tampa Bay Lightning,Montreal Canadiens,-0.82,6.1,0.0,5.5,-0.82,,,,0,0
+401869767,2026-05-03,Vegas Golden Knights,Utah Mammoth,-0.35,6.1,0.0,5.5,-0.35,,,,0,0
+401869779,2026-05-03,Tampa Bay Lightning,Montreal Canadiens,-0.78,6.11,0.0,5.5,-0.78,,,,0,0
 401869800,2026-05-03,Colorado Avalanche,Los Angeles Kings,-1.76,6.06,0.0,5.5,-1.76,,,,0,0
