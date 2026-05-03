@@ -1,11 +1,15 @@
 game_id,date,home_team,away_team,pred_spread,pred_total,vegas_spread,vegas_total,edge,ml_home,ml_away,ml_play,ml_stars,completed
-401869778,2026-05-02,Edmonton Oilers,Anaheim Ducks,-0.63,6.13,0.0,5.5,-0.63,,,,0,0
-401869789,2026-05-02,Dallas Stars,Minnesota Wild,-0.14,6.11,0.0,5.5,-0.14,,,,0,0
-401869791,2026-05-02,Carolina Hurricanes,Ottawa Senators,-1.09,6.08,0.0,5.5,-1.09,,,,0,0
-401869803,2026-05-02,Pittsburgh Penguins,Philadelphia Flyers,-1.15,6.13,0.0,5.5,-1.15,,,,0,0
-401871166,2026-05-02,Carolina Hurricanes,Philadelphia Flyers,-1.52,6.16,-1.5,5.5,-0.02,-230.0,190.0,,0,0
 401869766,2026-05-03,Buffalo Sabres,Boston Bruins,-1.12,6.07,0.0,5.5,-1.12,,,,0,0
 401869767,2026-05-03,Vegas Golden Knights,Utah Mammoth,-0.45,6.09,0.0,5.5,-0.45,,,,0,0
 401869800,2026-05-03,Colorado Avalanche,Los Angeles Kings,-1.76,6.06,0.0,5.5,-1.76,,,,0,0
-401869779,2026-05-03,Tampa Bay Lightning,Montreal Canadiens,-0.7,6.1,-1.5,5.5,0.8,-166.0,140.0,,0,0
+401869779,2026-05-03,Tampa Bay Lightning,Montreal Canadiens,-0.7,6.1,-1.5,5.5,0.8,-162.0,136.0,,0,0
 401871302,2026-05-03,Colorado Avalanche,Minnesota Wild,-1.01,6.14,-1.5,5.5,0.49,-185.0,154.0,,0,0
+401871411,2026-05-04,Carolina Hurricanes,Philadelphia Flyers,-1.28,6.08,-1.5,5.5,0.22,-258.0,210.0,,0,0
+401871423,2026-05-04,Vegas Golden Knights,Anaheim Ducks,-0.4,6.09,-1.5,6.5,1.1,-166.0,140.0,,0,0
+401871417,2026-05-05,Colorado Avalanche,Minnesota Wild,-0.9,6.1,0.0,5.5,-0.9,,,,0,0
+401871424,2026-05-06,Vegas Golden Knights,Anaheim Ducks,-0.55,6.09,0.0,5.5,-0.55,,,,0,0
+401871412,2026-05-07,Philadelphia Flyers,Carolina Hurricanes,0.32,6.12,0.0,5.5,0.32,,,,0,0
+401871425,2026-05-08,Anaheim Ducks,Vegas Golden Knights,-0.44,6.1,0.0,5.5,-0.44,,,,0,0
+401871413,2026-05-09,Philadelphia Flyers,Carolina Hurricanes,0.32,6.12,0.0,5.5,0.32,,,,0,0
+401871418,2026-05-09,Minnesota Wild,Colorado Avalanche,-0.35,6.12,0.0,5.5,-0.35,,,,0,0
+401871426,2026-05-10,Anaheim Ducks,Vegas Golden Knights,-0.44,6.1,0.0,5.5,-0.44,,,,0,0
