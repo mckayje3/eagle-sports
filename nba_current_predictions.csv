@@ -1,10 +1,8 @@
 game_id,date,home_team,away_team,pred_home_score,pred_away_score,pred_spread,pred_spread_base,pred_total,pred_total_base,adjustment_notes,vegas_spread,vegas_total,spread_edge,spread_stars,should_fade,fade_note,predicted_winner,total_edge,total_stars,total_pick,should_fade_total,total_fade_note,confidence
-401871333,2026-05-05T23:00Z,Detroit Pistons,Cleveland Cavaliers,120.1,111.9,-8.2,-8.2,232.0,232.0,ridge_v2_pure,-3.5,215.5,-4.7,0,False,,Detroit Pistons,16.5,1,OVER,False,,0.827
-401871326,2026-05-06T00:30Z,Oklahoma City Thunder,Los Angeles Lakers,122.0,107.6,-14.4,-14.4,229.5,229.5,ridge_v2_pure,-15.5,213.5,1.1,0,False,,Oklahoma City Thunder,16.0,1,OVER,False,,0.95
-401871160,2026-05-06T23:00Z,New York Knicks,Philadelphia 76ers,117.8,114.8,-3.0,-3.0,232.5,232.5,ridge_v2_pure,-6.5,214.5,3.5,0,False,,New York Knicks,18.0,1,OVER,False,,0.619
+401871160,2026-05-06T23:00Z,New York Knicks,Philadelphia 76ers,117.8,114.8,-3.0,-3.0,232.5,232.5,ridge_v2_pure,-7.5,215.5,4.5,0,False,,New York Knicks,17.0,1,OVER,False,,0.619
 401871153,2026-05-07T01:30Z,San Antonio Spurs,Minnesota Timberwolves,118.4,116.4,-1.9,-1.9,234.8,234.8,ridge_v2_pure,-9.5,215.5,7.6,1,False,,San Antonio Spurs,19.3,1,OVER,False,,0.577
-401871334,2026-05-07T23:00Z,Detroit Pistons,Cleveland Cavaliers,120.1,111.9,-8.2,-8.2,232.0,232.0,ridge_v2_pure,0.0,223.0,-8.2,3,False,,Detroit Pistons,9.0,1,OVER,False,,0.827
-401871327,2026-05-08T01:30Z,Oklahoma City Thunder,Los Angeles Lakers,122.0,107.6,-14.4,-14.4,229.5,229.5,ridge_v2_pure,0.0,223.0,-14.4,3,False,,Oklahoma City Thunder,6.5,1,OVER,False,,0.95
+401871334,2026-05-07T23:00Z,Detroit Pistons,Cleveland Cavaliers,120.1,111.9,-8.2,-8.2,232.0,232.0,ridge_v2_pure,-3.5,215.5,-4.7,0,False,,Detroit Pistons,16.5,1,OVER,False,,0.827
+401871327,2026-05-08T01:30Z,Oklahoma City Thunder,Los Angeles Lakers,122.0,107.6,-14.4,-14.4,229.5,229.5,ridge_v2_pure,-15.5,209.5,1.1,0,False,,Oklahoma City Thunder,20.0,1,OVER,False,,0.95
 401871161,2026-05-08T23:00Z,Philadelphia 76ers,New York Knicks,116.9,115.8,-1.1,-1.1,232.6,232.6,ridge_v2_pure,0.0,223.0,-1.1,0,False,,Philadelphia 76ers,9.6,1,OVER,False,,0.544
 401871154,2026-05-09T01:30Z,Minnesota Timberwolves,San Antonio Spurs,120.3,116.0,-4.3,-4.3,236.3,236.3,ridge_v2_pure,0.0,223.0,-4.3,0,False,,Minnesota Timberwolves,13.3,1,OVER,False,,0.674
 401871335,2026-05-09T19:00Z,Cleveland Cavaliers,Detroit Pistons,116.2,118.5,2.3,2.3,234.7,234.7,ridge_v2_pure,0.0,223.0,2.3,0,False,,Detroit Pistons,11.7,1,OVER,False,,0.591
@@ -15,3 +13,5 @@ game_id,date,home_team,away_team,pred_home_score,pred_away_score,pred_spread,pre
 401871329,2026-05-12T02:30Z,Los Angeles Lakers,Oklahoma City Thunder,110.1,119.6,9.5,9.5,229.7,229.7,ridge_v2_pure,0.0,223.0,9.5,2,True,FADE_ROAD_FAV,Los Angeles Lakers,6.7,1,OVER,False,,0.881
 401871156,2026-05-12T04:00Z,San Antonio Spurs,Minnesota Timberwolves,118.4,116.4,-1.9,-1.9,234.8,234.8,ridge_v2_pure,0.0,223.0,-1.9,0,False,,San Antonio Spurs,11.8,1,OVER,False,,0.577
 401871163,2026-05-12T04:00Z,New York Knicks,Philadelphia 76ers,117.8,114.8,-3.0,-3.0,232.5,232.5,ridge_v2_pure,0.0,223.0,-3.0,0,False,,New York Knicks,9.5,1,OVER,False,,0.619
+401871330,2026-05-13T04:00Z,Oklahoma City Thunder,Los Angeles Lakers,122.0,107.6,-14.4,-14.4,229.5,229.5,ridge_v2_pure,0.0,223.0,-14.4,3,False,,Oklahoma City Thunder,6.5,1,OVER,False,,0.95
+401871337,2026-05-13T04:00Z,Detroit Pistons,Cleveland Cavaliers,120.1,111.9,-8.2,-8.2,232.0,232.0,ridge_v2_pure,0.0,223.0,-8.2,3,False,,Detroit Pistons,9.0,1,OVER,False,,0.827
