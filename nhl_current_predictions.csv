@@ -1,16 +1,15 @@
 game_id,date,home_team,away_team,pred_spread,pred_total,vegas_spread,vegas_total,edge,ml_home,ml_away,ml_play,ml_stars,completed
-401871406,2026-05-10,Montreal Canadiens,Buffalo Sabres,-0.07,6.1,-1.5,5.5,1.43,-122.0,102.0,,0,0
-401871426,2026-05-10,Anaheim Ducks,Vegas Golden Knights,0.01,6.14,1.5,6.5,-1.49,102.0,-122.0,Anaheim Ducks ML +102,3,0
 401871414,2026-05-11,Carolina Hurricanes,Philadelphia Flyers,-1.56,6.07,0.0,5.5,-1.56,,,,0,0
-401871419,2026-05-11,Minnesota Wild,Colorado Avalanche,-0.21,6.12,1.5,6.5,-1.71,105.0,-125.0,Minnesota Wild ML +105,3,0
-401871407,2026-05-12,Montreal Canadiens,Buffalo Sabres,-0.22,6.1,0.0,5.5,-0.22,,,,0,0
-401871427,2026-05-12,Vegas Golden Knights,Anaheim Ducks,-0.97,6.07,0.0,5.5,-0.97,,,,0,0
+401871419,2026-05-11,Minnesota Wild,Colorado Avalanche,-0.21,6.12,1.5,6.5,-1.71,120.0,-142.0,Minnesota Wild ML +120,3,0
+401871407,2026-05-12,Montreal Canadiens,Buffalo Sabres,-0.3,6.07,-1.5,6.5,1.2,-135.0,114.0,,0,0
+401871427,2026-05-12,Vegas Golden Knights,Anaheim Ducks,-0.72,6.08,-1.5,6.5,0.78,-155.0,130.0,,0,0
 401871415,2026-05-13,Philadelphia Flyers,Carolina Hurricanes,0.45,6.14,0.0,5.5,0.45,,,,0,0
 401871420,2026-05-13,Colorado Avalanche,Minnesota Wild,-0.75,6.08,0.0,5.5,-0.75,,,,0,0
-401871408,2026-05-14,Buffalo Sabres,Montreal Canadiens,-0.89,6.1,0.0,5.5,-0.89,,,,0,0
-401871428,2026-05-14,Anaheim Ducks,Vegas Golden Knights,-0.14,6.14,0.0,5.5,-0.14,,,,0,0
+401871408,2026-05-14,Buffalo Sabres,Montreal Canadiens,-0.66,6.13,0.0,5.5,-0.66,,,,0,0
+401871428,2026-05-14,Anaheim Ducks,Vegas Golden Knights,-0.25,6.12,0.0,5.5,-0.25,,,,0,0
 401871421,2026-05-15,Minnesota Wild,Colorado Avalanche,-0.36,6.12,0.0,5.5,-0.36,,,,0,0
-401871409,2026-05-16,Montreal Canadiens,Buffalo Sabres,-0.22,6.1,0.0,5.5,-0.22,,,,0,0
+401871409,2026-05-16,Montreal Canadiens,Buffalo Sabres,-0.45,6.07,0.0,5.5,-0.45,,,,0,0
 401871416,2026-05-16,Carolina Hurricanes,Philadelphia Flyers,-1.56,6.07,0.0,5.5,-1.56,,,,0,0
-401871429,2026-05-16,Vegas Golden Knights,Anaheim Ducks,-0.97,6.07,0.0,5.5,-0.97,,,,0,0
+401871429,2026-05-16,Vegas Golden Knights,Anaheim Ducks,-0.87,6.08,0.0,5.5,-0.87,,,,0,0
 401871422,2026-05-17,Colorado Avalanche,Minnesota Wild,-0.75,6.08,0.0,5.5,-0.75,,,,0,0
+401871410,2026-05-18,Buffalo Sabres,Montreal Canadiens,-0.66,6.13,0.0,5.5,-0.66,,,,0,0
