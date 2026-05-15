@@ -1,7 +1,6 @@
 game_id,date,home_team,away_team,pred_home_score,pred_away_score,pred_spread,pred_spread_base,pred_total,pred_total_base,adjustment_notes,vegas_spread,vegas_total,spread_edge,spread_stars,should_fade,fade_note,predicted_winner,total_edge,total_stars,total_pick,should_fade_total,total_fade_note,confidence
-401871164,2026-05-14T04:00Z,Philadelphia 76ers,New York Knicks,116.9,115.8,-1.1,-1.1,232.6,232.6,ridge_v2_pure,0.0,223.0,-1.1,0,False,,Philadelphia 76ers,9.6,1,OVER,False,,0.544
-401871338,2026-05-15T23:00Z,Cleveland Cavaliers,Detroit Pistons,116.2,118.5,2.3,2.3,234.7,234.7,ridge_v2_pure,-3.5,209.5,5.8,1,False,,Detroit Pistons,25.2,1,OVER,False,,0.591
-401871157,2026-05-16T01:30Z,Minnesota Timberwolves,San Antonio Spurs,120.3,116.0,-4.3,-4.3,236.3,236.3,ridge_v2_pure,4.5,218.5,-8.8,2,False,,Minnesota Timberwolves,17.8,1,OVER,False,,0.674
+401871338,2026-05-15T23:00Z,Cleveland Cavaliers,Detroit Pistons,116.2,118.5,2.3,2.3,234.7,234.7,ridge_v2_pure,-4.5,210.5,6.8,1,False,,Detroit Pistons,24.2,1,OVER,False,,0.591
+401871157,2026-05-16T01:30Z,Minnesota Timberwolves,San Antonio Spurs,120.3,116.0,-4.3,-4.3,236.3,236.3,ridge_v2_pure,5.5,218.5,-9.8,2,False,,Minnesota Timberwolves,17.8,1,OVER,False,,0.674
 401871331,2026-05-16T04:00Z,Los Angeles Lakers,Oklahoma City Thunder,110.1,119.6,9.5,9.5,229.7,229.7,ridge_v2_pure,0.0,223.0,9.5,2,True,FADE_ROAD_FAV,Los Angeles Lakers,6.7,1,OVER,False,,0.881
 401871158,2026-05-17T04:00Z,San Antonio Spurs,Minnesota Timberwolves,118.4,116.4,-1.9,-1.9,234.8,234.8,ridge_v2_pure,0.0,223.0,-1.9,0,False,,San Antonio Spurs,11.8,1,OVER,False,,0.577
 401871165,2026-05-17T04:00Z,New York Knicks,Philadelphia 76ers,117.8,114.8,-3.0,-3.0,232.5,232.5,ridge_v2_pure,0.0,223.0,-3.0,0,False,,New York Knicks,9.5,1,OVER,False,,0.619

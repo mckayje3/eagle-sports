@@ -1,9 +1,9 @@
 game_id,date,home_team,away_team,pred_spread,pred_total,vegas_spread,vegas_total,edge,ml_home,ml_away,ml_play,ml_stars,completed
-401871408,2026-05-14,Buffalo Sabres,Montreal Canadiens,-0.55,6.12,-1.5,5.5,0.95,-122.0,102.0,,0,0
-401871428,2026-05-14,Anaheim Ducks,Vegas Golden Knights,-0.08,6.12,1.5,6.5,-1.58,-108.0,-112.0,,0,0
 401871421,2026-05-15,Minnesota Wild,Colorado Avalanche,-0.21,6.14,0.0,5.5,-0.21,,,,0,0
 401871416,2026-05-16,Carolina Hurricanes,Philadelphia Flyers,-1.56,6.07,0.0,5.5,-1.56,,,,0,0
-401871429,2026-05-16,Vegas Golden Knights,Anaheim Ducks,-0.89,6.08,0.0,5.5,-0.89,,,,0,0
-401871409,2026-05-16,Montreal Canadiens,Buffalo Sabres,-0.42,6.08,0.0,5.5,-0.42,,,,0,0
+401871429,2026-05-16,Vegas Golden Knights,Anaheim Ducks,-0.98,6.07,0.0,5.5,-0.98,,,,0,0
+401871409,2026-05-16,Montreal Canadiens,Buffalo Sabres,-0.42,6.06,-1.5,6.5,1.08,-162.0,136.0,,0,0
 401871422,2026-05-17,Colorado Avalanche,Minnesota Wild,-0.9,6.06,0.0,5.5,-0.9,,,,0,0
-401871410,2026-05-18,Buffalo Sabres,Montreal Canadiens,-0.7,6.12,0.0,5.5,-0.7,,,,0,0
+401871410,2026-05-18,Buffalo Sabres,Montreal Canadiens,-0.54,6.14,0.0,5.5,-0.54,,,,0,0
+401872903,2026-05-20,Colorado Avalanche,Vegas Golden Knights,-0.85,6.12,-1.5,5.5,0.65,-180.0,150.0,,0,0
+401872904,2026-05-22,Colorado Avalanche,Vegas Golden Knights,-0.87,6.1,0.0,5.5,-0.87,,,,0,0
